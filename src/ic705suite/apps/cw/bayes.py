@@ -172,7 +172,10 @@ class BayesDecoder(CwDecoder):
 
     def _step(self, key: bool) -> None:
         span = max(self.signal - self.noise, 1e-9)
-        p_down = 1.0 / (1.0 + math.exp(-(self.level - (self.noise + 0.5 * span)) / (0.12 * span)))
+        # Clamped: with signal and noise almost equal the logistic is a step, and exp() of
+        # the raw argument overflows.
+        x = (self.level - (self.noise + 0.5 * span)) / (0.12 * span)
+        p_down = 1.0 / (1.0 + math.exp(-min(60.0, max(-60.0, x))))
         if key != self._run_down and self._run_len:
             duration = self._run_len / HOP_RATE
             conf = self._run_conf / self._run_len

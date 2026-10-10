@@ -111,3 +111,16 @@ def test_bayesian_decoder_beats_classic_on_human_keying():
             lambda cb: BayesDecoder(FS, 600, on_text=cb), audio)))
     assert np.mean(bayes) < 0.10
     assert np.mean(bayes) < np.mean(classic)
+
+
+def test_bayes_survives_a_level_far_below_a_collapsed_span():
+    """Noise pumped by the AGC can leave signal and noise almost equal: the pulse clarity
+    must saturate, not overflow math.exp and stop the decoder (and the skimmer with it)."""
+    from ic705suite.apps.cw.bayes import BayesDecoder
+
+    decoder = BayesDecoder(8000)
+    decoder.noise, decoder.signal, decoder.level = 1.0, 1.0 + 1e-9, 0.0
+    decoder._step(False)
+    decoder.level = 5.0
+    decoder._step(True)
+
