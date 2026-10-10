@@ -50,6 +50,10 @@ class ChannelsScreen(Screen):
         Binding("t", "tune", show=False),
         Binding("p", "play", show=False),
         Binding("r", "reload", show=False),
+        # No cursor keys: Tab / Shift+Tab choose the channel, Enter shows it.
+        Binding("tab", "select(1)", show=False, priority=True),
+        Binding("shift+tab", "select(-1)", show=False, priority=True),
+        Binding("enter", "show", show=False, priority=True),
     ]
 
     def __init__(self) -> None:
@@ -69,10 +73,11 @@ class ChannelsScreen(Screen):
         table = self.query_one("#chan-table", DataTable)
         table.add_columns("", _("Name"), _("QRG"), _("Source"), _("Last (UTC)"), _("Words"),
                           _("OK %"), _("Noise %"), _("WPM"), _("Audio"))
+        table.can_focus = False
         self.query_one("#chan-frame").border_title = _("Channels")
         self.query_one("#chan-detail").border_title = _("Transcript")
         hint = Text(no_wrap=True)
-        for key, label in (("Enter", _("show")), ("S", _("save")), ("T", _("tune")),
+        for key, label in (("Tab", _("choose")), ("Enter", _("show")), ("S", _("save")), ("T", _("tune")),
                            ("P", _("play audio")), ("R", _("reload")), ("Esc", _("back"))):
             hint.append(f" {key} ", style="bold")
             hint.append(label + "  ", style="dim")
@@ -115,7 +120,12 @@ class ChannelsScreen(Screen):
             return None
         return self.rows[table.cursor_row]
 
-    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+    def action_select(self, step: int) -> None:
+        table = self.query_one("#chan-table", DataTable)
+        if table.row_count:
+            table.move_cursor(row=(table.cursor_row + step) % table.row_count)
+
+    def action_show(self) -> None:
         self.run_worker(self.show())
 
     async def show(self) -> None:

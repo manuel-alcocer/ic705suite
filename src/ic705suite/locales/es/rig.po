@@ -117,12 +117,6 @@ msgstr "Reducción de ruido (NR)"
 msgid "Noise reduction level"
 msgstr "Nivel de reducción de ruido"
 
-msgid "PgUp/PgDn Tune · Tab ←→ Controls · Esc Back"
-msgstr "PgUp/PgDn Sintonizar · Tab ←→ Controles · Esc Volver"
-
-msgid "PgUp/PgDn Tune · Tab ←→ Controls · F2 Step · F3 Mode · F4-F5 Band · F6 Filter · [ ] Contrast · / Command · Esc Back"
-msgstr "PgUp/PgDn Sintonizar · Tab ←→ Controles · F2 Paso · F3 Modo · F4-F5 Banda · F6 Filtro · [ ] Contraste · / Orden · Esc Volver"
-
 msgid "Preamplifier (on 144/430 MHz P.AMP1 means on)"
 msgstr "Preamplificador (en 144/430 MHz P.AMP1 es encendido)"
 
@@ -359,3 +353,33 @@ msgstr "VOX"
 
 msgid "ΔTX"
 msgstr "ΔTX"
+
+msgid "F2-F7 Open · Ctrl+Q Quit"
+msgstr "F2-F7 Abrir · Ctrl+Q Salir"
+
+msgid "F2-F7 Open · F9 Reconnect · Ctrl+Q Quit"
+msgstr "F2-F7 Abrir · F9 Reconectar · Ctrl+Q Salir"
+
+msgid "F2-F9 Band · N Noise sweep (RX) · S SWR sweep (TX) · C Coil position · Esc Stop/Back"
+msgstr "F2-F9 Banda · N Barrido de ruido (RX) · S Barrido ROE (TX) · C Posición de bobina · Esc Parar/Volver"
+
+msgid "F2-F9 Band · N Noise · S SWR · Esc Back"
+msgstr "F2-F9 Banda · N Ruido · S ROE · Esc Volver"
+
+msgid "PgUp/PgDn Tune · F7-F8 Signal · Tab + - Controls · F9-F10 Group · F2 Step · F3 Mode · F4-F5 Band · F6 Filter · [ ] Contrast · / Command · Esc Back"
+msgstr "PgUp/PgDn Sintonizar · F7-F8 Señal · Tab + - Controles · F9-F10 Grupo · F2 Paso · F3 Modo · F4-F5 Banda · F6 Filtro · [ ] Contraste · / Orden · Esc Volver"
+
+msgid "PgUp/PgDn Tune · Tab + - Controls · Esc Back"
+msgstr "PgUp/PgDn Sintonizar · Tab + - Controles · Esc Volver"
+
+msgid "Tab select a station · Enter tune it (or /go N) · F10 back to single decoding"
+msgstr "Tab elige una estación · Enter la sintoniza (o /go N) · F10 vuelve a un solo canal"
+
+msgid "choose"
+msgstr "elegir"
+
+msgid "no more signals that way"
+msgstr "no hay más señales en esa dirección"
+
+msgid "no signals on the scope"
+msgstr "no hay señales en el espectro"

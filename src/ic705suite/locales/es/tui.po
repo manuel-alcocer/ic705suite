@@ -88,9 +88,6 @@ msgstr "RANGO"
 msgid "WIDTH"
 msgstr "ANCHO"
 
-msgid "↑↓ select a station · Enter tune it · F10 back to single decoding"
-msgstr "↑↓ elige una estación · Enter la sintoniza · F10 vuelve a un solo canal"
-
 msgid "on"
 msgstr "sí"
 

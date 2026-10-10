@@ -31,6 +31,10 @@ def start_link(link: Link) -> asyncio.Task:
     return asyncio.ensure_future(connect())
 
 
+# Keyboard only, everywhere: the mouse is never captured, so the terminal keeps it for
+# selecting and copying text.
+
+
 async def run_app(app_id: str, link: Link | None, config: Config, scp: set[str] | None = None,
                   standalone: bool = False) -> int:
     """Open one application. `standalone`: started directly from the command line, so
@@ -38,29 +42,28 @@ async def run_app(app_id: str, link: Link | None, config: Config, scp: set[str] 
     if app_id == "cw":
         from ic705suite.apps.cw.tui import CwApp
 
-        return await CwApp(link, scp=scp, owns_link=standalone).run_async() or 0
+        return await CwApp(link, scp=scp, owns_link=standalone).run_async(mouse=False) or 0
     if app_id == "view":
         from ic705suite.apps.view.app import ViewApp
 
-        return await ViewApp(link, owns_link=standalone).run_async() or 0
+        return await ViewApp(link, owns_link=standalone).run_async(mouse=False) or 0
     if app_id == "swr":
         from ic705suite.apps.swr.app import SwrApp
 
-        return await SwrApp(link, owns_link=standalone).run_async() or 0
+        return await SwrApp(link, owns_link=standalone).run_async(mouse=False) or 0
     if app_id == "log":
         from ic705suite.apps.log.db.session import init_engine
         from ic705suite.apps.log.tui.app import HamrlogApp
 
         # hamrlog keeps its own database (~/.local/share/hamrlog) and settings (F9).
         init_engine(None)
-        # Keyboard only: the mouse is not captured, so the terminal keeps it for copying.
         await HamrlogApp().run_async(mouse=False)
         return 0
     if app_id == "packet":
         from ic705suite.apps.packet import config as packet_config
         from ic705suite.apps.packet.tui.app import HamrpktApp
 
-        await HamrpktApp(packet_config.load(None), None).run_async()
+        await HamrpktApp(packet_config.load(None), None).run_async(mouse=False)
         return 0
     raise ValueError(f"unknown application {app_id}")
 
@@ -77,7 +80,7 @@ async def run_suite(link: Link | None, config: Config, scp: set[str] | None = No
         if start_app is not None:
             return await run_app(start_app, link, config, scp, standalone=True)
         while True:
-            choice = await DashboardApp(link, config, problem, messages).run_async()
+            choice = await DashboardApp(link, config, problem, messages).run_async(mouse=False)
             if choice in (None, "quit"):
                 break
             code = await run_app(choice, link, config, scp)

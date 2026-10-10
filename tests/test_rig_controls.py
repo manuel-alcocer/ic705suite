@@ -120,8 +120,9 @@ def test_front_panel_on_the_simulator(tmp_path):
     asyncio.run(run())
 
 
-def test_rig_view_sets_controls_and_tunes_from_the_waterfall(tmp_path):
+def test_rig_view_without_mouse_or_cursor_keys(tmp_path):
     from ic705suite.apps.view.app import ViewApp
+    from ic705suite.rig.icom.sim import DEFAULT_STATIONS
     from ic705suite.ui.controlpanel import ControlPanel
     from ic705suite.ui.waterfall import Waterfall
 
@@ -135,19 +136,24 @@ def test_rig_view_sets_controls_and_tunes_from_the_waterfall(tmp_path):
                 panel = app.query_one(ControlPanel)
                 assert panel.selected == panel.controls[0]["id"] == "af"
                 before = link.core.station.state.controls["af"]
-                await pilot.press("right", "right")
+                await pilot.press("plus", "plus")
                 await pilot.pause(0.3)
                 assert link.core.station.state.controls["af"] == before + 2
-                await pilot.press("down")              # RF
-                await pilot.press("shift+left")        # -10
+                await pilot.press("tab")               # RF
+                await pilot.press("less_than_sign")    # ten steps down
                 await pilot.pause(0.3)
                 assert link.core.station.state.controls["rf"] == 40
+                await pilot.press("f10")               # next group: DSP, first control NB
+                assert panel.selected == "nb"
+                await pilot.press("space")
+                await pilot.pause(0.3)
+                assert link.core.station.state.controls["nb"] is True
                 assert app.query_one(Waterfall)._raw   # scope frames arrived
-                scope = app.query_one(Waterfall)
-                expected = scope.column_frequency(10 - 1)     # the frame's border is column 0
-                await pilot.click(Waterfall, offset=(10, 12))
+                await pilot.press("f7")                # previous signal on the scope
                 await pilot.pause(0.5)
-                assert abs(link.core.station.state.frequency - expected) <= 100
+                tuned = link.core.station.state.frequency
+                assert tuned < 7_030_000
+                assert min(abs(tuned - st.freq) for st in DEFAULT_STATIONS) <= 300
                 await pilot.press("slash")             # the command line
                 await pilot.press(*["space" if c == " " else c for c in "set agc fast"], "enter")
                 await pilot.pause(0.3)
@@ -156,4 +162,3 @@ def test_rig_view_sets_controls_and_tunes_from_the_waterfall(tmp_path):
             await link.close()
 
     asyncio.run(run())
-

@@ -285,4 +285,4 @@ def main(argv: list[str] | None = None) -> int:
 async def _run_cw(link: Link, startup: list[str], scp: set[str]) -> int:
     from ic705suite.apps.cw.tui import CwApp
 
-    return await CwApp(link, startup=startup, scp=scp).run_async() or 0
+    return await CwApp(link, startup=startup, scp=scp).run_async(mouse=False) or 0

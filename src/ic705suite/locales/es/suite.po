@@ -60,9 +60,6 @@ msgstr "Enter Abrir · Ctrl+Q Salir"
 msgid "Enter saves · Esc cancels"
 msgstr "Enter guarda · Esc cancela"
 
-msgid "F2-F7 Open · ↑↓ Enter Open · F9 Reconnect · Ctrl+Q Quit"
-msgstr "F2-F7 Abrir · ↑↓ Enter Abrir · F9 Reconectar · Ctrl+Q Salir"
-
 msgid "History"
 msgstr "Historial"
 
@@ -297,5 +294,3 @@ msgstr "Visor {model}"
 msgid "{model} has no {mode} mode"
 msgstr "{model} no tiene modo {mode}"
 
-msgid "↑↓ Band · N Noise sweep (RX) · S SWR sweep (TX) · F Coil position · Esc Stop/Back"
-msgstr "↑↓ Banda · N Barrido de ruido (RX) · S Barrido ROE (TX) · F Posición de bobina · Esc Parar/Volver"

@@ -176,7 +176,7 @@ class DetailPanel(Static):
                 text.append("≈ ", style="bold green")
                 text.append(self.meaning, style="white")
             else:
-                _append_keys(text, _("↑↓ select a station · Enter tune it · "
+                _append_keys(text, _("Tab select a station · Enter tune it (or /go N) · "
                                      "F10 back to single decoding"))
             return text
 
@@ -245,8 +245,12 @@ class CwApp(ChannelSaving, App[int]):
         Binding("escape", "command('/stop')", show=False),
         Binding("pageup", "command('/up 100')", show=False),
         Binding("pagedown", "command('/down 100')", show=False),
-        Binding("up", "arrow(-1)", show=False),
-        Binding("down", "arrow(1)", show=False),
+        # No cursor keys: Tab / Shift+Tab choose a skimmer station, Ctrl+P / Ctrl+N recall
+        # earlier command lines.
+        Binding("tab", "station(1)", show=False, priority=True),
+        Binding("shift+tab", "station(-1)", show=False, priority=True),
+        Binding("ctrl+p", "recall(-1)", show=False, priority=True),
+        Binding("ctrl+n", "recall(1)", show=False, priority=True),
         Binding("ctrl+q", "leave", show=False, priority=True),
     ]
 
@@ -284,6 +288,7 @@ class CwApp(ChannelSaving, App[int]):
     def on_mount(self) -> None:
         table = self.query_one("#skim", DataTable)
         table.add_columns("#", _("QRG"), _("Call"), _("WPM"), _("SNR"), _("Text"))
+        table.can_focus = False
         table.display = False
         self.query_one("#main-frame").border_title = _("Receive")
         self.query_one("#detail").border_title = _("Detail")
@@ -438,15 +443,17 @@ class CwApp(ChannelSaving, App[int]):
     async def action_command(self, line: str) -> None:
         self.run_worker(self.link.command(line))
 
-    def action_arrow(self, step: int) -> None:
-        if self.state.get("skimming"):
-            table = self.query_one("#skim", DataTable)
-            if table.row_count:
-                table.move_cursor(row=max(0, min(table.row_count - 1, table.cursor_row + step)))
-                detail = self.query_one("#detail", DetailPanel)
-                detail.selected = table.cursor_row
-                self._update_selected_meaning()
+    def action_station(self, step: int) -> None:
+        if not self.state.get("skimming"):
             return
+        table = self.query_one("#skim", DataTable)
+        if table.row_count:
+            table.move_cursor(row=(table.cursor_row + step) % table.row_count)
+            detail = self.query_one("#detail", DetailPanel)
+            detail.selected = table.cursor_row
+            self._update_selected_meaning()
+
+    def action_recall(self, step: int) -> None:
         if not self._history:
             return
         self._history_index = max(0, min(len(self._history), self._history_index + step))

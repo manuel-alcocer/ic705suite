@@ -12,7 +12,9 @@ to the radio; a dashboard opens the applications, which all share that one conne
 | F6 | **Logbook** | *hamrlog*: contacts, ADIF, repeaters, address book |
 | F7 | **Packet** | *hamrpkt*: AX.25 terminal over AGWPE or Telnet (LinBPQ, Direwolf) |
 
-Everything runs in a console (Textual) with the HAMRLOG look, in English or Spanish.
+Everything runs in a console (Textual) with the HAMRLOG look, in English or Spanish, and only
+with the keyboard — no mouse and no cursor keys: Tab, function keys and `/commands`. The
+dashboard opens each application with its function key.
 
 ```
 ╭─ Applications ──────────────────────────────────────────╮╭─ Rig ─────────────────────────────╮
@@ -108,28 +110,30 @@ channels, macros, server, client, UI).
 
 **View (F2).** Frequency in large digits with VFO, mode, filter and RIT; meters (S, Po, SWR,
 ALC, COMP, Vd, Id); the band scope as a spectrum over a colour waterfall (two waterfall rows
-per character cell; click to tune, `[` `]` contrast); and every front-panel control the rig
+per character cell; F7/F8 jump to the previous/next signal on it, `[` `]` contrast); and
+every front-panel control the rig
 offers, grouped as Receive (AF, RF, SQL, P.AMP, ATT, AGC, filter and width), DSP (NB, NR,
 notches, Twin PBT, filter shape), Transmit (power, mic, compressor, VOX, monitor), CW (speed,
 pitch, break-in), VFO (split, RIT, ΔTX, tuning step, data mode, lock) and Scope (mode, span,
 reference, speed, hold, VBW).
 
-Keys: PgUp/PgDn tune by the step, F2 step, F3 mode, F4/F5 band, F6 filter; Tab/↑↓ select a
-control, ←/→ (Shift ×10) turn it, Enter toggles, Ctrl+←/→ jump between groups; `/` opens the
-command line (`/f 7.030`, `/b 40`, `/mode USB`, `/set agc slow`, `/set rit_offset -120`).
+Keys (no mouse, no cursor keys): PgUp/PgDn tune by the step, F2 step, F3 mode, F4/F5 band,
+F6 filter, F7/F8 previous/next signal; Tab/Shift+Tab choose a control, `-` `+` turn it (`<` `>`
+ten steps), Space or Enter toggles, F9/F10 jump between groups; `/` opens the command line (`/f 7.030`, `/b 40`, `/mode USB`, `/set agc slow`, `/set rit_offset -120`).
 The scope streams only while a view is open. In receive-only mode VOX and break-in cannot be
 switched on (they would let the radio transmit by itself) and the tuner's TUNE is refused.
 
 Command codes come from Icom's IC-705 CI-V reference guide, cross-checked with wfview and
 hamlib (`rig/icom/controls.py`).
 
-**CW (F3).** As cwic705: F10 skimmer, F11 channels, `/help` for every command. While it is
+**CW (F3).** As cwic705: F10 skimmer (Tab chooses a station, Enter or `/go N` tunes it),
+F11 channels (Tab, Enter), Ctrl+P/Ctrl+N recall earlier lines, `/help` for every command. While it is
 open the radio is kept in CW. Leaving it returns to the dashboard; the channels stay in the
 core and leaving the suite offers to archive them.
 
-**Antenna (F5).** Choose a band; **N** noise sweep (receive only), **S** SWR sweep (needs
-`--tx`; RTTY carrier at `max_power`, 2 s PTT watchdog, settings restored afterwards), **F**
-records the coil position. The verdict says whether to raise or lower the coil and, with the
+**Antenna (F5).** F2–F9 choose the band; **N** noise sweep (receive only), **S** SWR sweep
+(needs `--tx`; RTTY carrier at `max_power`, 2 s PTT watchdog, settings restored afterwards),
+**C** records the coil position. The verdict says whether to raise or lower the coil and, with the
 history, roughly how much.
 
 **Logbook (F6) and Packet (F7).** hamrlog and hamrpkt as they were, with their own settings

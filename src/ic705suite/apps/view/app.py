@@ -1,7 +1,7 @@
 """Rig view: the radio's front panel in the terminal (our own wfview, for the console).
 
 Top: the frequency in large digits with the VFO, mode, filter and RIT, and the meters.
-Middle: the band scope as a spectrum over a waterfall (click to tune). Bottom: every
+Middle: the band scope as a spectrum over a waterfall; F7/F8 jump between its signals. Bottom: every
 front-panel control the rig offers, as knobs and switches, and the rig command line.
 Works on any rig the suite knows: what is shown comes from the rig's own description.
 """
@@ -29,9 +29,9 @@ from ic705suite.ui.widgets import clock_footer, css
 STEPS = (10, 100, 1_000, 10_000, 100_000)
 CYCLE_MODES = ("CW", "USB", "LSB", "FM", "AM", "DV")
 SCOPE_KEEPALIVE = 5.0
-HINT = N_("PgUp/PgDn Tune · Tab ←→ Controls · F2 Step · F3 Mode · F4-F5 Band · "
-          "F6 Filter · [ ] Contrast · / Command · Esc Back")
-SHORT_HINT = N_("PgUp/PgDn Tune · Tab ←→ Controls · Esc Back")
+HINT = N_("PgUp/PgDn Tune · F7-F8 Signal · Tab + - Controls · F9-F10 Group · F2 Step · F3 Mode · "
+          "F4-F5 Band · F6 Filter · [ ] Contrast · / Command · Esc Back")
+SHORT_HINT = N_("PgUp/PgDn Tune · Tab + - Controls · Esc Back")
 METER_CELLS = 16
 
 
@@ -141,6 +141,8 @@ class ViewApp(App[int]):
     TITLE = "ic705suite View"
     ENABLE_COMMAND_PALETTE = False
 
+    # Keyboard only and no cursor keys: Tab chooses a control, + and - turn it (< and > ten
+    # steps), function keys do the rest and "/" opens the command line.
     BINDINGS = [
         Binding("pageup", "tune(1)", show=False, priority=True),
         Binding("pagedown", "tune(-1)", show=False, priority=True),
@@ -149,18 +151,16 @@ class ViewApp(App[int]):
         Binding("f4", "band(-1)", show=False, priority=True),
         Binding("f5", "band(1)", show=False, priority=True),
         Binding("f6", "cycle('filter')", show=False, priority=True),
+        Binding("f7", "signal(-1)", show=False, priority=True),
+        Binding("f8", "signal(1)", show=False, priority=True),
+        Binding("f9", "group(-1)", show=False, priority=True),
+        Binding("f10", "group(1)", show=False, priority=True),
         Binding("tab", "control(1)", show=False, priority=True),
         Binding("shift+tab", "control(-1)", show=False, priority=True),
-        Binding("left", "adjust(-1)", show=False),
-        Binding("right", "adjust(1)", show=False),
-        Binding("shift+left", "adjust(-1, True)", show=False),
-        Binding("shift+right", "adjust(1, True)", show=False),
         Binding("minus", "adjust(-1)", show=False),
         Binding("plus", "adjust(1)", show=False),
-        Binding("up", "control(-1)", show=False),
-        Binding("down", "control(1)", show=False),
-        Binding("ctrl+left", "group(-1)", show=False),
-        Binding("ctrl+right", "group(1)", show=False),
+        Binding("less_than_sign", "adjust(-1, True)", show=False),
+        Binding("greater_than_sign", "adjust(1, True)", show=False),
         Binding("enter", "adjust(1)", show=False),
         Binding("space", "adjust(1)", show=False),
         Binding("left_square_bracket", "contrast(-1)", show=False),
@@ -316,9 +316,23 @@ class ViewApp(App[int]):
         if control:
             self._message("info", f"{_(control['label'])} = {format_value(control, reply.get('value'))}")
 
-    def on_waterfall_tune(self, message: Waterfall.Tune) -> None:
-        step = 10 if self.step < 100 else 100
-        self.run_worker(self._command(f"/f {round(message.frequency / step) * step}"))
+    async def action_signal(self, direction: int) -> None:
+        """Jump to the next signal on the scope above (or below) the dial."""
+        if self._entry_focused():
+            return
+        dial = self.rig.get("frequency")
+        signals = self.query_one("#scope", Waterfall).signals()
+        if dial is None or not signals:
+            self._message("info", _("no signals on the scope"))
+            return
+        guard = 150   # skip the signal already tuned
+        ahead = [f for f in signals if f > dial + guard] if direction > 0 \
+            else [f for f in reversed(signals) if f < dial - guard]
+        if not ahead:
+            self._message("info", _("no more signals that way"))
+            return
+        target = round(ahead[0] / 10) * 10
+        await self._command(f"/f {target}")
 
     def _entry_focused(self) -> bool:
         return isinstance(self.focused, Input)

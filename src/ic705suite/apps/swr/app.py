@@ -14,8 +14,8 @@ from ic705suite.station.links import Link
 from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.widgets import NameScreen, clock_footer, css
 
-HINT = N_("↑↓ Band · N Noise sweep (RX) · S SWR sweep (TX) · F Coil position · Esc Stop/Back")
-SHORT_HINT = N_("N Noise · S SWR · Esc Back")
+HINT = N_("F2-F9 Band · N Noise sweep (RX) · S SWR sweep (TX) · C Coil position · Esc Stop/Back")
+SHORT_HINT = N_("F2-F9 Band · N Noise · S SWR · Esc Back")
 BAR = 40
 
 
@@ -146,7 +146,9 @@ class SwrApp(App[int]):
     BINDINGS = [
         Binding("n", "sweep('noise')", show=False),
         Binding("s", "sweep('swr')", show=False),
-        Binding("f", "final", show=False),
+        Binding("c", "final", show=False),
+        # One function key per band (the list order): no cursor keys.
+        *(Binding(f"f{n}", f"band({n - 2})", show=False, priority=True) for n in range(2, 10)),
         Binding("escape", "back", show=False),
         Binding("ctrl+q", "leave", show=False, priority=True),
     ]
@@ -170,7 +172,9 @@ class SwrApp(App[int]):
     def on_mount(self) -> None:
         self.query_one("#bands-frame").border_title = _("Band")
         self.query_one("#sweep").border_title = _("Antenna")
-        self.query_one("#bands", DataTable).add_columns(_("Band"), _("Target"), _("History"))
+        table = self.query_one("#bands", DataTable)
+        table.add_columns(_("Key"), _("Band"), _("Target"), _("History"))
+        table.can_focus = False
         self.set_interval(1.0, self._footer)
         self._footer()
         self.link.attach(self._on_event)
@@ -190,11 +194,11 @@ class SwrApp(App[int]):
             history = (await self.link.call("swr.history", band=band["name"])).get("history", [])
             finals = [h for h in history if h.get("kind") == "final"]
             last = f"{_('coil')} {finals[-1]['coil']}" if finals else ""
-            table.add_row(band["name"], bands.format_frequency(band["target"]), last)
+            key = f"F{len(table.rows) + 2}"
+            table.add_row(key, band["name"], bands.format_frequency(band["target"]), last)
         names = [b["name"] for b in self.bands]
         if rig_band in names:
             table.move_cursor(row=names.index(rig_band))
-        table.focus()
 
     def _footer(self) -> None:
         stats = self.query_one("#stats", Static)
@@ -222,6 +226,10 @@ class SwrApp(App[int]):
     def _message(self, kind: str, text: str) -> None:
         self.query_one("#message", Static).update(
             Text(" " + text[:200], style="bold red" if kind == "error" else "cyan"))
+
+    def action_band(self, index: int) -> None:
+        if 0 <= index < len(self.bands):
+            self.query_one("#bands", DataTable).move_cursor(row=index)
 
     def _band(self) -> dict | None:
         table = self.query_one("#bands", DataTable)

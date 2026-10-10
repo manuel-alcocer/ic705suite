@@ -7,7 +7,8 @@ the scope points resampled to the widget width (peak of the points each column c
 narrow CW signal never disappears between columns).
 
 The widget only draws; frames come from outside (``add_frame``) as amplitudes 0..1 with the
-frequency of the first and last point. Clicking a column asks to tune there (``Tune``).
+frequency of the first and last point. Keyboard only: ``signals()`` lists the signals of the
+latest sweep so the application can jump from one to the next.
 """
 
 from __future__ import annotations
@@ -19,9 +20,6 @@ import numpy as np
 from rich.color import Color
 from rich.segment import Segment
 from rich.style import Style
-from textual.events import Click, MouseMove
-from textual.geometry import Region
-from textual.message import Message
 from textual.reactive import reactive
 from textual.strip import Strip
 from textual.widget import Widget
@@ -86,17 +84,11 @@ class Waterfall(Widget, can_focus=True):
     floor: reactive[float] = reactive(0.10)
     span: reactive[float] = reactive(0.75)
 
-    class Tune(Message):
-        def __init__(self, frequency: int) -> None:
-            super().__init__()
-            self.frequency = frequency
-
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.view = ScopeView()
         self._raw: deque[np.ndarray] = deque(maxlen=MAX_ROWS)   # newest first, scope points
         self._edges: tuple[int, int] = (0, 0)
-        self._hover: int | None = None
         self._cache_width = -1
         self._columns: list[np.ndarray] = []                   # rows resampled to the width
 
@@ -210,12 +202,6 @@ class Waterfall(Widget, can_focus=True):
                 for i, ch in enumerate(label, 1):
                     if x + i < width and line[x + i] == " ":
                         line[x + i] = ch
-        if self._hover is not None:
-            hz = self.column_frequency(self._hover)
-            if hz is not None:
-                label = f" ▲ {hz / 1e6:.4f} "
-                pos = max(0, min(width - len(label), self._hover - len(label) // 2))
-                line[pos:pos + len(label)] = list(label)
         segments = [Segment("".join(line), Style(color="rgb(170,170,170)", bgcolor="rgb(20,20,20)"))]
         if marker is not None:
             text = "".join(line)
@@ -225,24 +211,28 @@ class Waterfall(Widget, can_focus=True):
                         Segment(text[marker + 1:], Style(color="rgb(170,170,170)", bgcolor="rgb(20,20,20)"))]
         return Strip(segments, width)
 
-    # ---- mouse -----------------------------------------------------------------------------
+    # ---- signals ----------------------------------------------------------------------
 
-    def on_mouse_move(self, event: MouseMove) -> None:
-        offset = event.get_content_offset(self)
-        self._hover = offset.x if offset is not None else None
-        self.refresh(Region(0, self.spectrum_rows, self.size.width, 1))
-
-    def on_leave(self) -> None:
-        self._hover = None
-        self.refresh()
-
-    def on_click(self, event: Click) -> None:
-        offset = event.get_content_offset(self)
-        if offset is None:
-            return
-        hz = self.column_frequency(offset.x)
-        if hz is not None:
-            self.post_message(self.Tune(hz))
+    def signals(self, threshold: float = 0.12) -> list[int]:
+        """Frequencies of the signals in the latest sweep: local peaks standing `threshold`
+        above the median (the noise floor), strongest point of each."""
+        if not self._raw or self.view.end <= self.view.start:
+            return []
+        row = self._raw[0]
+        floor = float(np.median(row))
+        above = row > floor + threshold
+        peaks, i, n = [], 0, len(row)
+        while i < n:
+            if above[i]:
+                j = i
+                while j < n and above[j]:
+                    j += 1
+                k = i + int(np.argmax(row[i:j]))
+                peaks.append(round(self.view.start + k * (self.view.end - self.view.start) / (n - 1)))
+                i = j
+            else:
+                i += 1
+        return peaks
 
 
 def _nice_step(raw: float) -> int:

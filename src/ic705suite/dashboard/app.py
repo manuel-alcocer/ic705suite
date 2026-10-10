@@ -24,8 +24,8 @@ from ic705suite.ui.channels import ChannelSaving
 from ic705suite.ui.rigline import RigStatusLine, smeter_bar
 from ic705suite.ui.widgets import clock_footer, css
 
-HINT = N_("F2-F7 Open · ↑↓ Enter Open · F9 Reconnect · Ctrl+Q Quit")
-SHORT_HINT = N_("Enter Open · Ctrl+Q Quit")
+HINT = N_("F2-F7 Open · F9 Reconnect · Ctrl+Q Quit")
+SHORT_HINT = N_("F2-F7 Open · Ctrl+Q Quit")
 MAX_MESSAGES = 200
 
 FEATURE_NAMES = {"cw_keyer": N_("CW keyer"), "audio": N_("audio"), "dstar": "D-STAR",
@@ -129,7 +129,6 @@ class DashboardApp(ChannelSaving, App[str]):
 
     BINDINGS = [
         *(Binding(app.key.lower(), f"open('{app.id}')", show=False, priority=True) for app in APPS),
-        Binding("enter", "open_selected", show=False),
         Binding("f9", "reconnect", show=False, priority=True),
         Binding("ctrl+q", "leave", show=False, priority=True),
     ]
@@ -148,7 +147,7 @@ class DashboardApp(ChannelSaving, App[str]):
         yield RigStatusLine(self.link.description if self.link else _("no core"), id="statusline")
         with Horizontal(id="top"):
             with Vertical(id="apps-frame", classes="frame"):
-                yield DataTable(id="apps", cursor_type="row", zebra_stripes=False)
+                yield DataTable(id="apps", cursor_type="none", zebra_stripes=False)
             with Vertical(id="side"):
                 yield RigPanel(id="rig", classes="frame")
                 yield StationPanel(self.config, id="station", classes="frame")
@@ -162,8 +161,8 @@ class DashboardApp(ChannelSaving, App[str]):
         self.query_one("#log").border_title = _("Messages")
         table = self.query_one("#apps", DataTable)
         table.add_columns(_("Key"), _("Application"), _("What it does"))
+        table.can_focus = False   # opened with its function key, never by moving a cursor
         self._fill_apps()
-        table.focus()
         panel = self.query_one("#rig", RigPanel)
         panel.problem = self.problem
         if self.link is not None:
@@ -251,14 +250,6 @@ class DashboardApp(ChannelSaving, App[str]):
         if self.link is not None:
             self.link.detach()
         self.exit(app_id)
-
-    def action_open_selected(self) -> None:
-        table = self.query_one("#apps", DataTable)
-        if table.row_count:
-            self.action_open(self.apps[table.cursor_row]["id"])
-
-    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        self.action_open(self.apps[event.cursor_row]["id"])
 
     def action_reconnect(self) -> None:
         if self.link is not None and not self.link.connected:
