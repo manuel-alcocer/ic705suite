@@ -83,6 +83,7 @@ uv run ic705suite cw                   # open one application directly (view cw 
 uv run ic705suite --lang es            # Spanish (or [ui] language / IC705SUITE_LANG)
 uv run ic705suite --glyphs console     # plain Linux console (automatic with TERM=linux)
 uv run ic705suite --tx                 # enable transmission (check your SWR first!)
+                                       # SWR sweeps also need R (remote control) in Antenna
 ```
 
 On the first run the settings of **cwic705** (`~/.config/cwic705/config.toml` and its
@@ -152,7 +153,10 @@ open the radio is kept in CW. Leaving it returns to the dashboard; the channels 
 core and leaving the suite offers to archive them.
 
 **Antenna (F5).** F2–F9 choose the band; **N** noise sweep (receive only), **S** SWR sweep
-(needs `--tx`; RTTY carrier at `max_power`, 2 s PTT watchdog, settings restored afterwards),
+(RTTY carrier at `max_power`, 2 s PTT watchdog, settings restored afterwards). An SWR sweep
+needs both `--tx` and the **remote control** switched on with **R** in this application: it is
+off whenever the suite starts and only this application can switch it on (it asks first).
+While it is off the phone page only watches and can stop a sweep.
 **C** records the coil position on the chosen band (with the last SWR sweep's results when it
 was on that band). The verdict says whether to raise or lower the coil and, with the history,
 roughly how much. **A** lists the antennas: each keeps its own history and saved settings

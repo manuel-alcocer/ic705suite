@@ -56,3 +56,41 @@ def test_antennas_from_the_keyboard(tmp_path, monkeypatch):
             await link.close()
 
     asyncio.run(run())
+
+
+def test_remote_control_switch(tmp_path, monkeypatch):
+    """Off at start; R asks before switching it on, switches it off at once; S refuses
+    an SWR sweep while it is off."""
+    from ic705suite.apps.swr.app import SwrApp
+    from ic705suite.ui.widgets import ChoiceScreen
+
+    monkeypatch.setattr(service_module, "LEGACY_HISTORY", tmp_path / "none.json")
+
+    async def run():
+        link = LocalLink(None, Config(connection="sim", swr_web=False, tx_enabled=True,
+                                      database_url=f"sqlite:///{tmp_path / 'suite.db'}"))
+        app = SwrApp(link, owns_link=False)
+        swr = link.core.swr
+        try:
+            async with app.run_test(size=(140, 40)) as pilot:
+                await pilot.pause(1.5)
+                assert not swr.remote and app.state.get("remote") is False
+                await pilot.press("f2", "s")                  # SWR sweep refused
+                await pilot.pause(0.2)
+                assert not swr.sweep.running and "R" in str(app.query_one("#message").render())
+                await pilot.press("r")
+                await pilot.pause(0.2)
+                assert isinstance(app.screen, ChoiceScreen) and not swr.remote
+                await pilot.press("escape")                   # left off
+                await pilot.pause(0.2)
+                assert not swr.remote
+                await pilot.press("r", "enter")               # first answer: switch it on
+                await pilot.pause(0.3)
+                assert swr.remote and app.state["remote"]
+                await pilot.press("r")                        # off without asking
+                await pilot.pause(0.3)
+                assert not swr.remote and not isinstance(app.screen, ChoiceScreen)
+        finally:
+            await link.close()
+
+    asyncio.run(run())

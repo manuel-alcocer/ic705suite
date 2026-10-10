@@ -28,7 +28,7 @@ Commands (client -> server):
            scope.watch {seconds}, channels, transcript {id, saved},
            save_channel {id, name, auto, append, audio}, autosave, cw.activate,
            swr.state, swr.bands, swr.history {band}, swr.sweep {...}, swr.stop,
-           swr.final {coil, band?, note?}, swr.antennas, swr.antenna.select {id},
+           swr.remote {on}, swr.final {coil, band?, note?}, swr.antennas, swr.antenna.select {id},
            swr.antenna.save {name, notes, coil_sign, id?}, swr.antenna.delete {id}
 """
 

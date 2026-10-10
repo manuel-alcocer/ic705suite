@@ -16,11 +16,12 @@ from ic705suite.i18n import N_, _, render
 from ic705suite.rig import bands
 from ic705suite.station.links import Link
 from ic705suite.ui.rigline import RigStatusLine
-from ic705suite.ui.widgets import NameScreen, clock_footer, css
+from ic705suite.ui import glyphs
+from ic705suite.ui.widgets import ChoiceScreen, NameScreen, clock_footer, css
 
-HINT = N_("F2-F9 Band · A Antennas · N Noise sweep (RX) · S SWR sweep (TX) · C Save position · "
-          "Esc Stop/Back")
-SHORT_HINT = N_("F2-F9 Band · A Antennas · N Noise · S SWR · Esc Back")
+HINT = N_("F2-F9 Band · A Antennas · R Remote control · N Noise sweep (RX) · S SWR sweep (TX) · "
+          "C Save position · Esc Stop/Back")
+SHORT_HINT = N_("F2-F9 Band · R Remote · N Noise · S SWR · Esc Back")
 BAR = 40
 
 
@@ -103,6 +104,16 @@ class SweepPanel(Static):
         if not state:
             text.append(_("waiting for the core..."), style="dim")
             return text
+        # SWR sweeps transmit: they need --tx and the remote control switched on here.
+        text.append(_("Remote control") + ": ", style="dim")
+        if state.get("remote"):
+            text.append(" " + _("ON") + " ", style=glyphs.style("bold white on red"))
+            text.append("  " + _("the phone can sweep; SWR sweeps allowed") + "  "
+                        + _("(R switches it off)") + "\n", style="white")
+        else:
+            text.append(" " + _("OFF") + " ", style=glyphs.style("bold white on blue"))
+            text.append("  " + _("the phone only watches; no SWR sweeps") + "  "
+                        + _("(R switches it on)") + "\n", style="white")
         if not state.get("allow_tx"):
             text.append(_("Receive only: noise sweeps only (start with --tx for SWR sweeps)") + "\n",
                         style="bold yellow")
@@ -162,6 +173,7 @@ class SwrApp(App[int]):
         Binding("s", "sweep('swr')", show=False),
         Binding("c", "final", show=False),
         Binding("a", "antennas", show=False),
+        Binding("r", "remote", show=False),
         # One function key per band (the list order): no cursor keys.
         *(Binding(f"f{n}", f"band({n - 2})", show=False, priority=True) for n in range(2, 10)),
         Binding("escape", "back", show=False),
@@ -273,6 +285,9 @@ class SwrApp(App[int]):
         band = self._band()
         if band is None:
             return
+        if kind == "swr" and not self.state.get("remote"):
+            self._message("error", _("SWR sweeps need the remote control on: press R"))
+            return
         request = noise_request(band) if kind == "noise" else swr_request(band)
         result = await self.link.call("swr.sweep", **request)
         if result.get("error"):
@@ -304,6 +319,25 @@ class SwrApp(App[int]):
         self._message("info", _("position {coil} saved for {band}").format(
             coil=result["entry"]["coil"], band=result["entry"]["band"]))
         await self._fill_bands()
+
+    def action_remote(self) -> None:
+        self.run_worker(self._remote(), exclusive=True, group="remote")
+
+    async def _remote(self) -> None:
+        """Switch the remote control on (after asking) or off (at once)."""
+        if self.state.get("remote"):
+            self._apply_state(await self.link.call("swr.remote", on=False))
+            return
+        warning = _("While it is on, the phone page can start sweeps and SWR sweeps can run "
+                    "(they transmit a carrier at low power). It stays on until you switch it "
+                    "off here or the suite ends.")
+        if not self.state.get("allow_tx"):
+            warning += " " + _("Transmission is disabled (no --tx): SWR sweeps will still be "
+                               "refused.")
+        answer = await self.push_screen_wait(ChoiceScreen(
+            _("Remote control"), warning, [("on", _("Switch it on")), ("no", _("Leave it off"))]))
+        if answer == "on":
+            self._apply_state(await self.link.call("swr.remote", on=True))
 
     def action_antennas(self) -> None:
         self.run_worker(self._antennas(), exclusive=True, group="antennas")

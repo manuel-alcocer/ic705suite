@@ -450,3 +450,51 @@ msgstr "{count} hoy"
 
 msgid "demo"
 msgstr "demo"
+
+msgid "(R switches it off)"
+msgstr "(R lo apaga)"
+
+msgid "(R switches it on)"
+msgstr "(R lo enciende)"
+
+msgid "F2-F9 Band · A Antennas · R Remote control · N Noise sweep (RX) · S SWR sweep (TX) · C Save position · Esc Stop/Back"
+msgstr "F2-F9 Banda · A Antenas · R Control remoto · N Barrido de ruido (RX) · S Barrido de ROE (TX) · C Guardar posición · Esc Parar/Volver"
+
+msgid "F2-F9 Band · R Remote · N Noise · S SWR · Esc Back"
+msgstr "F2-F9 Banda · R Remoto · N Ruido · S ROE · Esc Volver"
+
+msgid "Leave it off"
+msgstr "Dejarlo apagado"
+
+msgid "OFF"
+msgstr "APAGADO"
+
+msgid "ON"
+msgstr "ENCENDIDO"
+
+msgid "Remote control"
+msgstr "Control remoto"
+
+msgid "SWR sweeps need the remote control on: press R"
+msgstr "El barrido de ROE necesita el control remoto encendido: pulsa R"
+
+msgid "Switch it on"
+msgstr "Encenderlo"
+
+msgid "Transmission is disabled (no --tx): SWR sweeps will still be refused."
+msgstr "La transmisión está desactivada (sin --tx): los barridos de ROE seguirán rechazados."
+
+msgid "While it is on, the phone page can start sweeps and SWR sweeps can run (they transmit a carrier at low power). It stays on until you switch it off here or the suite ends."
+msgstr "Mientras esté encendido, la página del móvil puede lanzar barridos y se permiten los barridos de ROE (transmiten una portadora a poca potencia). Sigue encendido hasta que lo apagues aquí o se cierre la suite."
+
+msgid "antenna: remote control off"
+msgstr "antena: control remoto apagado"
+
+msgid "antenna: remote control on"
+msgstr "antena: control remoto encendido"
+
+msgid "the phone can sweep; SWR sweeps allowed"
+msgstr "el móvil puede barrer; barridos de ROE permitidos"
+
+msgid "the phone only watches; no SWR sweeps"
+msgstr "el móvil solo mira; sin barridos de ROE"

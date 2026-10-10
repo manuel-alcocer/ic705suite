@@ -162,6 +162,7 @@ def test_full_sweep_restores_radio(tmp_path, kind):
         station, service = make_service(tmp_path, fake)
         # A higher coil number lowers the frequency, as on the Komunica.
         service.history.save_antenna("Komunica", coil_sign=-1)
+        service.set_remote(True)          # switched on by hand in the antenna application
         await station.start()
         try:
             service.start_sweep({"kind": kind, "band": "40m", "start": 7_000_000,
@@ -195,7 +196,13 @@ def test_swr_sweep_refused_outside_band_or_without_tx(tmp_path):
     async def run():
         station, service = make_service(tmp_path, FakeRadio(7_100_000))
         station.connected = True
-        with pytest.raises(SweepError):
+        # --tx alone is not enough: the remote control starts off.
+        assert not service.remote
+        with pytest.raises(SweepError, match="remote control"):
+            service.start_sweep({"kind": "swr", "start": 7_000_000, "stop": 7_100_000,
+                                 "step": 10_000})
+        service.set_remote(True)
+        with pytest.raises(SweepError, match="one amateur band"):
             service.start_sweep({"kind": "swr", "start": 6_950_000, "stop": 7_100_000,
                                  "step": 10_000})
         station, service = make_service(tmp_path, FakeRadio(7_100_000), tx_enabled=False)
@@ -291,3 +298,31 @@ def test_history_from_before_the_antennas(tmp_path):
     antenna = store.antenna()
     assert antenna["name"] == "Komunica HF-PRO-2-PLUS-T" and antenna["coil_sign"] == -1
     assert store.settings()["40m"]["coil"] == 12.2 and len(store.antennas()) == 1
+
+
+def test_phone_page_needs_the_remote_control(tmp_path):
+    """With the remote control off the page only watches; stopping is always allowed, and
+    the page has no way to switch the remote control on."""
+    import json
+
+    from ic705suite.apps.swr.web import route
+
+    async def run():
+        station, service = make_service(tmp_path, FakeRadio(7_100_000))
+        station.connected = True
+        sweep = json.dumps({"kind": "noise", "start": 7_000_000, "stop": 7_100_000,
+                            "step": 10_000}).encode()
+        reply = await route(service, "POST", "/api/sweep", sweep)
+        assert b"400" in reply.split(b"\r\n")[0] and b"remote control is off" in reply
+        assert b"400" in (await route(service, "POST", "/api/final", b'{"coil": 3}'))[:20]
+        assert b"200" in (await route(service, "POST", "/api/stop", b"{}"))[:20]
+        assert b"404" in (await route(service, "POST", "/api/remote", b'{"on": true}'))[:20] \
+            or not service.remote
+        assert not service.remote
+        state = json.loads((await route(service, "GET", "/api/state", b"")).split(b"\r\n\r\n")[1])
+        assert state["remote"] is False
+        service.set_remote(True)
+        assert b"200" in (await route(service, "POST", "/api/sweep", sweep))[:20]
+        service.stop_sweep()
+
+    asyncio.run(run())

@@ -2,7 +2,10 @@
 
 * SWR sweep (transmits): RTTY carrier at low power, about 0.4 s per point, PTT watchdog,
   only inside one amateur band; restores frequency, mode, data mode and power afterwards.
-  Needs transmission enabled ([rig] tx_enabled or --tx).
+  Needs transmission enabled ([rig] tx_enabled or --tx) *and* the remote control switched
+  on by hand in the antenna application (``set_remote``): it is off whenever the suite
+  starts, and only the antenna application turns it on, never the phone page. While it is
+  off the phone page only watches (and can always stop a sweep).
 * Noise sweep (receive only): the S-meter noise peak marks the resonance.
 
 Results say which way to move the coil and, with the per-band history kept in the suite
@@ -274,6 +277,7 @@ class SwrService:
         self._web = None
         self._version = 0
         self._sent = -1
+        self.remote = False        # off at every start: switched on by hand (antenna app)
 
     @property
     def allow_tx(self) -> bool:
@@ -344,6 +348,9 @@ class SwrService:
             if not self.allow_tx:
                 raise SweepError("transmission disabled: SWR sweeps need --tx "
                                  "(or [rig] tx_enabled); the noise sweep never transmits")
+            if not self.remote:
+                raise SweepError("remote control is off: switch it on in the antenna "
+                                 "application (R) before an SWR sweep")
             if band is None or band_for(stop) is not band:
                 raise SweepError("SWR sweep must stay inside one amateur band")
         target = int(req.get("target") or (start + stop) // 2)
@@ -352,6 +359,21 @@ class SwrService:
                            target=target, total=len(freqs))
         self._version += 1
         self._task = asyncio.create_task(self._run_sweep(freqs, power))
+
+    def set_remote(self, on: bool) -> None:
+        """The antenna application's remote control switch (never the phone page's)."""
+        if self.remote != bool(on):
+            self.remote = bool(on)
+            log.info("antenna remote control %s", "on" if on else "off")
+            self.ui.info(N_("antenna: remote control on") if on
+                         else N_("antenna: remote control off"))
+            self._version += 1
+
+    def require_remote(self) -> None:
+        """The phone page may act only while the remote control is on."""
+        if not self.remote:
+            raise SweepError("remote control is off: switch it on in the antenna "
+                             "application of the suite (R)")
 
     def stop_sweep(self) -> None:
         if self._task and not self._task.done():
@@ -488,7 +510,7 @@ class SwrService:
         antenna = self.history.antenna()
         return {"connected": self.station.connected, "status": status,
                 "antenna": {"id": antenna["id"], "name": antenna["name"]},
-                "allow_tx": self.allow_tx, "max_power": self.max_power, "port": self.port,
+                "allow_tx": self.allow_tx, "remote": self.remote, "max_power": self.max_power, "port": self.port,
                 "frequency": st.frequency, "mode": st.mode,
                 "sweep": {"kind": s.kind, "running": s.running, "band": s.band, "target": s.target,
                           "total": s.total, "points": s.points,
@@ -529,6 +551,9 @@ class SwrService:
                 return self.state()
             if method == "stop":
                 self.stop_sweep()
+                return self.state()
+            if method == "remote":
+                self.set_remote(bool(params.get("on")))
                 return self.state()
             if method == "final":
                 return {"entry": self.save_final(params.get("coil", ""), params.get("band", ""),

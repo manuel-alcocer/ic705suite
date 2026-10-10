@@ -68,6 +68,7 @@
   svg { width: 100%; height: auto; display: block; }
   .msg { padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; font-size: 15px; }
   .msg.err { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+  .msg.off { background: color-mix(in srgb, var(--muted) 18%, transparent); color: var(--fg); }
   .msg.txw { background: color-mix(in srgb, var(--tx) 15%, transparent); color: var(--tx); font-weight: 700; }
   .hist { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
   .hist td, .hist th { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: left; }
@@ -86,6 +87,8 @@
 
   <div class="msg err hidden" id="err"></div>
   <div class="msg txw hidden" id="txwarn">⚠ Transmitiendo: no toques la antena</div>
+  <div class="msg off hidden" id="remoteoff">Control remoto apagado: desde aquí solo se puede
+    mirar y parar. Para barrer, enciéndelo en la aplicación de antena del PC (tecla R).</div>
 
   <section class="card">
     <label><span>Antena</span><select id="antenna"></select></label>
@@ -345,8 +348,13 @@ function render() {
     ? `${state.frequency ? mhz(state.frequency) : "—"} MHz<br>${state.mode || ""}`
     : state.status;
   $("txwarn").classList.toggle("hidden", !transmitting);
-  $("btnSwr").disabled = sw.running || !state.allow_tx;
-  $("btnNoise").disabled = sw.running;
+  // SWR sweeps need --tx and the remote control, which only the PC can switch on.
+  const remote = !!state.remote;
+  $("remoteoff").classList.toggle("hidden", remote);
+  $("btnSwr").disabled = sw.running || !state.allow_tx || !remote;
+  $("btnNoise").disabled = sw.running || !remote;
+  $("btnSave").disabled = !remote;
+  $("antenna").disabled = !remote;
   $("btnStop").classList.toggle("hidden", !sw.running);
   if (!$("power").value) $("power").value = state.max_power;
   $("chartCard").classList.toggle("hidden", !sw.points.length);

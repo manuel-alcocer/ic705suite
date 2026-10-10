@@ -68,6 +68,14 @@ async def route(service: SwrService, method: str, target: str, body: bytes) -> b
             return _json(service.history.entries(band, limit=20))
         if method != "POST":
             return _json({"error": "method not allowed"}, "405 Method Not Allowed")
+        if path in ("/api/stop", "/api/disconnect"):
+            # Always allowed: stopping is the safe thing. The radio stays connected (other
+            # applications of the suite are using it).
+            service.stop_sweep()
+            return _json(service.state())
+        # Anything else from the phone only while the remote control is on (switched on by
+        # hand in the antenna application; there is no way to switch it on from here).
+        service.require_remote()
         if path == "/api/sweep":
             service.start_sweep(json.loads(body or b"{}"))
             return _json(service.state())
@@ -80,10 +88,6 @@ async def route(service: SwrService, method: str, target: str, body: bytes) -> b
             service.history.select_antenna(int(json.loads(body or b"{}")["id"]))
             service._antenna_changed()
             return _json(service.antennas())
-        if path in ("/api/stop", "/api/disconnect"):
-            # The radio stays connected: other applications of the suite are using it.
-            service.stop_sweep()
-            return _json(service.state())
     except (SweepError, KeyError, ValueError) as exc:
         return _json({"error": str(exc)}, "400 Bad Request")
     return _json({"error": "not found"}, "404 Not Found")
