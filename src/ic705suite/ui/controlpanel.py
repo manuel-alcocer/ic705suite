@@ -1,7 +1,7 @@
 """The rig's front panel as a grid of knobs and switches, one column per group.
 
-Keyboard only: Tab / Shift+Tab move between controls, - and + turn a knob or change a
-selector (< and > ten steps), Enter or Space toggles a switch. The panel only draws and computes the new value;
+Keyboard only: ↑↓ or Tab / Shift+Tab move between controls, ←→ or - + turn a knob or change a
+selector (Shift+←→ or < > ten steps), Enter or Space toggles a switch. The panel only draws and computes the new value;
 the application sends it to the rig.
 """
 

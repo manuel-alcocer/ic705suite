@@ -120,7 +120,7 @@ def test_front_panel_on_the_simulator(tmp_path):
     asyncio.run(run())
 
 
-def test_rig_view_without_mouse_or_cursor_keys(tmp_path):
+def test_rig_view_from_the_keyboard(tmp_path):
     from ic705suite.apps.view.app import ViewApp
     from ic705suite.rig.icom.sim import DEFAULT_STATIONS
     from ic705suite.ui.controlpanel import ControlPanel
@@ -154,6 +154,11 @@ def test_rig_view_without_mouse_or_cursor_keys(tmp_path):
                 tuned = link.core.station.state.frequency
                 assert tuned < 7_030_000
                 assert min(abs(tuned - st.freq) for st in DEFAULT_STATIONS) <= 300
+                await pilot.press("ctrl+left")         # cursor keys too: back to Receive (AF)
+                await pilot.press(*["down"] * 7, "right")   # down to the filter width, wider
+                await pilot.pause(0.3)
+                assert panel.selected == "filter_width"
+                assert link.core.station.state.controls["filter_width"] > 500
                 await pilot.press("slash")             # the command line
                 await pilot.press(*["space" if c == " " else c for c in "set agc fast"], "enter")
                 await pilot.pause(0.3)

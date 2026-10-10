@@ -13,8 +13,8 @@ to the radio; a dashboard opens the applications, which all share that one conne
 | F7 | **Packet** | *hamrpkt*: AX.25 terminal over AGWPE or Telnet (LinBPQ, Direwolf) |
 
 Everything runs in a console (Textual) with the HAMRLOG look, in English or Spanish, and only
-with the keyboard — no mouse and no cursor keys: Tab, function keys and `/commands`. The
-dashboard opens each application with its function key.
+with the keyboard — no mouse: Tab, function keys and `/commands` (and the cursor keys on the
+rig view's front panel). The dashboard opens each application with its function key.
 
 ```
 ╭─ Applications ──────────────────────────────────────────╮╭─ Rig ─────────────────────────────╮
@@ -117,9 +117,10 @@ notches, Twin PBT, filter shape), Transmit (power, mic, compressor, VOX, monitor
 pitch, break-in), VFO (split, RIT, ΔTX, tuning step, data mode, lock) and Scope (mode, span,
 reference, speed, hold, VBW).
 
-Keys (no mouse, no cursor keys): PgUp/PgDn tune by the step, F2 step, F3 mode, F4/F5 band,
-F6 filter, F7/F8 previous/next signal; Tab/Shift+Tab choose a control, `-` `+` turn it (`<` `>`
-ten steps), Space or Enter toggles, F9/F10 jump between groups; `/` opens the command line (`/f 7.030`, `/b 40`, `/mode USB`, `/set agc slow`, `/set rit_offset -120`).
+Keys (no mouse): PgUp/PgDn tune by the step, F2 step, F3 mode, F4/F5 band, F6 filter, F7/F8
+previous/next signal; ↑↓ (or Tab) choose a control, ←→ (or `-` `+`) turn it, Shift+←→ (or `<`
+`>`) ten steps, Space or Enter toggles, Ctrl+←→ (or F9/F10) change group; `/` opens the command
+line (`/f 7.030`, `/b 40`, `/mode USB`, `/set agc slow`, `/set rit_offset -120`).
 The scope streams only while a view is open. In receive-only mode VOX and break-in cannot be
 switched on (they would let the radio transmit by itself) and the tuner's TUNE is refused.
 

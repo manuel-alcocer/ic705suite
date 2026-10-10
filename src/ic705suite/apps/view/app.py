@@ -29,9 +29,9 @@ from ic705suite.ui.widgets import clock_footer, css
 STEPS = (10, 100, 1_000, 10_000, 100_000)
 CYCLE_MODES = ("CW", "USB", "LSB", "FM", "AM", "DV")
 SCOPE_KEEPALIVE = 5.0
-HINT = N_("PgUp/PgDn Tune · F7-F8 Signal · Tab + - Controls · F9-F10 Group · F2 Step · F3 Mode · "
+HINT = N_("PgUp/PgDn Tune · F7-F8 Signal · ↑↓ ←→ Controls · F9-F10 Group · F2 Step · F3 Mode · "
           "F4-F5 Band · F6 Filter · [ ] Contrast · / Command · Esc Back")
-SHORT_HINT = N_("PgUp/PgDn Tune · Tab + - Controls · Esc Back")
+SHORT_HINT = N_("PgUp/PgDn Tune · ↑↓ ←→ Controls · Esc Back")
 METER_CELLS = 16
 
 
@@ -141,8 +141,9 @@ class ViewApp(App[int]):
     TITLE = "ic705suite View"
     ENABLE_COMMAND_PALETTE = False
 
-    # Keyboard only and no cursor keys: Tab chooses a control, + and - turn it (< and > ten
-    # steps), function keys do the rest and "/" opens the command line.
+    # Keyboard only. Cursor keys move around the front panel (↑↓ choose, ←→ turn, with Shift
+    # ten steps, Ctrl+←→ change group); Tab, - + < > and the function keys do the same, and
+    # "/" opens the command line.
     BINDINGS = [
         Binding("pageup", "tune(1)", show=False, priority=True),
         Binding("pagedown", "tune(-1)", show=False, priority=True),
@@ -157,6 +158,14 @@ class ViewApp(App[int]):
         Binding("f10", "group(1)", show=False, priority=True),
         Binding("tab", "control(1)", show=False, priority=True),
         Binding("shift+tab", "control(-1)", show=False, priority=True),
+        Binding("up", "control(-1)", show=False),
+        Binding("down", "control(1)", show=False),
+        Binding("left", "adjust(-1)", show=False),
+        Binding("right", "adjust(1)", show=False),
+        Binding("shift+left", "adjust(-1, True)", show=False),
+        Binding("shift+right", "adjust(1, True)", show=False),
+        Binding("ctrl+left", "group(-1)", show=False),
+        Binding("ctrl+right", "group(1)", show=False),
         Binding("minus", "adjust(-1)", show=False),
         Binding("plus", "adjust(1)", show=False),
         Binding("less_than_sign", "adjust(-1, True)", show=False),

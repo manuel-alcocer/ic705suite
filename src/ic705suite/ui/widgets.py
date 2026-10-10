@@ -15,7 +15,7 @@ from textual.widgets import Button, Input, Static
 
 from ic705suite.i18n import _
 
-_KEY = re.compile(r"F\d+(?:-F\d+)?|Esc|PgUp/PgDn|Ctrl\+\w(?:/Ctrl\+\w)?|Enter|Shift\+Tab|Tab|Space")
+_KEY = re.compile(r"F\d+(?:-F\d+)?|Esc|PgUp/PgDn|Ctrl\+\w(?:/Ctrl\+\w)?|Enter|Shift\+Tab|Tab|Space|↑↓|←→")
 
 
 def css(package: str | None = None, name: str = "styles.tcss") -> str:

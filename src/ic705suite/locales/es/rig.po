@@ -366,11 +366,11 @@ msgstr "F2-F9 Banda · N Barrido de ruido (RX) · S Barrido ROE (TX) · C Posici
 msgid "F2-F9 Band · N Noise · S SWR · Esc Back"
 msgstr "F2-F9 Banda · N Ruido · S ROE · Esc Volver"
 
-msgid "PgUp/PgDn Tune · F7-F8 Signal · Tab + - Controls · F9-F10 Group · F2 Step · F3 Mode · F4-F5 Band · F6 Filter · [ ] Contrast · / Command · Esc Back"
-msgstr "PgUp/PgDn Sintonizar · F7-F8 Señal · Tab + - Controles · F9-F10 Grupo · F2 Paso · F3 Modo · F4-F5 Banda · F6 Filtro · [ ] Contraste · / Orden · Esc Volver"
+msgid "PgUp/PgDn Tune · F7-F8 Signal · ↑↓ ←→ Controls · F9-F10 Group · F2 Step · F3 Mode · F4-F5 Band · F6 Filter · [ ] Contrast · / Command · Esc Back"
+msgstr "PgUp/PgDn Sintonizar · F7-F8 Señal · ↑↓ ←→ Controles · F9-F10 Grupo · F2 Paso · F3 Modo · F4-F5 Banda · F6 Filtro · [ ] Contraste · / Orden · Esc Volver"
 
-msgid "PgUp/PgDn Tune · Tab + - Controls · Esc Back"
-msgstr "PgUp/PgDn Sintonizar · Tab + - Controles · Esc Volver"
+msgid "PgUp/PgDn Tune · ↑↓ ←→ Controls · Esc Back"
+msgstr "PgUp/PgDn Sintonizar · ↑↓ ←→ Controles · Esc Volver"
 
 msgid "Tab select a station · Enter tune it (or /go N) · F10 back to single decoding"
 msgstr "Tab elige una estación · Enter la sintoniza (o /go N) · F10 vuelve a un solo canal"
