@@ -16,10 +16,11 @@ Everything runs in a console (Textual) with the HAMRLOG look, in English or Span
 with the keyboard — no mouse: Tab, function keys and `/commands` (and the cursor keys on the
 rig view's front panel). The dashboard opens each application with its function key.
 
-It also works on the plain Linux console (no desktop), whose fonts have only the IBM PC
-characters and 16 colours: there the frequency is drawn with a block font, the waterfall is
-shaded with ░ ▒ ▓ between the console colours (about 25 levels), the spectrum uses half
-blocks and the borders are square. It is chosen by itself when `TERM=linux`; `[ui] glyphs` or
+It also works on the plain Linux console (no desktop), whose fonts have a few hundred
+characters and 16 colours. The suite asks the kernel which characters the loaded font has and
+draws with those: the frequency in a block font, the waterfall
+shaded with ░ ▒ ▓ (whichever the font has) between the console colours, the spectrum with half
+or full blocks, square borders. It is chosen by itself when `TERM=linux`; `[ui] glyphs` or
 `--glyphs console|unicode` force it.
 
 ```

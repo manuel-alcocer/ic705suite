@@ -1,26 +1,31 @@
-"""Glyphs for the terminal at hand: full Unicode, or what a plain console font has.
+"""Glyphs for the terminal at hand: full Unicode, or what the console font has.
 
 A terminal emulator (in a desktop session, over SSH) draws any Unicode character. The Linux
-virtual console does not: its fonts hold 256 or 512 glyphs, roughly the IBM PC set (CP437:
-box drawing, the blocks █ ▀ ▄ ▌ ▐, the shades ░ ▒ ▓, arrows) plus Latin letters, and only 16
-colours (8 as background). Anything else comes out as a diamond or a question mark, so the
-eighth blocks of the spectrum, the rounded borders, Textual's digits and the half-step colours
-of the waterfall are lost there.
+virtual console does not: its font holds 256 or 512 glyphs and only 16 colours (8 as
+background), and which glyphs depends on the font. Terminus ``ter-1*`` has the full block and
+two shades (█ ░ ▒) but no half blocks; the IBM PC set (CP437) has ▀ ▄ ▌ ▐ ▓ and double lines
+too. A missing character comes out as the font's replacement sign.
 
-In console mode the suite draws with that set instead: the waterfall uses shades between the
-16 colours, the spectrum half blocks, the frequency a block font; borders become square, and
-whatever Textual or an application still sends outside the set is replaced, one character for
-one, just before it reaches the terminal.
+In console mode the suite asks the kernel which characters the loaded font has (GIO_UNIMAP)
+and draws with those: the waterfall shades between the 16 colours with the shades the font
+has, the spectrum and the frequency use half blocks when there are any and full blocks
+otherwise, borders become square. Whatever Textual or an application still sends that the
+font lacks is replaced, one character for one, just before it reaches the terminal. When the
+font cannot be asked (``--glyphs console`` over SSH), a small set every console font has is
+assumed.
 
 ``configure()`` chooses the mode once, before the first application starts. Code that draws
-reads ``glyphs.CONSOLE`` (and the constants below) at drawing time.
+reads ``glyphs.CONSOLE``, ``glyphs.has()`` and the constants below at drawing time.
 """
 
 from __future__ import annotations
 
 import os
+import sys
 
 CONSOLE = False
+CHARSET: frozenset[str] | None = None      # the console font's characters (None: any)
+TRANSLATION: dict[int, str] = {}
 
 # Glyphs used by the suite's own widgets, set by configure().
 BAR = "▮"          # a filled cell of a meter or level bar
@@ -28,7 +33,7 @@ MARK = "┃"         # the dial marker, the centre of an offset bar
 CARET = "▏"        # end of a value being typed
 
 UNICODE_GLYPHS = {"BAR": "▮", "MARK": "┃", "CARET": "▏"}
-CONSOLE_GLYPHS = {"BAR": "■", "MARK": "│", "CARET": "_"}
+CONSOLE_GLYPHS = {"BAR": "■#", "MARK": "│|", "CARET": "_"}   # first one the font has
 
 MODES = ("auto", "unicode", "console")
 
@@ -42,33 +47,54 @@ VGA = {"black": "rgb(0,0,0)", "red": "rgb(170,0,0)", "green": "rgb(0,170,0)",
        "bright_magenta": "rgb(255,85,255)", "bright_cyan": "rgb(85,255,255)",
        "white": "rgb(255,255,255)"}
 
-# One character for one, so nothing moves on the screen.
-CONSOLE_TRANSLATION = str.maketrans({
-    # rounded, heavy and dashed lines -> the single and double lines every console font has
-    "╭": "┌", "╮": "┐", "╰": "└", "╯": "┘",
-    "╴": "─", "╶": "─", "╵": "│", "╷": "│", "╼": "─", "╾": "─", "╽": "│", "╿": "│",
-    "━": "═", "┃": "║", "┏": "╔", "┓": "╗", "┗": "╚", "┛": "╝",
-    "┣": "╠", "┫": "╣", "┳": "╦", "┻": "╩", "╋": "╬",
-    "╸": "═", "╺": "═", "╹": "║", "╻": "║",
-    "┄": "─", "┅": "═", "┈": "─", "┉": "═", "╌": "─", "╍": "═",
-    "┆": "│", "┇": "║", "┊": "│", "┋": "║", "╎": "│", "╏": "║",
-    # partial blocks -> the half and full blocks
-    "▁": "_", "▂": "▄", "▃": "▄", "▅": "▄", "▆": "█", "▇": "█",
-    "▉": "█", "▊": "▌", "▋": "▌", "▍": "▌", "▎": "▌", "▏": "▌", "▕": "▐", "▔": "▀",
-    "▖": "▄", "▗": "▄", "▘": "▀", "▝": "▀", "▙": "█", "▚": "▒", "▛": "█", "▜": "█",
-    "▞": "▒", "▟": "█",
-    # symbols
-    "▮": "■", "▯": "□", "●": "*", "○": "o", "◆": "♦", "◇": "♦", "•": "·",
-    "▶": "►", "▸": "►", "◀": "◄", "◂": "◄",
-    "✓": "√", "✔": "√", "✗": "x", "✘": "x", "★": "*", "☆": "*", "⚠": "!",
-    "…": ".", "–": "-", "—": "-", "‐": "-", "‑": "-",
-    "‘": "'", "’": "'", "“": '"', "”": '"', "×": "x",
-})
+# What a font without Unicode extras has: Latin-1, the light lines, █ ░ ▒ ■ and a few symbols
+# (Terminus ter-1*, the smallest of the usual console fonts).
+MINIMAL_CHARSET = frozenset(
+    [chr(c) for c in range(0x20, 0x7F)] + [chr(c) for c in range(0xA0, 0x100)]
+    + list("–—‘’‚“”„†‡•…‰‹›€™←↑→↓≤≥─│┌┐└┘├┤┬┴┼█░▒■▲►▼◄♦"))
 
-# Border styles whose characters a console font lacks, and the one drawn instead.
-CONSOLE_BORDERS = {"round": "solid", "dashed": "solid", "heavy": "double",
-                   "tall": "solid", "panel": "solid", "wide": "solid", "tab": "solid",
-                   "hkey": "solid", "vkey": "solid", "inner": "thick", "outer": "thick"}
+# For each character a console font may lack: what to draw instead, best first. The last
+# candidate is ASCII. One character for one, so nothing moves on the screen.
+FALLBACKS = {
+    "╭": "┌+", "╮": "┐+", "╰": "└+", "╯": "┘+",
+    "╴": "─-", "╶": "─-", "╼": "─-", "╾": "─-", "╵": "│|", "╷": "│|", "╽": "│|", "╿": "│|",
+    "━": "═─-", "┃": "║│|", "┏": "╔┌+", "┓": "╗┐+", "┗": "╚└+", "┛": "╝┘+",
+    "┣": "╠├+", "┫": "╣┤+", "┳": "╦┬+", "┻": "╩┴+", "╋": "╬┼+",
+    "╸": "═─-", "╺": "═─-", "╹": "║│|", "╻": "║│|",
+    "═": "─-", "║": "│|", "╔": "┌+", "╗": "┐+", "╚": "└+", "╝": "┘+",
+    "╠": "├+", "╣": "┤+", "╦": "┬+", "╩": "┴+", "╬": "┼+",
+    "┄": "─-", "┅": "═─-", "┈": "─-", "┉": "═─-", "╌": "─-", "╍": "═─-",
+    "┆": "│|", "┇": "║│|", "┊": "│|", "┋": "║│|", "╎": "│|", "╏": "║│|",
+    "─": "-", "│": "|", "┌": "+", "┐": "+", "└": "+", "┘": "+", "├": "+", "┤": "+",
+    "┬": "+", "┴": "+", "┼": "+",
+    "▁": "⎽_", "▂": "▄⎽_", "▃": "▄⎽_", "▄": "⎽_", "▅": "▄█#", "▆": "█#", "▇": "█#", "█": "#",
+    "▔": "▀⎺-", "▀": "⎺-",
+    "▉": "█#", "▊": "▌█#", "▋": "▌█#", "▌": "█#", "▍": "▌|", "▎": "▌|", "▏": "▌|",
+    "▐": "█#", "▕": "▐|",
+    "▖": "▄.", "▗": "▄.", "▘": "▀'", "▝": "▀'", "▙": "█#", "▛": "█#", "▜": "█#", "▟": "█#",
+    "▚": "▒:", "▞": "▒:", "░": ".", "▒": "░:", "▓": "▒░#",
+    "▮": "■#", "▯": "□o", "■": "#", "●": "•*", "○": "o", "◆": "♦*", "◇": "♦o", "♦": "*",
+    "▶": "►>", "▸": "►>", "◀": "◄<", "◂": "◄<", "►": ">", "◄": "<", "▲": "^", "▼": "v",
+    "←": "<", "→": ">", "↑": "^", "↓": "v",
+    "✓": "√v", "✔": "√v", "✗": "x", "✘": "x", "★": "*", "☆": "*", "⚠": "!", "♪": "♪*",
+    "…": ".", "–": "-", "—": "-", "‐": "-", "‑": "-", "•": "·*", "·": ".", "±": "±+",
+    "‘": "'", "’": "'", "“": '"', "”": '"', "×": "x", "Δ": "d",
+}
+
+# Border styles whose characters a console font may lack, and what to draw instead.
+CONSOLE_BORDERS = {"round": "solid", "dashed": "solid", "heavy": "double", "tall": "solid",
+                   "panel": "solid", "wide": "solid", "tab": "solid", "hkey": "solid",
+                   "vkey": "solid", "inner": "thick", "outer": "thick"}
+
+
+def has(char: str) -> bool:
+    """Whether the terminal can draw `char`."""
+    return CHARSET is None or char in CHARSET
+
+
+def first(candidates: str) -> str:
+    """The first of `candidates` the terminal can draw (else the last one)."""
+    return next((c for c in candidates if has(c)), candidates[-1])
 
 
 def is_plain_console(environ=None) -> bool:
@@ -82,25 +108,77 @@ def is_plain_console(environ=None) -> bool:
         and "utf-8" not in locale.lower() and "utf8" not in locale.lower()
 
 
-def configure(setting: str | None = "auto", environ=None) -> bool:
+def font_charset(fd: int | None = None) -> frozenset[str] | None:
+    """The characters of the Linux console font on `fd` (default: the terminal), or None."""
+    import ctypes
+    import errno
+    import fcntl
+
+    class UniPair(ctypes.Structure):
+        _fields_ = [("unicode", ctypes.c_ushort), ("fontpos", ctypes.c_ushort)]
+
+    class UniMapDesc(ctypes.Structure):
+        _fields_ = [("entry_ct", ctypes.c_ushort), ("entries", ctypes.POINTER(UniPair))]
+
+    GIO_UNIMAP = 0x4B66
+    if fd is None:
+        try:
+            fd = sys.__stdout__.fileno()
+        except (AttributeError, OSError, ValueError):
+            return None
+    count = 4096
+    for _ in range(2):
+        pairs = (UniPair * count)()
+        desc = UniMapDesc(count, ctypes.cast(pairs, ctypes.POINTER(UniPair)))
+        try:
+            fcntl.ioctl(fd, GIO_UNIMAP, desc)
+        except OSError as exc:
+            if exc.errno == errno.ENOMEM and desc.entry_ct > count:
+                count = desc.entry_ct              # the kernel says how many there are
+                continue
+            return None
+        chars = frozenset(chr(p.unicode) for p in pairs[:desc.entry_ct])
+        return chars | {" "} if len(chars) > 32 else None
+    return None
+
+
+def translation(charset: frozenset[str] | None) -> dict[int, str]:
+    """Replacements for the characters `charset` lacks."""
+    if charset is None:
+        return {}
+    table = {}
+    for char, candidates in FALLBACKS.items():
+        if char not in charset:
+            table[ord(char)] = next((c for c in candidates if c in charset), candidates[-1])
+    return table
+
+
+def configure(setting: str | None = "auto", environ=None,
+              charset: frozenset[str] | None = None) -> bool:
     """Choose the glyphs: "unicode", "console", or "auto" (console on a plain console).
-    IC705SUITE_GLYPHS overrides the setting. Returns whether console mode is on."""
-    global CONSOLE
+    IC705SUITE_GLYPHS overrides the setting; `charset` is the console font's characters
+    (default: asked to the kernel, or a minimal set). Returns whether console mode is on."""
+    global CONSOLE, CHARSET, TRANSLATION
     environ = os.environ if environ is None else environ
     setting = (environ.get("IC705SUITE_GLYPHS") or setting or "auto").strip().lower()
     if setting not in MODES:
         setting = "auto"
     console = setting == "console" or setting == "auto" and is_plain_console(environ)
     CONSOLE = console
-    globals().update(CONSOLE_GLYPHS if console else UNICODE_GLYPHS)
-    if console:
-        _patch_textual()
-    return console
+    if not console:
+        CHARSET, TRANSLATION = None, {}
+        globals().update(UNICODE_GLYPHS)
+        return False
+    CHARSET = charset or font_charset() or MINIMAL_CHARSET
+    TRANSLATION = translation(CHARSET)
+    globals().update({name: first(candidates) for name, candidates in CONSOLE_GLYPHS.items()})
+    _patch_textual()
+    return True
 
 
 def fit(text: str) -> str:
     """Text as the terminal can show it."""
-    return text.translate(CONSOLE_TRANSLATION) if CONSOLE else text
+    return text.translate(TRANSLATION) if TRANSLATION else text
 
 
 _patched = False
@@ -116,10 +194,16 @@ def _patch_textual() -> None:
     from textual.drivers import linux_driver
     from textual.scrollbar import ScrollBarRender
 
-    for name, instead in CONSOLE_BORDERS.items():
-        if name in _border.BORDER_CHARS and instead in _border.BORDER_CHARS:
-            _border.BORDER_CHARS[name] = _border.BORDER_CHARS[instead]
-            _border.BORDER_LOCATIONS[name] = _border.BORDER_LOCATIONS[instead]
+    borders = dict(CONSOLE_BORDERS)
+    if not all(has(c) for c in "═║╔╗╚╝"):
+        borders.update({"heavy": "solid", "double": "solid"})
+    if not all(has(c) for c in "▀▄█"):
+        borders.update({"inner": "solid", "outer": "solid", "thick": "solid", "block": "solid"})
+    chars, locations = dict(_border.BORDER_CHARS), dict(_border.BORDER_LOCATIONS)
+    for name, instead in borders.items():
+        if name in chars and instead in chars:
+            _border.BORDER_CHARS[name] = chars[instead]
+            _border.BORDER_LOCATIONS[name] = locations[instead]
     _border.get_box.cache_clear()
     # The scrollbar thumb is drawn with its colour only.
     ScrollBarRender.VERTICAL_BARS = [" "] * len(ScrollBarRender.VERTICAL_BARS)
@@ -128,6 +212,6 @@ def _patch_textual() -> None:
     write = linux_driver.LinuxDriver.write
 
     def write_for_the_console(self, data: str) -> None:
-        write(self, data.translate(CONSOLE_TRANSLATION))
+        write(self, data.translate(TRANSLATION) if TRANSLATION else data)
 
     linux_driver.LinuxDriver.write = write_for_the_console

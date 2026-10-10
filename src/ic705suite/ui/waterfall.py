@@ -11,8 +11,9 @@ frequency of the first and last point. Keyboard only: ``signals()`` lists the si
 latest sweep so the application can jump from one to the next.
 
 On a plain console (``glyphs.CONSOLE``: 16 colours, 8 of them as background, no eighth
-blocks) each cell is one waterfall row shaded with ░ ▒ ▓ between two of those colours, about
-25 levels instead of 7, and the spectrum uses half blocks.
+blocks) each cell is one waterfall row shaded between two of those colours with the shades
+the font has (░ ▒ ▓: up to 25 levels instead of 7), and the spectrum uses half blocks, or
+full ones when the font has no half blocks.
 """
 
 from __future__ import annotations
@@ -53,27 +54,32 @@ def _palette(n: int = 64) -> list[Color]:
 
 PALETTE = _palette()
 
-CONSOLE_BLOCKS = " ▄█"
 CONSOLE_GAMMA = 1.5        # the ramp brightens quickly: keep the noise floor dark
 
 
-def _console_ramp() -> list[tuple[str, Style]]:
+def console_ramp() -> list[tuple[str, Style]]:
     """Levels for the 16-colour console, from black to white: each colour shaded into the next
-    with ░ ▒ ▓ (only the 8 dark colours can be a background)."""
+    with the shades the font has (only the 8 dark colours can be a background)."""
+    shades = [c for c in "░▒▓" if glyphs.has(c)]
+    full = "█" if glyphs.has("█") else None
     ramp: list[tuple[str, str, str]] = []
     for low, high in (("black", "blue"), ("blue", "cyan"), ("cyan", "green"),
                       ("green", "yellow")):
         ramp.append((" ", low, low))
-        ramp += [(shade, high, low) for shade in "░▒▓"]
-    ramp.append(("█", "yellow", "black"))
-    ramp += [(shade, "yellow", "red") for shade in "▓▒░"]
+        ramp += [(shade, high, low) for shade in shades]
+    if full:
+        ramp.append((full, "yellow", "black"))
+        ramp += [(shade, "yellow", "red") for shade in reversed(shades)]
     ramp.append((" ", "red", "red"))
-    ramp += [(shade, "white", "red") for shade in "░▒▓"]
-    ramp.append(("█", "white", "black"))
+    ramp += [(shade, "white", "red") for shade in shades]
+    ramp.append((full, "white", "black") if full else (" ", "grey", "grey"))
     return [(char, Style(color=glyphs.VGA[fg], bgcolor=glyphs.VGA[bg])) for char, fg, bg in ramp]
 
 
-CONSOLE_RAMP = _console_ramp()
+def console_blocks() -> str:
+    """Spectrum cells from empty to full: with half blocks, or full blocks only."""
+    full = glyphs.first("█#")
+    return " ▄" + full if glyphs.has("▄") else " " + full
 
 
 @dataclass
@@ -119,6 +125,7 @@ class Waterfall(Widget, can_focus=True):
         self._edges: tuple[int, int] = (0, 0)
         self._cache_width = -1
         self._columns: list[np.ndarray] = []                   # rows resampled to the width
+        self._ramp: list[tuple[str, Style]] | None = None      # console colours, made once
 
     # ---- data ------------------------------------------------------------------------------
 
@@ -198,12 +205,15 @@ class Waterfall(Widget, can_focus=True):
 
     def _console_waterfall_line(self, index: int, width: int, rows: list[np.ndarray],
                                 marker: int | None) -> Strip:
+        if self._ramp is None:
+            self._ramp = console_ramp()
+        ramp = self._ramp
         row = rows[index] if index < len(rows) else None
-        last = len(CONSOLE_RAMP) - 1
+        last = len(ramp) - 1
         segments = []
         for x in range(width):
-            char, style = CONSOLE_RAMP[int(self._level(row[x]) ** CONSOLE_GAMMA * last)] \
-                if row is not None else CONSOLE_RAMP[0]
+            char, style = ramp[int(self._level(row[x]) ** CONSOLE_GAMMA * last)] \
+                if row is not None else ramp[0]
             if x == marker:
                 char, style = glyphs.MARK, Style(color=glyphs.VGA["bright_red"],
                                                  bgcolor=style.bgcolor)
@@ -221,8 +231,10 @@ class Waterfall(Widget, can_focus=True):
             if row is None:
                 char = " "
             elif console:
-                halves = int(self._level(row[x]) * rows * 2)
-                char = CONSOLE_BLOCKS[max(0, min(2, halves - (rows - 1 - y) * 2))]
+                blocks = console_blocks()
+                steps = len(blocks) - 1
+                units = int(self._level(row[x]) * rows * steps)
+                char = blocks[max(0, min(steps, units - (rows - 1 - y) * steps))]
             else:
                 eighths = int(self._level(row[x]) * rows * 8)
                 filled = eighths - (rows - 1 - y) * 8     # eighths reaching this row

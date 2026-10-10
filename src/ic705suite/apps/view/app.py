@@ -22,7 +22,7 @@ from ic705suite.rig import bands
 from ic705suite.rig.base import smeter_text
 from ic705suite.station.links import Link, LinkError
 from ic705suite.ui import glyphs
-from ic705suite.ui.bigdigits import BigDigits
+from ic705suite.ui.bigdigits import BigDigits, height as digits_height
 from ic705suite.ui.controlpanel import ControlPanel, format_value
 from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.waterfall import Waterfall
@@ -213,6 +213,10 @@ class ViewApp(App[int]):
         self.query_one("#panel").border_title = _("Front panel")
         self.query_one("#entry").border_title = _("Rig commands")
         self.query_one("#panel", ControlPanel).focus()
+        extra = digits_height() - 3          # five-row digits on a console without half blocks
+        if extra > 0:
+            for frame in ("#top", "#vfo-frame", "#meters"):
+                self.query_one(frame).styles.height = 8 + extra
         self.set_interval(1.0, self._footer)
         self.set_interval(SCOPE_KEEPALIVE, self._keep_scope)
         self._footer()
