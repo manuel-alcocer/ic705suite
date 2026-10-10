@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
-# On the Komunica HF-PRO-2 a higher coil number lowers the resonant frequency.
+# How an antenna's adjustment moves its resonance: -1 a higher number lowers the frequency (the
+# coil of the Komunica HF-PRO-2), +1 it raises it, 0 not known yet (learnt from the history).
+# These defaults are the Komunica's; each saved antenna has its own (see service.Antenna).
 COIL_SIGN = -1
 # Approximate kHz per coil unit, used until the history gives a better slope.
 DEFAULT_KHZ_PER_UNIT = {"40m": -150.0}
@@ -20,12 +22,13 @@ class Analysis:
     centered: bool            # resonance close enough to the target
     tuned: bool               # centered and (for SWR sweeps) SWR <= 1.5
     far: bool                 # SWR sweeps: SWR above 3 everywhere (meter saturated)
-    move: str                 # "", "lower" or "higher" coil number
+    move: str                 # "", "lower" or "higher" coil number (unknown sign: "")
     units: float | None       # estimated coil units to move
     khz_per_unit: float | None
     bw_15: tuple[int, int] | None  # frequency range with SWR <= 1.5
     bw_20: tuple[int, int] | None
     swr_at_target: float | None = None
+    shift: str = ""           # "", "up" or "down": where the resonance has to go
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -114,11 +117,14 @@ def _peak_stands_out(values: list[float], smooth: list[float], i: int) -> bool:
     return prominence >= max(MIN_PROMINENCE, 3 * jitter)
 
 
-def khz_per_unit(history: list[dict], band: str) -> float | None:
+def khz_per_unit(history: list[dict], band: str, coil_sign: int = COIL_SIGN,
+                 defaults: dict[str, float] | None = None) -> float | None:
     """Least-squares slope (kHz per coil unit) from this band's final coil positions."""
+    defaults = DEFAULT_KHZ_PER_UNIT if defaults is None else defaults
     pts = []
     for h in history:
-        if h.get("kind") != "final" or h.get("band") != band or h.get("at_edge"):
+        if h.get("kind") != "final" or h.get("band") != band or h.get("at_edge") \
+                or h.get("resonance") is None:
             continue
         try:
             pts.append((float(str(h.get("coil")).replace(",", ".")), h["resonance"] / 1000))
@@ -130,13 +136,15 @@ def khz_per_unit(history: list[dict], band: str) -> float | None:
         my = sum(f for _, f in pts) / n
         sxx = sum((c - mx) ** 2 for c, _ in pts)
         slope = sum((c - mx) * (f - my) for c, f in pts) / sxx
-        if slope * COIL_SIGN > 0:  # only trust slopes with the physically expected sign
+        # Only trust slopes with the expected sign (any, while the sign is not known).
+        if slope and (coil_sign == 0 or slope * coil_sign > 0):
             return round(slope, 1)
-    return DEFAULT_KHZ_PER_UNIT.get(band)
+    return defaults.get(band)
 
 
 def analyze(kind: str, freqs: list[int], values: list[float], target: int,
-            band: str, history: list[dict]) -> Analysis | None:
+            band: str, history: list[dict], coil_sign: int = COIL_SIGN,
+            default_slopes: dict[str, float] | None = None) -> Analysis | None:
     """kind 'swr': values are SWR (minimum = resonance); 'noise': S-meter (maximum)."""
     if len(freqs) < 2:
         return None
@@ -160,12 +168,16 @@ def analyze(kind: str, freqs: list[int], values: list[float], target: int,
     if at_target is not None and at_target <= TUNED_SWR:
         # What matters on the air is the SWR on the operating frequency, not the exact dip.
         centered = tuned = True
-    move = ""
+    move = shift = ""
+    slope = khz_per_unit(history, band, coil_sign, default_slopes)
     if confident and not centered:
-        # Resonance below the target -> raise frequency -> COIL_SIGN tells which way the number goes.
+        # Resonance below the target -> raise frequency -> the sign tells which way the number
+        # goes (the antenna's, or the one its history shows).
         raise_freq = delta < 0
-        move = "higher" if (raise_freq == (COIL_SIGN > 0)) else "lower"
-    slope = khz_per_unit(history, band)
+        shift = "up" if raise_freq else "down"
+        sign = coil_sign or (1 if slope and slope > 0 else -1 if slope else 0)
+        if sign:
+            move = "higher" if (raise_freq == (sign > 0)) else "lower"
     units = None
     # From the sweep edge the true distance is unknown: give a direction only.
     if slope and confident and not centered and not at_edge:
@@ -176,4 +188,5 @@ def analyze(kind: str, freqs: list[int], values: list[float], target: int,
                     units, slope, bw_15, bw_20)
     if at_target is not None:
         result.swr_at_target = round(at_target, 2)
+    result.shift = shift
     return result

@@ -102,16 +102,17 @@ class NameScreen(ModalScreen[str | None]):
     BINDINGS = [Binding("escape", "dismiss(None)", show=False)]
 
     def __init__(self, title: str, message: str, placeholder: str = "",
-                 help_text: str | None = None) -> None:
+                 help_text: str | None = None, value: str = "") -> None:
         super().__init__()
         self.title_text, self.message, self.placeholder = title, message, placeholder
         self.help_text = help_text
+        self.value = value
 
     def compose(self) -> ComposeResult:
         with Vertical(classes="modal") as box:
             box.border_title = self.title_text
             yield Static(self.message, classes="modal-subtitle")
-            yield Input(placeholder=self.placeholder, id="name-input")
+            yield Input(self.value, placeholder=self.placeholder, id="name-input")
             yield Static(self.help_text if self.help_text is not None else
                          _("Enter accepts (empty: automatic name) · Esc skips this channel"),
                          classes="modal-help")

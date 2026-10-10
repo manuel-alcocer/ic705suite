@@ -1,4 +1,8 @@
-"""Antenna tuning in the terminal: the same sweeps as the phone page, on the shared station."""
+"""Antenna tuning in the terminal: the same sweeps as the phone page, on the shared station.
+
+Several antennas can be kept (A): the bands show where the active one was left on each (its
+saved settings), and the sweeps, the advice and the saved positions are that antenna's.
+"""
 
 from __future__ import annotations
 
@@ -14,8 +18,9 @@ from ic705suite.station.links import Link
 from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.widgets import NameScreen, clock_footer, css
 
-HINT = N_("F2-F9 Band · N Noise sweep (RX) · S SWR sweep (TX) · C Coil position · Esc Stop/Back")
-SHORT_HINT = N_("F2-F9 Band · N Noise · S SWR · Esc Back")
+HINT = N_("F2-F9 Band · A Antennas · N Noise sweep (RX) · S SWR sweep (TX) · C Save position · "
+          "Esc Stop/Back")
+SHORT_HINT = N_("F2-F9 Band · A Antennas · N Noise · S SWR · Esc Back")
 BAR = 40
 
 
@@ -52,6 +57,15 @@ def advice(sweep: dict) -> tuple[str, str, str]:
         verdict, style = _("Resonance in place"), "bold yellow"
         text = _("The frequency is right but the lowest SWR is {swr:.2f}: it is not the coil "
                  "(ground, radials, connections).").format(swr=a["best_value"])
+    elif not a["move"]:
+        # This antenna's adjustment direction is not known yet: say where the resonance goes.
+        verdict = _("Raise the resonance") if a.get("shift") == "up" else _("Lower the resonance")
+        style = "bold red"
+        where = _("below") if a["delta_khz"] < 0 else _("above")
+        text = _("The resonance is {khz:.0f} kHz {where} the target. Which way to turn the "
+                 "adjustment is not known yet for this antenna: save its position after each "
+                 "change (C) and the advice will learn it.").format(
+            khz=abs(a["delta_khz"]), where=where)
     else:
         verdict = _("Lower the coil") if a["move"] == "lower" else _("Raise the coil")
         style = "bold red"
@@ -147,6 +161,7 @@ class SwrApp(App[int]):
         Binding("n", "sweep('noise')", show=False),
         Binding("s", "sweep('swr')", show=False),
         Binding("c", "final", show=False),
+        Binding("a", "antennas", show=False),
         # One function key per band (the list order): no cursor keys.
         *(Binding(f"f{n}", f"band({n - 2})", show=False, priority=True) for n in range(2, 10)),
         Binding("escape", "back", show=False),
@@ -159,6 +174,7 @@ class SwrApp(App[int]):
         self.owns_link = owns_link
         self.bands: list[dict] = []
         self.state: dict = {}
+        self.antenna: dict = {}
 
     def compose(self) -> ComposeResult:
         yield RigStatusLine(self.link.description, id="statusline")
@@ -173,7 +189,8 @@ class SwrApp(App[int]):
         self.query_one("#bands-frame").border_title = _("Band")
         self.query_one("#sweep").border_title = _("Antenna")
         table = self.query_one("#bands", DataTable)
-        table.add_columns(_("Key"), _("Band"), _("Target"), _("History"))
+        table.add_columns(_("Key"), _("Band"), _("Target"), _("Position"), _("Resonance"),
+                          _("SWR"))
         table.can_focus = False
         self.set_interval(1.0, self._footer)
         self._footer()
@@ -188,17 +205,32 @@ class SwrApp(App[int]):
         except Exception as exc:  # noqa: BLE001 - shown on screen
             self._message("error", _("cannot connect: {error}").format(error=exc))
             return
+        await self._fill_bands()
         table = self.query_one("#bands", DataTable)
         rig_band = (self.link.latest.get("rig") or {}).get("band")
-        for band in self.bands:
-            history = (await self.link.call("swr.history", band=band["name"])).get("history", [])
-            finals = [h for h in history if h.get("kind") == "final"]
-            last = f"{_('coil')} {finals[-1]['coil']}" if finals else ""
-            key = f"F{len(table.rows) + 2}"
-            table.add_row(key, band["name"], bands.format_frequency(band["target"]), last)
         names = [b["name"] for b in self.bands]
         if rig_band in names:
             table.move_cursor(row=names.index(rig_band))
+
+    async def _fill_bands(self) -> None:
+        """The bands with the active antenna's saved setting on each."""
+        reply = await self.link.call("swr.antennas")
+        self.antenna = next((a for a in reply.get("antennas", []) if a["active"]), {})
+        settings = self.antenna.get("settings", {})
+        table = self.query_one("#bands", DataTable)
+        row = table.cursor_row if table.row_count else 0
+        table.clear()
+        for i, band in enumerate(self.bands):
+            saved = settings.get(band["name"], {})
+            table.add_row(f"F{i + 2}", band["name"], bands.format_frequency(band["target"]),
+                          f"{saved['coil']:g}" if saved else "",
+                          bands.format_frequency(saved["resonance"]) if saved.get("resonance")
+                          else "",
+                          f"{saved['best']:.2f}" if saved.get("best") is not None else "")
+        if self.bands:
+            table.move_cursor(row=min(row, len(self.bands) - 1))
+        self.query_one("#sweep").border_title = \
+            f"{_('Antenna')} · {self.antenna.get('name', '')}"
 
     def _footer(self) -> None:
         stats = self.query_one("#stats", Static)
@@ -252,17 +284,36 @@ class SwrApp(App[int]):
         self.run_worker(self._final(), exclusive=True, group="final")
 
     async def _final(self) -> None:
+        band = self._band()
+        if band is None:
+            return
+        saved = self.antenna.get("settings", {}).get(band["name"], {})
         coil = await self.push_screen_wait(NameScreen(
-            _("Coil position"), _("Which number did the coil end on?"),
-            help_text=_("Enter saves · Esc cancels")))
+            _("Position on {band}").format(band=band["name"]),
+            _("Which number did the coil (or adjustment) of {antenna} end on?").format(
+                antenna=self.antenna.get("name", _("the antenna"))),
+            value=f"{saved['coil']:g}" if saved else "",
+            help_text=_("Enter saves (with the last SWR sweep, if it was on this band) · "
+                        "Esc cancels")))
         if not coil:
             return
-        result = await self.link.call("swr.final", coil=coil)
+        result = await self.link.call("swr.final", coil=coil, band=band["name"])
         if result.get("error"):
             self._message("error", result["error"])
-        else:
-            self._message("info", _("coil position {coil} saved for {band}").format(
-                coil=result["entry"]["coil"], band=result["entry"]["band"]))
+            return
+        self._message("info", _("position {coil} saved for {band}").format(
+            coil=result["entry"]["coil"], band=result["entry"]["band"]))
+        await self._fill_bands()
+
+    def action_antennas(self) -> None:
+        self.run_worker(self._antennas(), exclusive=True, group="antennas")
+
+    async def _antennas(self) -> None:
+        from ic705suite.apps.swr.antennas import AntennaScreen
+
+        await self.push_screen_wait(AntennaScreen(self.link))
+        await self._fill_bands()
+        self._apply_state(await self.link.call("swr.state"))
 
     async def action_back(self) -> None:
         if (self.state.get("sweep") or {}).get("running"):

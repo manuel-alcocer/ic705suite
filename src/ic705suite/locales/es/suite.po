@@ -294,3 +294,99 @@ msgstr "Visor {model}"
 msgid "{model} has no {mode} mode"
 msgstr "{model} no tiene modo {mode}"
 
+
+msgid "Adjustment"
+msgstr "Ajuste"
+
+msgid "Antennas"
+msgstr "Antenas"
+
+msgid "Delete"
+msgstr "Borrar"
+
+msgid "Delete antenna"
+msgstr "Borrar antena"
+
+msgid "Delete {name} and all its sweeps and saved settings?"
+msgstr "¿Borrar {name} con todos sus barridos y ajustes guardados?"
+
+msgid "Edit antenna"
+msgstr "Editar antena"
+
+msgid "Enter goes on · Esc cancels"
+msgstr "Enter sigue · Esc cancela"
+
+msgid "Enter saves (with the last SWR sweep, if it was on this band) · Esc cancels"
+msgstr "Enter guarda (con el último barrido de ROE, si fue en esta banda) · Esc cancela"
+
+msgid "F2-F9 Band · A Antennas · N Noise sweep (RX) · S SWR sweep (TX) · C Save position · Esc Stop/Back"
+msgstr "F2-F9 Banda · A Antenas · N Barrido de ruido (RX) · S Barrido de ROE (TX) · C Guardar posición · Esc Parar/Volver"
+
+msgid "F2-F9 Band · A Antennas · N Noise · S SWR · Esc Back"
+msgstr "F2-F9 Banda · A Antenas · N Ruido · S ROE · Esc Volver"
+
+msgid "Higher number, higher frequency"
+msgstr "Número mayor, frecuencia más alta"
+
+msgid "Higher number, lower frequency"
+msgstr "Número mayor, frecuencia más baja"
+
+msgid "How does its adjustment (coil, tap, length) move the resonance?"
+msgstr "¿Cómo mueve la resonancia su ajuste (bobina, toma, longitud)?"
+
+msgid "Keep it"
+msgstr "Conservarla"
+
+msgid "Lower the resonance"
+msgstr "Baja la resonancia"
+
+msgid "Name (make and model, or how you call it)"
+msgstr "Nombre (marca y modelo, o como la llames)"
+
+msgid "New antenna"
+msgstr "Antena nueva"
+
+msgid "Not known yet"
+msgstr "Aún no se sabe"
+
+msgid "Notes (optional): where it is, radials, what the numbers mean..."
+msgstr "Notas (opcional): dónde está, radiales, qué significan los números..."
+
+msgid "Position"
+msgstr "Posición"
+
+msgid "Position on {band}"
+msgstr "Posición en {band}"
+
+msgid "Raise the resonance"
+msgstr "Sube la resonancia"
+
+msgid "SWR"
+msgstr "ROE"
+
+msgid "Saved settings"
+msgstr "Ajustes guardados"
+
+msgid "The resonance is {khz:.0f} kHz {where} the target. Which way to turn the adjustment is not known yet for this antenna: save its position after each change (C) and the advice will learn it."
+msgstr "La resonancia está {khz:.0f} kHz {where} del objetivo. Aún no se sabe hacia dónde mover el ajuste de esta antena: guarda su posición tras cada cambio (C) y el consejo lo aprenderá."
+
+msgid "Which number did the coil (or adjustment) of {antenna} end on?"
+msgstr "¿En qué número ha quedado la bobina (o el ajuste) de {antenna}?"
+
+msgid "a higher number lowers the frequency"
+msgstr "un número mayor baja la frecuencia"
+
+msgid "a higher number raises the frequency"
+msgstr "un número mayor sube la frecuencia"
+
+msgid "not known yet (learnt from the saved positions)"
+msgstr "aún no se sabe (se aprende de las posiciones guardadas)"
+
+msgid "position {coil} saved for {band}"
+msgstr "posición {coil} guardada para {band}"
+
+msgid "the antenna"
+msgstr "la antena"
+
+msgid "↑↓ choose · Enter use it · N new · E edit · D delete · Esc back"
+msgstr "↑↓ elegir · Enter usarla · N nueva · E editar · D borrar · Esc volver"

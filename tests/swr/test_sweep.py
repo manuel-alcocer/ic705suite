@@ -160,6 +160,8 @@ def test_full_sweep_restores_radio(tmp_path, kind):
 
     async def run():
         station, service = make_service(tmp_path, fake)
+        # A higher coil number lowers the frequency, as on the Komunica.
+        service.history.save_antenna("Komunica", coil_sign=-1)
         await station.start()
         try:
             service.start_sweep({"kind": kind, "band": "40m", "start": 7_000_000,
@@ -184,8 +186,9 @@ def test_full_sweep_restores_radio(tmp_path, kind):
         assert service.history.entries("40m")[-1]["kind"] == "final"
     else:
         assert fake.keyed == 0    # a noise sweep never transmits
-        with pytest.raises(SweepError):
-            service.save_final("12")
+        # The position alone can be kept: no SWR sweep on this band to go with it.
+        entry = service.save_final("12", note="by ear")
+        assert entry["coil"] == 12 and "resonance" not in entry and entry["note"] == "by ear"
 
 
 def test_swr_sweep_refused_outside_band_or_without_tx(tmp_path):
@@ -235,3 +238,56 @@ def test_legacy_history_is_imported_once(tmp_path):
     store = HistoryStore(url, legacy)
     assert [e["coil"] for e in store.entries("40m")] == [12.2]
     store.close()
+
+
+def test_unknown_adjustment_learns_from_history():
+    freqs = list(range(7_000_000, 7_200_001, 20_000))
+    swr = [1.0 + abs(f - 7_120_000) / 40_000 for f in freqs]
+    a = analyze("swr", freqs, swr, 7_074_000, "40m", [], coil_sign=0, default_slopes={})
+    assert (a.move, a.shift, a.units) == ("", "down", None)   # only where the resonance goes
+    # Two saved positions: a higher number gave a higher frequency on this antenna.
+    hist = [{"kind": "final", "band": "40m", "coil": 3, "resonance": 7_000_000},
+            {"kind": "final", "band": "40m", "coil": 5, "resonance": 7_200_000}]
+    a = analyze("swr", freqs, swr, 7_074_000, "40m", hist, coil_sign=0, default_slopes={})
+    assert (a.move, a.shift, a.khz_per_unit) == ("lower", "down", 100.0)
+    assert a.units == 0.5
+
+
+def test_antennas_keep_their_own_history(tmp_path):
+    store = HistoryStore(f"sqlite:///{tmp_path / 'suite.db'}", legacy=None)
+    first = store.antenna()
+    assert first["name"] == "Antenna 1" and first["active"]
+    store.add({"ts": "1", "band": "40m", "kind": "final", "coil": 12.2, "resonance": 7_095_000})
+    komunica = store.save_antenna("Komunica HF-PRO-2-PLUS-T", "vertical", coil_sign=-1)
+    assert store.antenna()["id"] == komunica["id"] and store.entries() == []
+    store.add({"ts": "2", "band": "20m", "kind": "final", "coil": 4.5})
+    assert set(store.settings()) == {"20m"}
+    store.select_antenna(first["id"])
+    assert store.settings()["40m"]["coil"] == 12.2
+    with pytest.raises(ValueError):
+        store.save_antenna("Komunica HF-PRO-2-PLUS-T")        # the name is taken
+    store.delete_antenna(komunica["id"])
+    assert [a["name"] for a in store.antennas()] == ["Antenna 1"]
+    with pytest.raises(ValueError):
+        store.delete_antenna(first["id"])                    # the last one stays
+
+
+def test_history_from_before_the_antennas(tmp_path):
+    """The old single history becomes the Komunica's (as swr-remote was made for it)."""
+    import sqlalchemy as sa
+
+    url = f"sqlite:///{tmp_path / 'suite.db'}"
+    engine = sa.create_engine(url)
+    with engine.begin() as conn:
+        conn.execute(sa.text("CREATE TABLE swr_history (id INTEGER PRIMARY KEY, ts VARCHAR(32) "
+                             "NOT NULL, band VARCHAR(10) NOT NULL, kind VARCHAR(10) NOT NULL, "
+                             "data TEXT NOT NULL)"))
+        conn.execute(sa.text("INSERT INTO swr_history (ts, band, kind, data) VALUES "
+                             "('2026-10-09', '40m', 'final', "
+                             "'{\"band\": \"40m\", \"kind\": \"final\", \"coil\": 12.2, "
+                             "\"resonance\": 7095000}')"))
+    engine.dispose()
+    store = HistoryStore(url, legacy=None)
+    antenna = store.antenna()
+    assert antenna["name"] == "Komunica HF-PRO-2-PLUS-T" and antenna["coil_sign"] == -1
+    assert store.settings()["40m"]["coil"] == 12.2 and len(store.antennas()) == 1

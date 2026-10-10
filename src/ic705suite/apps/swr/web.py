@@ -61,6 +61,8 @@ async def route(service: SwrService, method: str, target: str, body: bytes) -> b
             return _json(service.state())
         if path == "/api/bands":
             return _json(service.bands())
+        if path == "/api/antennas":
+            return _json(service.antennas())
         if path == "/api/history":
             band = parse_qs(url.query).get("band", [""])[0]
             return _json(service.history.entries(band, limit=20))
@@ -70,7 +72,14 @@ async def route(service: SwrService, method: str, target: str, body: bytes) -> b
             service.start_sweep(json.loads(body or b"{}"))
             return _json(service.state())
         if path == "/api/final":
-            return _json(service.save_final(json.loads(body or b"{}").get("coil", "")))
+            data = json.loads(body or b"{}")
+            return _json(service.save_final(data.get("coil", ""), data.get("band", ""),
+                                            data.get("note", "")))
+        if path == "/api/antenna":
+            # Choose the active antenna (the page does not create or edit them).
+            service.history.select_antenna(int(json.loads(body or b"{}")["id"]))
+            service._antenna_changed()
+            return _json(service.antennas())
         if path in ("/api/stop", "/api/disconnect"):
             # The radio stays connected: other applications of the suite are using it.
             service.stop_sweep()

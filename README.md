@@ -150,8 +150,13 @@ core and leaving the suite offers to archive them.
 
 **Antenna (F5).** F2–F9 choose the band; **N** noise sweep (receive only), **S** SWR sweep
 (needs `--tx`; RTTY carrier at `max_power`, 2 s PTT watchdog, settings restored afterwards),
-**C** records the coil position. The verdict says whether to raise or lower the coil and, with the
-history, roughly how much.
+**C** records the coil position on the chosen band (with the last SWR sweep's results when it
+was on that band). The verdict says whether to raise or lower the coil and, with the history,
+roughly how much. **A** lists the antennas: each keeps its own history and saved settings
+(where its coil was left on each band) and says how its adjustment moves the resonance (a
+higher number lowering or raising the frequency, or not known yet, which the advice then
+learns from the saved positions). Enter makes one the active antenna; N, E and D add, edit
+and delete them. The phone page can switch the active antenna too.
 
 **Logbook (F6) and Packet (F7).** hamrlog and hamrpkt as they were, with their own settings
 (F9). They do not need the radio, so they open even when it is unreachable.

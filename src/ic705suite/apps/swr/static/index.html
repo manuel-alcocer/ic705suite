@@ -38,7 +38,7 @@
   .row { display: flex; gap: 10px; margin-top: 12px; }
   .row > label { flex: 1; min-width: 0; }
   label span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-  input { width: 100%; padding: 10px; font-size: 18px; border-radius: 10px;
+  input, select { width: 100%; padding: 10px; font-size: 18px; border-radius: 10px;
           border: 1px solid var(--line); background: var(--bg); color: var(--fg);
           font-variant-numeric: tabular-nums; }
   .coil { display: flex; gap: 6px; }
@@ -86,6 +86,10 @@
 
   <div class="msg err hidden" id="err"></div>
   <div class="msg txw hidden" id="txwarn">⚠ Transmitiendo: no toques la antena</div>
+
+  <section class="card">
+    <label><span>Antena</span><select id="antenna"></select></label>
+  </section>
 
   <section class="card">
     <div class="bands" id="bands"></div>
@@ -189,8 +193,9 @@ async function loadHistory() {
   const finals = rows.filter(h => h.kind === "final");
   $("histCard").classList.toggle("hidden", finals.length === 0);
   $("hist").innerHTML = finals.slice().reverse().map(h => `<tr><td>${h.ts.slice(5, 16)}</td>
-    <td>${String(h.coil).replace(".", ",")}</td><td>${mhz(h.resonance)}${h.at_edge ? " (borde)" : ""}</td>
-    <td>${h.best.toFixed(2)}</td></tr>`).join("");
+    <td>${String(h.coil).replace(".", ",")}</td>
+    <td>${h.resonance ? mhz(h.resonance) + (h.at_edge ? " (borde)" : "") : "—"}</td>
+    <td>${h.best != null ? h.best.toFixed(2) : "—"}</td></tr>`).join("");
 }
 
 function sweepRequest(kind) {
@@ -362,6 +367,10 @@ function render() {
 async function poll() {
   try {
     state = await api("/api/state");
+    // Another antenna chosen in the terminal: follow it.
+    if (state.antenna && String(state.antenna.id) !== $("antenna").value) {
+      loadAntennas().then(loadHistory).catch(() => {});
+    }
     if (lastShownFinish === 0) lastShownFinish = state.sweep.finished_at || -1;
     render();
   } catch (e) {
@@ -371,7 +380,21 @@ async function poll() {
   setTimeout(poll, state && state.sweep.running ? 400 : 1500);
 }
 
+async function loadAntennas() {
+  const data = await api("/api/antennas");
+  $("antenna").innerHTML = data.antennas.map(a =>
+    `<option value="${a.id}"${a.active ? " selected" : ""}>${a.name.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</option>`).join("");
+}
+
 async function init() {
+  await loadAntennas();
+  $("antenna").addEventListener("change", async () => {
+    showError("");
+    try {
+      await api("/api/antenna", { id: parseInt($("antenna").value, 10) });
+      loadHistory();
+    } catch (e) { showError(e.message); }
+  });
   bands = await api("/api/bands");
   $("bands").innerHTML = bands.map(b => `<button data-b="${b.name}">${b.name.replace("m", "")}</button>`).join("");
   $("bands").addEventListener("click", e => {
@@ -391,9 +414,11 @@ async function init() {
   $("btnSave").addEventListener("click", async () => {
     showError("");
     try {
-      const e = await api("/api/final", { coil: $("coil").value });
+      const e = await api("/api/final", { coil: $("coil").value, band: band.name });
       savedFor = state.sweep.finished_at;
-      $("savedMsg").textContent = `Guardado: bobina ${String(e.coil).replace(".", ",")} → resonancia ${mhz(e.resonance)} MHz, ROE ${e.best.toFixed(2)}.`;
+      $("savedMsg").textContent = e.resonance
+        ? `Guardado: bobina ${String(e.coil).replace(".", ",")} → resonancia ${mhz(e.resonance)} MHz, ROE ${e.best.toFixed(2)}.`
+        : `Guardado: bobina ${String(e.coil).replace(".", ",")} en ${e.band}.`;
       remember(); render(); loadHistory();
     } catch (err) { showError(err.message); }
   });

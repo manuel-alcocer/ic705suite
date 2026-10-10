@@ -178,6 +178,14 @@ def test_dashboard_settings_and_scope(tmp_path):
     def typed(text):
         return ["full_stop" if c == "." else c for c in text]
 
+    async def until(pilot, condition, seconds=5.0):
+        """Wait for the radio's answer (slower when the machine is busy)."""
+        for _ in range(int(seconds / 0.05)):
+            if condition():
+                return True
+            await pilot.pause(0.05)
+        return condition()
+
     async def run():
         link = LocalLink(None, sim_config(tmp_path))
         start_link(link)
@@ -186,28 +194,24 @@ def test_dashboard_settings_and_scope(tmp_path):
         station = link.core.station
         try:
             async with app.run_test(size=(140, 44)) as pilot:
-                for _ in range(40):
-                    await pilot.pause(0.1)
-                    if app.rig.get("connected") and app.query_one(Waterfall)._raw:
-                        break
-                assert app.query_one(Waterfall)._raw          # the mini scope streams
+                assert await until(pilot, lambda: app.rig.get("connected")
+                                   and app.query_one(Waterfall)._raw)   # the mini scope streams
                 panel = app.query_one("#controls", ControlPanel)
                 await pilot.press("tab")                      # applications -> settings
                 assert app.focused is panel and panel.selected == "frequency"
                 await pilot.press("enter", *typed("7.010"), "enter")
-                await pilot.pause(0.3)
-                assert station.state.frequency == 7_010_000 and not panel.editing
+                assert await until(pilot, lambda: station.state.frequency == 7_010_000)
+                assert not panel.editing
                 await pilot.press("enter", "right", "right", "enter")   # +200 Hz
-                await pilot.pause(0.3)
-                assert station.state.frequency == 7_010_200
+                assert await until(pilot, lambda: station.state.frequency == 7_010_200)
                 await pilot.press("right")                    # Receive: AF
                 af = station.state.controls["af"]
                 await pilot.press("space", "up", "escape")    # changed, then put back
                 await pilot.pause(0.3)
-                assert panel.selected == "af" and station.state.controls["af"] == af
+                assert await until(pilot, lambda: station.state.controls["af"] == af)
+                assert panel.selected == "af"
                 await pilot.press("pageup")                   # tune from anywhere
-                await pilot.pause(0.3)
-                assert station.state.frequency == 7_010_300
+                assert await until(pilot, lambda: station.state.frequency == 7_010_300)
                 await pilot.press("escape")                   # back to the applications
                 assert app.focused is app.query_one("#apps")
                 await pilot.press("shift+tab")
