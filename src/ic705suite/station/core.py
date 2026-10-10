@@ -55,7 +55,7 @@ STATE_INTERVAL = 0.25
 SKIM_INTERVAL = 1.0
 CHANNELS_INTERVAL = 2.0
 BACKLOG = 400          # text events replayed to a client that connects later
-RETRY_DELAY = 10.0     # server mode: wait between attempts to reach the radio
+RETRY_DELAY = 10.0     # wait between attempts to reach the radio
 
 Event = dict
 Subscriber = Callable[[Event], None]
@@ -202,6 +202,7 @@ class Core:
         # Services that do not need the radio (the antenna page) come up first.
         await self.swr.start()
         self._ticker = asyncio.create_task(self._tick())
+        reported = False
         while True:
             try:
                 await self.station.start()
@@ -209,8 +210,13 @@ class Core:
             except (TransportError, RigError, OSError) as exc:
                 if not retry_forever:
                     raise
-                self.hub.error(N_("cannot reach the radio: {error}; retrying in {seconds} s"),
-                               error=str(exc), seconds=int(RETRY_DELAY))
+                # Said once: the radio may stay off all session while the logbook is used.
+                if not reported:
+                    self.hub.error(N_("cannot reach the radio: {error}; it keeps trying in the "
+                                      "background (the logbook and packet work without it)"),
+                                   error=str(exc))
+                    reported = True
+                log.info("radio still unreachable (%s); retrying in %.0f s", exc, RETRY_DELAY)
                 await self.station.rig.close()
                 await asyncio.sleep(RETRY_DELAY)
         await self.session.start()

@@ -65,6 +65,9 @@ class Station:
         self.rig = rig
         self.config = config
         self.ui = ui
+        # While the radio is away, attempts follow one another: say so once, not each time.
+        self._told_connecting = False
+        self._told_unreachable = False
         rig.tx_enabled = config.tx_enabled
         rig.on_state = ui.status_changed
         self.connected = False
@@ -127,7 +130,6 @@ class Station:
     async def start(self) -> None:
         loop = asyncio.get_running_loop()
         deadline = loop.time() + STALE_SESSION_WAIT
-        warned = False
         while True:
             try:
                 await self._connect()
@@ -145,11 +147,11 @@ class Station:
             except TransportError as exc:
                 if type(exc).__name__ != "RadioNotAnswering" or loop.time() > deadline:
                     raise
-                if not warned:
-                    self.ui.info(N_("the radio does not answer: it may still hold a previous "
-                                    "session (expires in about a minute); waiting... "
-                                    "(Ctrl-C to give up)"))
-                    warned = True
+                if not self._told_unreachable:
+                    self.ui.info(N_("the radio does not answer (switched off, out of WiFi, or "
+                                    "still holding a previous session); trying again in the "
+                                    "background"))
+                    self._told_unreachable = True
                 await self.rig.close()
         self._tasks = [asyncio.create_task(self._poll_loop()),
                        asyncio.create_task(self._scope_keeper())]
@@ -166,9 +168,12 @@ class Station:
         self.stop_recording()
 
     async def _connect(self) -> None:
-        self.ui.info(N_("connecting ({transport})..."), transport=self.transport.name)
+        if not self._told_connecting:
+            self.ui.info(N_("connecting ({transport})..."), transport=self.transport.name)
+            self._told_connecting = True
         await self.rig.connect()
         self.connected = True
+        self._told_connecting = self._told_unreachable = False
         await self._read_state()
         for callback in list(self._on_connect):
             await callback()

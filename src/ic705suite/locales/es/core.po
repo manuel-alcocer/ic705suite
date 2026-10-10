@@ -4,8 +4,8 @@ msgstr ""
 "Language: es\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
-msgid "cannot reach the radio: {error}; retrying in {seconds} s"
-msgstr "no se puede contactar con la radio: {error}; reintento en {seconds} s"
+msgid "cannot reach the radio: {error}; it keeps trying in the background (the logbook and packet work without it)"
+msgstr "no se puede contactar con la radio: {error}; se sigue intentando en segundo plano (el diario y el packet funcionan sin ella)"
 
 msgid "connection to the server lost"
 msgstr "se ha perdido la conexión con el servidor"
@@ -169,8 +169,8 @@ msgstr "búsqueda detenida"
 msgid "TX and search stopped"
 msgstr "transmisión y búsqueda detenidas"
 
-msgid "the radio does not answer: it may still hold a previous session (expires in about a minute); waiting... (Ctrl-C to give up)"
-msgstr "la radio no responde: puede que aún tenga abierta una sesión anterior (caduca en un minuto aprox.); esperando... (Ctrl-C para abandonar)"
+msgid "the radio does not answer (switched off, out of WiFi, or still holding a previous session); trying again in the background"
+msgstr "la radio no responde (apagada, fuera de la WiFi o con una sesión anterior abierta); se sigue intentando en segundo plano"
 
 msgid "/play <file> [MHz] [x2] decode a recording as if it came from the radio"
 msgstr "/play <fichero> [MHz] [x2] decodifica una grabación como si llegara de la radio"

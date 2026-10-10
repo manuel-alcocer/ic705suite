@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import abc
 import asyncio
+import contextlib
 import json
 import logging
 from collections import deque
@@ -124,7 +125,8 @@ class LocalLink(Link):
         self._dispatch(self.core.welcome())
         self._unsubscribe = self.core.hub.subscribe(self._dispatch)
         try:
-            await self.core.start()
+            # Until the radio appears: the applications that do not need it work meanwhile.
+            await self.core.start(retry_forever=True)
         except BaseException:
             self._unsubscribe()
             await self.core.stop()
@@ -132,6 +134,10 @@ class LocalLink(Link):
         self._dispatch(self.core.welcome())  # now with the radio's own name
 
     async def close(self) -> None:
+        if self._connecting is not None and not self._connecting.done():
+            self._connecting.cancel()       # still looking for the radio
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await self._connecting
         if self._unsubscribe:
             self._unsubscribe()
         await self.core.stop()
