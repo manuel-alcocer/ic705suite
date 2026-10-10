@@ -78,6 +78,23 @@ class ChoiceScreen(ModalScreen[str]):
         self.dismiss(event.button.id.removeprefix("opt-"))
 
 
+class TextScreen(ModalScreen[None]):
+    """Lines to read (a help page); Esc, Enter or F1 closes it."""
+
+    BINDINGS = [Binding("escape", "dismiss", show=False), Binding("enter", "dismiss", show=False),
+                Binding("f1", "dismiss", show=False)]
+
+    def __init__(self, title: str, lines: list[str]) -> None:
+        super().__init__()
+        self.title_text, self.lines = title, lines
+
+    def compose(self) -> ComposeResult:
+        with Vertical(classes="modal wide") as box:
+            box.border_title = self.title_text
+            yield Static(Text("\n".join(self.lines)), classes="modal-subtitle")
+            yield Static(_("Esc, Enter or F1 closes"), classes="modal-help")
+
+
 class NameScreen(ModalScreen[str | None]):
     """Ask for a name; returns the text (possibly empty) or None on Esc."""
 

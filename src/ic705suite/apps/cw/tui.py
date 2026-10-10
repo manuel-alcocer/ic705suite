@@ -21,9 +21,10 @@ from ic705suite.apps.cw.interpret import Interpretation, Interpreter, interpret
 from ic705suite.station.links import Link, LinkError
 from ic705suite.rig.base import RigError, smeter_text
 from ic705suite.apps.cw.screens import ChannelsScreen
+from ic705suite.apps.cw.session import HELP
 from ic705suite.ui.channels import ChannelSaving
 from ic705suite.ui.widgets import append_keys as _append_keys
-from ic705suite.ui.widgets import css
+from ic705suite.ui.widgets import TextScreen, css
 from ic705suite.rig.transport import TransportError
 from ic705suite.ui import glyphs
 
@@ -232,13 +233,20 @@ class StatsFooter(Static):
         return text
 
 
+KEYS = [
+    N_("Tab / Shift+Tab         choose a skimmer station; Enter tunes it"),
+    N_("F10 skimmer · F11 channels · F2-F9 macros · PgUp/PgDn tune"),
+    N_("Ctrl+P / Ctrl+N         earlier lines · F1 this help · Ctrl+Q back"),
+]
+
+
 class CwApp(ChannelSaving, App[int]):
     CSS = css("ic705suite.apps.cw")
     TITLE = "ic705suite CW"
     ENABLE_COMMAND_PALETTE = False
 
     BINDINGS = [
-        Binding("f1", "command('/help')", show=False, priority=True),
+        Binding("f1", "help", show=False, priority=True),
         *(Binding(f"f{n}", f"command('/macro F{n}')", show=False, priority=True)
           for n in range(2, 10)),
         Binding("f10", "command('/skim')", show=False, priority=True),
@@ -436,10 +444,18 @@ class CwApp(ChannelSaving, App[int]):
         self._history_index = len(self._history)
         if line.lower() in ("/quit", "/q", "/exit"):
             await self.action_leave()
+        elif line.lower() in ("/help", "/h", "/?"):
+            self.action_help()
         elif line.lower() == "/clear":
             self.query_one("#rx", TextPane).clear()
         else:
             await self.action_command(line)
+
+    def action_help(self) -> None:
+        """The commands in a window of their own: the message pane is hidden while skimming."""
+        if not isinstance(self.screen, TextScreen):
+            self.push_screen(TextScreen(_("CW commands"),
+                                        [_(row) for row in HELP] + [""] + [_(row) for row in KEYS]))
 
     async def action_command(self, line: str) -> None:
         self.run_worker(self.link.command(line))

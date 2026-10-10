@@ -81,6 +81,11 @@ ModalScreen {
     border-title-align: left;
 }
 
+.modal.wide {
+    width: 100;
+    max-width: 100%;
+}
+
 .modal-subtitle {
     width: 100%;
     color: $text;

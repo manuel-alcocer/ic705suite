@@ -144,3 +144,18 @@ msgstr "no se puede conectar: {error}"
 
 msgid "wpm"
 msgstr "ppm"
+
+msgid "Esc, Enter or F1 closes"
+msgstr "Esc, Enter o F1 cierra"
+
+msgid "CW commands"
+msgstr "Comandos de CW"
+
+msgid "Tab / Shift+Tab         choose a skimmer station; Enter tunes it"
+msgstr "Tab / Shift+Tab         elige una estación del skimmer; Enter la sintoniza"
+
+msgid "F10 skimmer · F11 channels · F2-F9 macros · PgUp/PgDn tune"
+msgstr "F10 skimmer · F11 canales · F2-F9 macros · PgUp/PgDn sintoniza"
+
+msgid "Ctrl+P / Ctrl+N         earlier lines · F1 this help · Ctrl+Q back"
+msgstr "Ctrl+P / Ctrl+N         líneas anteriores · F1 esta ayuda · Ctrl+Q volver"
