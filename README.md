@@ -73,6 +73,21 @@ or full blocks, square borders. It is chosen by itself when `TERM=linux`; `[ui] 
 
 ## Install and run
 
+On Linux (x86_64) the release carries a self-contained executable, with no Python needed:
+
+```sh
+curl -fsSL https://github.com/manuel-alcocer/ic705suite/releases/latest/download/ic705suite-install.sh | bash
+```
+
+It goes into `~/.local/bin` (`--system` for `/usr/local`, with sudo; `--prefix DIR`
+elsewhere) with an entry in the desktop's menu. The same script, or the `install.sh` inside
+the release's `ic705suite-X.Y.Z-linux-x86_64.tar.gz`, upgrades (`--upgrade`), shows the
+installed version (`--status`) and uninstalls (`--uninstall`; `--purge` deletes the suite's
+settings and data too, but never hamrlog's logbook). Downloads are checked against the
+release's `SHA256SUMS.txt`.
+
+From the source:
+
 ```sh
 uv sync                                # add --extra postgres for PostgreSQL
 uv run ic705suite --init-config        # writes ~/.config/ic705suite/config.toml (edit it)
@@ -174,6 +189,18 @@ and delete them. The phone page can switch the active antenna too.
 uv run pytest                          # ~570 tests: simulator, fake Icom server, Textual pilot
 IC705SUITE_TEST_POSTGRES=postgresql+psycopg://user@host/db uv run pytest tests/test_postgres.py tests/log
 python -m ic705suite.apps.cw.bench     # CW decoder benchmark (character error rate)
+```
+
+Releases: pushing a tag `vX.Y.Z` (the same number as `src/ic705suite/__init__.py`) runs
+`.github/workflows/release.yml`, which tests, builds the executable with PyInstaller
+(`packaging/pyinstaller/ic705suite.spec`), checks that it starts with the simulator, packs it
+with `packaging/linux/install.sh`, tries installing and uninstalling it and publishes the
+release. By hand:
+
+```sh
+uv sync --extra postgres && uv pip install pyinstaller
+uv run pyinstaller --clean --noconfirm packaging/pyinstaller/ic705suite.spec
+./dist/ic705suite --version            # about 47 MB: Python, Textual, numpy, libsndfile, libpq
 ```
 
 Code, comments and base strings are in English; translations are gettext `.po` files read

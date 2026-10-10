@@ -1,0 +1,151 @@
+name: Release
+
+# Builds the self-contained Linux executable of a tag, packs it with its
+# installer and publishes everything as a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+  # By hand, to retry a release that failed halfway.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (for example v0.2.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  meta:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Tag and version
+        id: meta
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          tag="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          case "$tag" in
+            v[0-9]*) ;;
+            *) echo "::error::Not a version tag: $tag"; exit 1 ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+  linux:
+    name: Linux executable and installer
+    needs: meta
+    # Pinned: the binary needs the glibc it was built with or newer, so an
+    # older image runs on more distributions.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      # The postgres extra puts psycopg, with its own libpq, in the bundle.
+      - name: Install the project and PyInstaller
+        run: |
+          uv sync --extra postgres
+          uv pip install pyinstaller
+
+      - name: The tests pass before publishing
+        run: uv run pytest -q
+
+      - name: Build the executable
+        run: uv run pyinstaller --clean --noconfirm packaging/pyinstaller/ic705suite.spec
+
+      - name: The executable starts
+        run: |
+          dist/ic705suite --help >/dev/null
+          test "$(dist/ic705suite --version)" = "ic705suite ${{ needs.meta.outputs.version }}"
+          # The full screen with the simulator, in a terminal, for a few
+          # seconds: it must still be running when the timeout stops it.
+          set +e
+          HOME="$RUNNER_TEMP/home" TERM=xterm-256color \
+            timeout -s INT 10 script -qec "dist/ic705suite --sim" /dev/null >"$RUNNER_TEMP/screen.txt" 2>&1
+          code=$?
+          set -e
+          if [ "$code" != 124 ] || grep -aq Traceback "$RUNNER_TEMP/screen.txt"; then
+            cat "$RUNNER_TEMP/screen.txt"; exit 1
+          fi
+
+      # install.sh installs the executable it finds next to itself; the name
+      # is what install.sh --upgrade looks for in SHA256SUMS.txt.
+      - name: Pack the executable with the installer
+        run: |
+          bundle="ic705suite-${{ needs.meta.outputs.version }}-linux-x86_64"
+          mkdir -p "$bundle" artifacts
+          install -m 755 dist/ic705suite "$bundle/ic705suite"
+          install -m 755 packaging/linux/install.sh "$bundle/install.sh"
+          cp LICENSE README.md "$bundle/"
+          tar -czf "artifacts/$bundle.tar.gz" "$bundle"
+          cp dist/ic705suite artifacts/ic705suite-linux-x86_64
+          cp packaging/linux/install.sh artifacts/ic705suite-install.sh
+
+      - name: Install, check and uninstall
+        run: |
+          bundle="ic705suite-${{ needs.meta.outputs.version }}-linux-x86_64"
+          prefix="$RUNNER_TEMP/prefix"
+          tar -xzf "artifacts/$bundle.tar.gz" -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/$bundle/install.sh" --prefix "$prefix"
+          "$prefix/bin/ic705suite" --version
+          "$RUNNER_TEMP/$bundle/install.sh" --prefix "$prefix" --status
+          "$RUNNER_TEMP/$bundle/install.sh" --prefix "$prefix" --uninstall
+          test ! -e "$prefix/bin/ic705suite"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux
+          path: artifacts/*
+
+  python-package:
+    name: Python package
+    needs: meta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: python-package
+          path: dist/*
+
+  publish:
+    name: Publish the release
+    needs: [meta, linux, python-package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Gather the files and their sums
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          cd release && sha256sum * > SHA256SUMS.txt
+          ls -lh
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.meta.outputs.tag }}
+          name: ${{ needs.meta.outputs.tag }}
+          files: release/*
+          body_path: packaging/release-notes.md
+          generate_release_notes: true
