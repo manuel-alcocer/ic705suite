@@ -6,18 +6,24 @@
     min-height: 12;
 }
 
-#apps-frame {
+#left {
     width: 1fr;
     height: 1fr;
 }
 
+#apps-frame {
+    height: auto;
+}
+
 #apps-frame:focus-within,
+#quicklog:focus-within,
 #controls:focus {
     border: round $accent;
 }
 
 #apps {
-    height: 1fr;
+    height: auto;
+    max-height: 12;
     border: none;
     background: $surface;
     scrollbar-size-horizontal: 0;
@@ -69,4 +75,28 @@
     height: 8;
     padding: 0 1;
     background: $surface;
+}
+
+#quicklog {
+    height: 1fr;
+    min-height: 6;
+    background: $surface;
+}
+
+#qso-input {
+    border: none;
+    height: 1;
+    padding: 0 1;
+    background: $boost;
+}
+
+#qso-input:focus {
+    background: $primary-darken-2;
+}
+
+#qso-today {
+    height: 1fr;
+    border: none;
+    background: $surface;
+    scrollbar-size-horizontal: 0;
 }

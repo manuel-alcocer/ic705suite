@@ -197,7 +197,7 @@ def test_dashboard_settings_and_scope(tmp_path):
                 assert await until(pilot, lambda: app.rig.get("connected")
                                    and app.query_one(Waterfall)._raw)   # the mini scope streams
                 panel = app.query_one("#controls", ControlPanel)
-                await pilot.press("tab")                      # applications -> settings
+                await pilot.press("tab", "tab")               # applications, quick log, settings
                 assert app.focused is panel and panel.selected == "frequency"
                 await pilot.press("enter", *typed("7.010"), "enter")
                 assert await until(pilot, lambda: station.state.frequency == 7_010_000)
@@ -219,6 +219,62 @@ def test_dashboard_settings_and_scope(tmp_path):
                 await pilot.press("tab", "f3")
                 await pilot.pause(0.1)
             assert app.return_value == "cw"
+        finally:
+            await link.close()
+
+    asyncio.run(run())
+
+
+def test_dashboard_quick_log(tmp_path):
+    """A line into hamrlog's log, with the radio's frequency and mode; today's list."""
+    from ic705suite.apps.log.core.services import OperatorService, QsoService, SettingsService
+    from ic705suite.apps.log.db.session import init_engine
+    from ic705suite.dashboard.app import DashboardApp
+    from ic705suite.dashboard.quicklog import QuickLog
+    from ic705suite.launcher import start_link
+    from textual.widgets import DataTable, Input
+
+    init_engine(None)                      # the test's own logbook (tests/conftest.py)
+    operator = OperatorService.create("EA7KLX", "Manuel")
+    state = SettingsService.load_state()
+    state.operator_id = operator.id
+    SettingsService.save_state(state)
+
+    def typed(text):
+        names = {" ": "space", ",": "comma", "?": "question_mark"}
+        return [names.get(c, c) for c in text]
+
+    async def run():
+        link = LocalLink(None, sim_config(tmp_path))
+        start_link(link)
+        DashboardApp.chosen = None
+        app = DashboardApp(link, link.core.config)
+        try:
+            async with app.run_test(size=(150, 44)) as pilot:
+                for _ in range(60):
+                    await pilot.pause(0.05)
+                    if app.rig.get("connected"):
+                        break
+                await pilot.press("tab")                          # applications -> quick log
+                field = app.query_one("#qso-input", Input)
+                assert app.focused is field
+                await pilot.press(*typed("ea7xyz, pepe, 599, 579, sevilla"), "enter")
+                for _ in range(60):
+                    await pilot.pause(0.05)
+                    if app.query_one("#qso-today", DataTable).row_count:
+                        break
+                assert field.value == ""
+                row = QsoService.recent(limit=5)[-1]
+                assert (row.call, row.name, row.rst_sent, row.rst_rcvd) == \
+                    ("EA7XYZ", "Pepe", "599", "579")
+                assert (row.freq_hz, row.band, row.mode) == (7_030_000, "40m", "CW")
+                assert app.query_one("#qso-today", DataTable).row_count == 1
+                await pilot.press(*typed("x"), "enter")          # not a callsign
+                await pilot.pause(0.3)
+                assert field.value == "x" and len(QsoService.recent(limit=5)) == 1
+                await pilot.press("escape", "escape")             # clear, then back
+                assert field.value == "" and app.focused is app.query_one("#apps")
+                assert QuickLog in {type(w) for w in app.query("*")}
         finally:
             await link.close()
 

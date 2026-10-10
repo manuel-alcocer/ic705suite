@@ -390,3 +390,60 @@ msgstr "la antena"
 
 msgid "↑↓ choose · Enter use it · N new · E edit · D delete · Esc back"
 msgstr "↑↓ elegir · Enter usarla · N nueva · E editar · D borrar · Esc volver"
+
+msgid "QTH"
+msgstr "QTH"
+
+msgid "Quick log · today"
+msgstr "Log rápido · hoy"
+
+msgid "RST rcvd"
+msgstr "RST recibido"
+
+msgid "RST sent"
+msgstr "RST enviado"
+
+msgid "Rcvd"
+msgstr "Rec."
+
+msgid "Sent"
+msgstr "Env."
+
+msgid "UTC"
+msgstr "UTC"
+
+msgid "band"
+msgstr "banda"
+
+msgid "call"
+msgstr "indicativo"
+
+msgid "call, name, RST sent, RST rcvd..."
+msgstr "indicativo, nombre, RST enviado, RST recibido..."
+
+msgid "comment"
+msgstr "comentario"
+
+msgid "frequency"
+msgstr "frecuencia"
+
+msgid "locator"
+msgstr "locator"
+
+msgid "logbook not available: {error}"
+msgstr "diario no disponible: {error}"
+
+msgid "logged {call} {where}"
+msgstr "anotado {call} {where}"
+
+msgid "mode"
+msgstr "modo"
+
+msgid "name"
+msgstr "nombre"
+
+msgid "not a contact"
+msgstr "no es un contacto"
+
+msgid "{count} today"
+msgstr "{count} hoy"

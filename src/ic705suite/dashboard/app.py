@@ -1,8 +1,8 @@
 """The dashboard: the suite's first screen, from which every application is opened.
 
-Left, the applications (with what this rig can run); right, the rig at a glance with a small
-band scope and its basic settings, and the station; below, the messages of the core. Tab goes
-from the applications to the settings and back. It returns the id of the application to
+Left, the applications (with what this rig can run) and a quick logbook entry with today's
+contacts; right, the rig at a glance with a small band scope and its basic settings, and the
+station; below, the messages of the core. Tab goes from one window to the next. It returns the id of the application to
 open, or "quit".
 """
 
@@ -15,11 +15,12 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import DataTable, Static
+from textual.widgets import DataTable, Input, Static
 
 from ic705suite import __version__
 from ic705suite.apps import APPS, BY_ID, catalog
 from ic705suite.config import Config
+from ic705suite.dashboard.quicklog import QuickLog
 from ic705suite.i18n import N_, _, render
 from ic705suite.rig import bands
 from ic705suite.rig.base import smeter_text
@@ -211,8 +212,10 @@ class DashboardApp(PanelKeys, ChannelSaving, App[str]):
     def compose(self) -> ComposeResult:
         yield RigStatusLine(self.link.description if self.link else _("no core"), id="statusline")
         with Horizontal(id="top"):
-            with Vertical(id="apps-frame", classes="frame"):
-                yield DataTable(id="apps", cursor_type="row", zebra_stripes=False)
+            with Vertical(id="left"):
+                with Vertical(id="apps-frame", classes="frame"):
+                    yield DataTable(id="apps", cursor_type="row", zebra_stripes=False)
+                yield QuickLog(id="quicklog", classes="frame")
             with Vertical(id="side"):
                 yield RigPanel(id="rig", classes="frame")
                 yield Waterfall(id="scope", classes="frame")
@@ -408,9 +411,20 @@ class DashboardApp(PanelKeys, ChannelSaving, App[str]):
         elif self.focused is self.query_one("#apps", DataTable):
             self.action_open_chosen()
 
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id != "qso-input" or not event.value.strip():
+            return
+        if await self.query_one(QuickLog).submit(event.value, self.rig):
+            event.input.value = ""
+
     async def action_escape(self) -> None:
         panel = self._panel()
-        if self._panel_active() and panel.editing:
+        if isinstance(self.focused, Input) and self.focused.id == "qso-input":
+            if self.focused.value:
+                self.focused.value = ""            # first Esc clears the line
+            else:
+                self.query_one("#apps", DataTable).focus()
+        elif self._panel_active() and panel.editing:
             await self._cancel_edit()
         elif self._panel_active():
             self.query_one("#apps", DataTable).focus()
