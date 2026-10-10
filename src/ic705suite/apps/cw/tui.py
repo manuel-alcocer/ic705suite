@@ -27,6 +27,7 @@ from ic705suite.ui.widgets import append_keys as _append_keys
 from ic705suite.ui.widgets import TextScreen, css
 from ic705suite.rig.transport import TransportError
 from ic705suite.ui import glyphs
+from ic705suite.ui.sysload import with_load
 
 MAX_LINES = 2000
 LINE_HISTORY = 100
@@ -94,7 +95,10 @@ class StatusLine(Static):
         if st.get("power") is not None:
             chunk(_("PWR"), f"{st['power']}%", "white")
         chunk(_("LINK"), self.link_description, "bold blue")
-        return text
+        return with_load(text, self.size.width)
+
+    def on_mount(self) -> None:
+        self.set_interval(2.0, self.refresh)     # CPU and RAM, even with the radio quiet
 
 
 class TextPane(Widget):

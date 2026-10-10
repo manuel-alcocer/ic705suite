@@ -9,6 +9,7 @@ from ic705suite.i18n import _
 from ic705suite.rig import bands
 from ic705suite.rig.base import smeter_text
 from ic705suite.ui import glyphs
+from ic705suite.ui.sysload import with_load
 
 
 def smeter_bar(raw: int, cells: int = 15) -> tuple[str, str]:
@@ -71,4 +72,7 @@ class RigStatusLine(Static):
         for label, value in self.extra:
             chunk(label, value, "white")
         chunk(_("LINK"), self.link_description, "bold blue")
-        return text
+        return with_load(text, self.size.width)
+
+    def on_mount(self) -> None:
+        self.set_interval(2.0, self.refresh)     # CPU and RAM, even with the radio quiet
