@@ -1,8 +1,13 @@
-/* Rig view: a large frequency and the meters in one frame. */
+/* Rig view: frequency and meters on top, the scope in the middle, the front panel below. */
 
-#panel {
-    height: 1fr;
-    padding: 1 2;
+#top {
+    height: 8;
+}
+
+#vfo-frame {
+    width: 1fr;
+    height: 8;
+    padding: 0 1;
     background: $surface;
 }
 
@@ -10,9 +15,26 @@
     width: auto;
     color: $warning;
     text-style: bold;
-    margin-bottom: 1;
+}
+
+#vfo {
+    height: 2;
 }
 
 #meters {
+    width: 46;
+    height: 8;
+    padding: 0 1;
+    background: $surface;
+}
+
+#scope {
+    height: 1fr;
+    min-height: 10;
+}
+
+#panel {
     height: auto;
+    max-height: 14;
+    background: $surface;
 }

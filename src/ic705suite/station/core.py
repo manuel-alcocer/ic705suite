@@ -22,7 +22,10 @@ Events (server -> client), by "type":
 Commands (client -> server):
   hello    {token, client}   must be first on a remote connection
   command  {line, app}       app: "cw" (default) or "rig"
-  call     {id, method, params}  methods: rig, channels, transcript {id, saved},
+  scope    {start, end, center, out_of_range, data}  band scope sweep, data = base64 of
+           one byte per point (0..255); only while a client keeps calling scope.watch
+  call     {id, method, params}  methods: rig, rig.describe, rig.set {id, value},
+           scope.watch {seconds}, channels, transcript {id, saved},
            save_channel {id, name, auto, append, audio}, autosave, cw.activate,
            swr.state, swr.bands, swr.history {band}, swr.sweep {...}, swr.stop, swr.final {coil}
 """
@@ -179,7 +182,8 @@ class Core:
         return {"type": "welcome", "version": PROTOCOL_VERSION, "server": __version__,
                 "radio": self.station.rig.name,
                 "rig": {"model": model.id, "name": model.name, "manufacturer": model.manufacturer,
-                        "features": sorted(model.features)},
+                        "features": sorted(model.features), "modes": list(model.modes),
+                        **self.station.describe()},
                 "apps": catalog(model), "tx_enabled": self.config.tx_enabled,
                 "callsign": self.config.callsign, "macros": dict(self.config.macros),
                 "swr_port": self.swr.port}
@@ -228,6 +232,19 @@ class Core:
         session = self.session
         if method == "rig":
             return self.station.snapshot()
+        if method == "rig.describe":
+            return self.station.describe()
+        if method == "rig.set":
+            try:
+                value = await self.station.set_control(str(params["id"]), params.get("value"))
+            except (ValueError, KeyError, RigError, TransportError) as exc:
+                return {"error": str(exc)}
+            return {"id": params["id"], "value": value}
+        if method == "scope.watch":
+            try:
+                return {"scope": await self.station.scope_watch(float(params.get("seconds", 15)))}
+            except (RigError, TransportError) as exc:
+                return {"error": str(exc)}
         if method == "channels":
             return session.list_channels()
         if method == "transcript":

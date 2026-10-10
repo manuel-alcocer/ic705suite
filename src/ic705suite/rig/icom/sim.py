@@ -19,6 +19,29 @@ from ic705suite.synth import keying_envelope
 from ic705suite.rig.transport import Transport
 
 
+SCOPE_POINTS = 475
+# Settings answered generically: command prefix -> current value bytes.
+DEFAULT_SETTINGS: dict[bytes, bytes] = {
+    **{bytes([0x16, sub]): bytes([value]) for sub, value in (
+        (0x02, 1), (0x12, 2), (0x22, 0), (0x40, 0), (0x41, 0), (0x44, 0), (0x45, 0), (0x46, 0),
+        (0x47, 0), (0x48, 0), (0x4F, 0), (0x50, 0), (0x56, 0), (0x57, 0), (0x58, 1))},
+    b"\x1c\x01": b"\x00",
+    b"\x11": b"\x00", b"\x10": b"\x01", b"\x0f": b"\x00",
+    b"\x21\x00": b"\x00\x00\x00", b"\x21\x01": b"\x00", b"\x21\x02": b"\x00",
+    b"\x27\x10": b"\x00", b"\x27\x11": b"\x00",
+    b"\x27\x14\x00": b"\x00", b"\x27\x15\x00": civ.encode_frequency(25_000),
+    b"\x27\x16\x00": b"\x01", b"\x27\x17\x00": b"\x00", b"\x27\x19\x00": b"\x00\x00\x00",
+    b"\x27\x1a\x00": b"\x01", b"\x27\x1d\x00": b"\x00",
+}
+
+
+def _setting_prefix(body: bytes) -> bytes | None:
+    for length in (3, 2, 1):
+        if body[:length] in DEFAULT_SETTINGS:
+            return body[:length]
+    return None
+
+
 @dataclass
 class SimStation:
     freq: int
@@ -71,6 +94,10 @@ class SimTransport(Transport):
         self.data_mode = (0, 0)
         self.ptt = False
         self.antenna_resonance = 7_100_000   # simulated antenna: SWR 1.1 here, rising away
+        # Every other setting (levels, switches, scope) is kept by its command prefix.
+        self.settings: dict[bytes, bytes] = dict(DEFAULT_SETTINGS)
+        self.scope_frames = 0
+        self._scope_task: asyncio.Task | None = None
         self.sent_text: list[str] = []
         self._tx_until = 0.0
         self._t = 0
@@ -98,6 +125,9 @@ class SimTransport(Transport):
         if self._task:
             self._task.cancel()
             self._task = None
+        if self._scope_task:
+            self._scope_task.cancel()
+            self._scope_task = None
 
     # ---- CI-V -----------------------------------------------------------------------------
 
@@ -127,17 +157,32 @@ class SimTransport(Transport):
             return ok
         if body[:2] == b"\x15\x02":
             return b"\x15\x02" + civ.encode_level(self.smeter)
-        if cmd == 0x14 and data and data[0] in self.levels:
+        if cmd == 0x14 and data:
             if len(data) == 1:
-                return body + civ.encode_level(self.levels[data[0]])
+                return body + civ.encode_level(self.levels.get(data[0], 128))
             self.levels[data[0]] = civ.decode_level(data[1:3])
             return ok
+        if cmd == 0x07:
+            return ok
+        prefix = _setting_prefix(body)
+        if prefix is not None and prefix in self.settings:
+            value = body[len(prefix):]
+            if not value:
+                return prefix + self.settings[prefix]
+            self.settings[prefix] = bytes(value)
+            if prefix in (b"\x27\x10", b"\x27\x11"):
+                self._scope_switch()
+            return ok
+        if body[:2] in (b"\x15\x13", b"\x15\x14"):
+            return body[:2] + civ.encode_level(0)
+        if body[:2] == b"\x15\x15":
+            return body[:2] + civ.encode_level(102)        # about 6.8 V: two Li-ion cells
+        if body[:2] == b"\x15\x16":
+            return body[:2] + civ.encode_level(18 if not self.ptt else 120)
         if body[:2] == b"\x1a\x03":
             if len(data) == 1:
                 return body + bytes([civ.encode_bcd_byte(self.filter_index)])
             self.filter_index = civ.decode_bcd_byte(data[1])
-            return ok
-        if body[:2] == b"\x16\x47":
             return ok
         if body[:2] == b"\x1a\x06":
             if len(data) == 1:
@@ -169,6 +214,61 @@ class SimTransport(Transport):
             self._tx_until = start + morse.text_duration(text, self.key_wpm)
             return ok
         return ng
+
+    # ---- band scope ---------------------------------------------------------------------
+
+    def _scope_switch(self) -> None:
+        on = self.settings[b"\x27\x10"] == b"\x01" and self.settings[b"\x27\x11"] == b"\x01"
+        if on and self._scope_task is None:
+            self._scope_task = asyncio.get_running_loop().create_task(self._scope_loop())
+        elif not on and self._scope_task is not None:
+            self._scope_task.cancel()
+            self._scope_task = None
+
+    async def _scope_loop(self) -> None:
+        while True:
+            speed = self.settings[b"\x27\x1a\x00"][0]
+            await asyncio.sleep((0.08, 0.15, 0.3)[min(2, speed)])
+            if self.settings[b"\x27\x17\x00"] == b"\x01":
+                continue                                    # hold
+            self._emit_civ(civ.build_frame(civ.CONTROLLER_ADDR, self.scope_frame(),
+                                           src=civ.IC705_ADDR))
+            self.scope_frames += 1
+
+    def scope_frame(self, points: int = SCOPE_POINTS) -> bytes:
+        """One sweep as the IC-705 sends it over the network: 27 00, main 00, sequence
+        01 of 01, mode, two frequencies, out-of-range flag and the 475 amplitudes."""
+        mode = self.settings[b"\x27\x14\x00"][0]
+        if mode in (0, 2):
+            half = civ.decode_frequency(self.settings[b"\x27\x15\x00"])
+            start, end, f1, f2 = self.frequency - half, self.frequency + half, self.frequency, half
+        else:
+            from ic705suite.rig.bands import band_for
+
+            band = band_for(self.frequency)
+            start, end = (band.start, band.end) if band else (self.frequency - 25_000,
+                                                              self.frequency + 25_000)
+            f1, f2 = start, end
+        ref = civ.decode_level(self.settings[b"\x27\x19\x00"][:2]) / 100
+        if self.settings[b"\x27\x19\x00"][2:3] == b"\x01":
+            ref = -ref
+        hz = start + np.arange(points) * (end - start) / (points - 1)
+        floor = 30 + 3 * ref
+        levels = floor + 8 * self._rng.random(points)
+        bin_hz = (end - start) / points
+        t = self._t
+        for st in self.stations:
+            if not start <= st.freq <= end:
+                continue
+            keyed = 1.0 if st.envelope is None else float(st.envelope[t % len(st.envelope)])
+            if keyed < 0.5:
+                continue
+            peak = floor + 40 + 160 * st.amplitude
+            spread = np.exp(-0.5 * ((hz - st.freq) / max(60.0, bin_hz)) ** 2)
+            levels = np.maximum(levels, peak * spread)
+        data = bytes(int(v) for v in np.clip(levels, 0, 160))
+        return (b"\x27\x00\x00\x01\x01" + bytes([mode]) + civ.encode_frequency(f1)
+                + civ.encode_frequency(f2) + b"\x00" + data)
 
     # ---- audio ------------------------------------------------------------------------------
 

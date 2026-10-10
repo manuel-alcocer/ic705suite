@@ -1,0 +1,361 @@
+# Spanish translations of the rig view: controls, meters, scope.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "/f 7.030 · /b 40 · /mode USB · /set af 40 · Esc back"
+msgstr "/f 7.030 · /b 40 · /mode USB · /set af 40 · Esc volver"
+
+msgid "/set <control> <value>  any front-panel control, e.g. /set af 40, /set agc fast"
+msgstr "/set <control> <valor>  cualquier control del panel, p. ej. /set af 40, /set agc slow"
+
+msgid "AGC speed"
+msgstr "Velocidad del AGC"
+
+msgid "Anti-VOX gain"
+msgstr "Ganancia anti-VOX"
+
+msgid "Attenuator (HF and 50 MHz)"
+msgstr "Atenuador (HF y 50 MHz)"
+
+msgid "Audio volume"
+msgstr "Volumen de audio"
+
+msgid "Automatic notch filter"
+msgstr "Filtro de muesca automático"
+
+msgid "Break-in (refused in receive-only mode: the key would transmit)"
+msgstr "Break-in (rechazado en solo recepción: el manipulador transmitiría)"
+
+msgid "Break-in delay (dots)"
+msgstr "Retardo de break-in (puntos)"
+
+msgid "C.lvl"
+msgstr "C.niv"
+
+msgid "CW pitch"
+msgstr "Tono de CW"
+
+msgid "Compressor level (0-10)"
+msgstr "Nivel del compresor (0-10)"
+
+msgid "DELAY"
+msgstr "RETARDO"
+
+msgid "DSP IF filter shape"
+msgstr "Forma del filtro FI del DSP"
+
+msgid "Data mode (USB-D, LSB-D...)"
+msgstr "Modo datos (USB-D, LSB-D...)"
+
+msgid "Dial lock"
+msgstr "Bloqueo del dial"
+
+msgid "Filter"
+msgstr "Filtro"
+
+msgid "Fixed edges set (fixed mode)"
+msgstr "Juego de bordes fijos (modo fijo)"
+
+msgid "Freeze the scope"
+msgstr "Congelar el espectro"
+
+msgid "Front panel"
+msgstr "Panel frontal"
+
+msgid "IF filter preset"
+msgstr "Filtro FI predefinido"
+
+msgid "IF filter width"
+msgstr "Ancho del filtro FI"
+
+msgid "Keyer speed"
+msgstr "Velocidad del manipulador"
+
+msgid "LOCK"
+msgstr "BLOQ"
+
+msgid "MON g"
+msgstr "MON g"
+
+msgid "Manual notch filter"
+msgstr "Filtro de muesca manual"
+
+msgid "Manual notch position"
+msgstr "Posición de la muesca manual"
+
+msgid "Manual notch width"
+msgstr "Ancho de la muesca manual"
+
+msgid "Meters"
+msgstr "Medidores"
+
+msgid "Microphone gain"
+msgstr "Ganancia del micrófono"
+
+msgid "Monitor gain"
+msgstr "Ganancia del monitor"
+
+msgid "N.wid"
+msgstr "M.anch"
+
+msgid "NB lvl"
+msgstr "NB niv"
+
+msgid "NR lvl"
+msgstr "NR niv"
+
+msgid "Noise blanker"
+msgstr "Supresor de ruido (NB)"
+
+msgid "Noise blanker level"
+msgstr "Nivel del supresor de ruido"
+
+msgid "Noise reduction"
+msgstr "Reducción de ruido (NR)"
+
+msgid "Noise reduction level"
+msgstr "Nivel de reducción de ruido"
+
+msgid "PgUp/PgDn Tune · Tab ←→ Controls · Esc Back"
+msgstr "PgUp/PgDn Sintonizar · Tab ←→ Controles · Esc Volver"
+
+msgid "PgUp/PgDn Tune · Tab ←→ Controls · F2 Step · F3 Mode · F4-F5 Band · F6 Filter · [ ] Contrast · / Command · Esc Back"
+msgstr "PgUp/PgDn Sintonizar · Tab ←→ Controles · F2 Paso · F3 Modo · F4-F5 Banda · F6 Filtro · [ ] Contraste · / Orden · Esc Volver"
+
+msgid "Preamplifier (on 144/430 MHz P.AMP1 means on)"
+msgstr "Preamplificador (en 144/430 MHz P.AMP1 es encendido)"
+
+msgid "RF gain"
+msgstr "Ganancia de RF"
+
+msgid "RF power"
+msgstr "Potencia de RF"
+
+msgid "RIT Hz"
+msgstr "RIT Hz"
+
+msgid "RIT offset"
+msgstr "Desplazamiento del RIT"
+
+msgid "Receive incremental tuning"
+msgstr "Sintonía incremental de recepción (RIT)"
+
+msgid "SSB transmit bandwidth"
+msgstr "Ancho de banda de transmisión en SSB"
+
+msgid "Scope"
+msgstr "Espectro"
+
+msgid "Scope mode: centred on the dial or fixed edges"
+msgstr "Modo del espectro: centrado en el dial o bordes fijos"
+
+msgid "Scope reference level"
+msgstr "Nivel de referencia del espectro"
+
+msgid "Scope span (centre mode)"
+msgstr "Anchura del espectro (modo centrado)"
+
+msgid "Scope sweep speed"
+msgstr "Velocidad de barrido del espectro"
+
+msgid "Shape"
+msgstr "Forma"
+
+msgid "Speech compressor"
+msgstr "Compresor de voz"
+
+msgid "Split operation"
+msgstr "Operación en split"
+
+msgid "Squelch"
+msgstr "Silenciador (squelch)"
+
+msgid "Transmit frequency offset"
+msgstr "Desplazamiento de la frecuencia de transmisión"
+
+msgid "Transmit monitor"
+msgstr "Monitor de transmisión"
+
+msgid "Tuning step of the radio's dial"
+msgstr "Paso de sintonía del dial de la radio"
+
+msgid "Twin PBT inner (narrows the passband from one side)"
+msgstr "Twin PBT interior (estrecha la banda de paso por un lado)"
+
+msgid "Twin PBT outer (narrows the passband from the other side)"
+msgstr "Twin PBT exterior (estrecha la banda de paso por el otro lado)"
+
+msgid "Twin peak filter (RTTY)"
+msgstr "Filtro de doble pico (RTTY)"
+
+msgid "VFO A or B (A=B: /raw 07 a0, swap: /raw 07 b0)"
+msgstr "VFO A o B (A=B: /raw 07 a0, intercambiar: /raw 07 b0)"
+
+msgid "VOX (refused in receive-only mode: the voice would key the radio)"
+msgstr "VOX (rechazado en solo recepción: la voz haría transmitir a la radio)"
+
+msgid "VOX g"
+msgstr "VOX g"
+
+msgid "VOX gain"
+msgstr "Ganancia del VOX"
+
+msgid "Video bandwidth"
+msgstr "Ancho de banda de vídeo"
+
+msgid "Width"
+msgstr "Ancho"
+
+msgid "centre"
+msgstr "centrado"
+
+msgid "fast"
+msgstr "rápido"
+
+msgid "fixed"
+msgstr "fijo"
+
+msgid "full"
+msgstr "completo"
+
+msgid "mid"
+msgstr "medio"
+
+msgid "narrow"
+msgstr "estrecho"
+
+msgid "out of range"
+msgstr "fuera de rango"
+
+msgid "scroll-C"
+msgstr "desplaz.-C"
+
+msgid "scroll-F"
+msgstr "desplaz.-F"
+
+msgid "semi"
+msgstr "semi"
+
+msgid "sharp"
+msgstr "nítido"
+
+msgid "slow"
+msgstr "lento"
+
+msgid "soft"
+msgstr "suave"
+
+msgid "waterfall floor {floor:.0f} %"
+msgstr "fondo de la cascada {floor:.0f} %"
+
+msgid "wide"
+msgstr "ancho"
+
+msgid "{control} = {value}"
+msgstr "{control} = {value}"
+
+msgid "A-VOX"
+msgstr "A-VOX"
+
+msgid "AF"
+msgstr "AF"
+
+msgid "AGC"
+msgstr "AGC"
+
+msgid "ANF"
+msgstr "ANF"
+
+msgid "ATT"
+msgstr "ATT"
+
+msgid "BK-IN"
+msgstr "BK-IN"
+
+msgid "COMP"
+msgstr "COMP"
+
+msgid "DATA"
+msgstr "DATA"
+
+msgid "DSP"
+msgstr "DSP"
+
+msgid "EDGE"
+msgstr "EDGE"
+
+msgid "FIL"
+msgstr "FIL"
+
+msgid "HOLD"
+msgstr "HOLD"
+
+msgid "MIC"
+msgstr "MIC"
+
+msgid "MNF"
+msgstr "MNF"
+
+msgid "MON"
+msgstr "MON"
+
+msgid "NB"
+msgstr "NB"
+
+msgid "NR"
+msgstr "NR"
+
+msgid "Notch"
+msgstr "Notch"
+
+msgid "P.AMP"
+msgstr "P.AMP"
+
+msgid "PBT1"
+msgstr "PBT1"
+
+msgid "PBT2"
+msgstr "PBT2"
+
+msgid "Po"
+msgstr "Po"
+
+msgid "REF"
+msgstr "REF"
+
+msgid "RF"
+msgstr "RF"
+
+msgid "RIT"
+msgstr "RIT"
+
+msgid "SPAN"
+msgstr "SPAN"
+
+msgid "SPLIT"
+msgstr "SPLIT"
+
+msgid "SQL"
+msgstr "SQL"
+
+msgid "TBW"
+msgstr "TBW"
+
+msgid "TPF"
+msgstr "TPF"
+
+msgid "TS"
+msgstr "TS"
+
+msgid "VBW"
+msgstr "VBW"
+
+msgid "VFO"
+msgstr "VFO"
+
+msgid "VOX"
+msgstr "VOX"
+
+msgid "ΔTX"
+msgstr "ΔTX"

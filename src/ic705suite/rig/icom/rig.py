@@ -10,7 +10,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from ic705suite import morse
-from ic705suite.rig.base import Rig, RigError, RigModel, TxDisabledError
+from ic705suite.rig.base import Meter, Rig, RigError, RigModel, ScopeFrame, TxDisabledError
+from ic705suite.rig.controls import Control
+from ic705suite.rig.icom.controls import SPECIAL_CONTROLS
 from ic705suite.rig.icom import civ
 from ic705suite.rig.transport import Transport, TransportError
 
@@ -28,12 +30,24 @@ BREAK_IN_SEMI = 0x01
 PITCH_MIN, PITCH_MAX = 300, 900
 WPM_MIN, WPM_MAX = 6, 48
 
-# Commands that can make the radio transmit: 0x17 (send CW) and 0x1C (PTT, tuner).
-# Only the two that stop a transmission are let through in receive-only mode.
-TX_COMMANDS = (0x17, 0x1C)
 STOP_CW = b"\x17\xff"
 PTT_OFF = b"\x1c\x00\x00"
-ALWAYS_ALLOWED = (STOP_CW, PTT_OFF)
+
+
+def keys_transmitter(body: bytes) -> bool:
+    """Whether a command can make the radio transmit, or arms it to transmit on its own
+    (IC-705 CI-V reference: send CW, PTT on, tuner TUNE, voice TX memory, VOX, break-in).
+    Reads (no data) and the commands that stop a transmission are never blocked."""
+    if body[:1] == b"\x17":
+        return body != STOP_CW
+    data = body[2:3]
+    if body[:2] == b"\x1c\x00":
+        return data == b"\x01"
+    if body[:2] == b"\x1c\x01":
+        return data == b"\x02"            # TUNE sends a carrier
+    if body[:2] in (b"\x28\x00", b"\x16\x46", b"\x16\x47"):
+        return bool(data) and data != b"\x00"
+    return False
 
 # Meter calibration points from the IC-705 CI-V reference.
 SWR_POINTS = [(0, 1.0), (48, 1.5), (80, 2.0), (120, 3.0)]   # 0x15 0x12
@@ -96,6 +110,11 @@ class IcomRig(Rig):
         self._parser = civ.CivParser()
         self._lock = asyncio.Lock()
         self._pending: tuple[bytes | None, asyncio.Future[civ.CivFrame]] | None = None
+        self._controls = {c.control.id: c for c in model.params.get("controls", ())}
+        self._meters = {m.meter.id: m for m in model.params.get("meters", ())}
+        self._vfo: str | None = None          # the radio cannot be asked which VFO is in use
+        self._scope_header: tuple[int, int, bool, bool] | None = None
+        self._scope_data = bytearray()
         transport.on_civ = self._on_civ
 
     async def connect(self) -> None:
@@ -114,6 +133,9 @@ class IcomRig(Rig):
         for frame in self._parser.feed(data):
             if frame.src != self.address or frame.dst not in (civ.CONTROLLER_ADDR, civ.BROADCAST_ADDR):
                 continue  # echo of our own command or traffic for another controller
+            if frame.body[:2] == b"\x27\x00":
+                self._scope_frame(frame.body[2:])
+                continue
             self._update_state(frame)
             if self._pending is not None:
                 prefix, future = self._pending
@@ -145,8 +167,7 @@ class IcomRig(Rig):
         reply_prefix=None waits for OK/NG (set commands); otherwise waits for a frame whose
         body starts with reply_prefix (read commands).
         """
-        if not self.tx_enabled and body[:1] and body[0] in TX_COMMANDS \
-                and body not in ALWAYS_ALLOWED:
+        if not self.tx_enabled and keys_transmitter(body):
             raise TxDisabledError("transmit disabled (receive-only mode; start with --tx to enable)")
         async with self._lock:
             last_error: Exception | None = None
@@ -173,6 +194,109 @@ class IcomRig(Rig):
     async def _read_level(self, prefix: bytes) -> int:
         frame = await self.transact(prefix, prefix)
         return civ.decode_level(frame.body[2:4])
+
+    # ---- band scope -----------------------------------------------------------------------
+
+    async def scope_output(self, on: bool) -> None:
+        # Both the scope and its data output must be on for 27 00 frames to stream.
+        if on:
+            await self.transact(b"\x27\x10\x01")
+        await self.transact(b"\x27\x11" + (b"\x01" if on else b"\x00"))
+
+    def _scope_frame(self, data: bytes) -> None:
+        """27 00 frames: over the network a whole sweep in one frame (sequence 1 of 1);
+        over USB a header frame and then the points in up to ten more."""
+        if len(data) < 3:
+            return
+        seq, total = civ.decode_bcd_byte(data[1]), civ.decode_bcd_byte(data[2])
+        if seq == 1:
+            if len(data) < 15:
+                return
+            mode = data[3]
+            f1, f2 = civ.decode_frequency(data[4:9]), civ.decode_frequency(data[9:14])
+            centred = mode in (0, 2)
+            start, end = (f1 - f2, f1 + f2) if centred else (f1, f2)
+            out_of_range = len(data) > 14 and data[14] == 1
+            self._scope_header = (start, end, centred, out_of_range)
+            self._scope_data = bytearray(data[15:])
+            if total == 1 or out_of_range:
+                self._emit_scope()
+            return
+        if self._scope_header is None:
+            return
+        self._scope_data += data[3:]
+        if seq == total:
+            self._emit_scope()
+
+    def _emit_scope(self) -> None:
+        start, end, centred, out_of_range = self._scope_header
+        top = self.model.params.get("scope_amplitude", 160)
+        points = self.model.params.get("scope_points", 475)
+        if out_of_range or not self._scope_data:
+            amplitudes = [0.0] * points
+        else:
+            amplitudes = [min(1.0, b / top) for b in self._scope_data]
+        self._scope_header, self._scope_data = None, bytearray()
+        if self.on_scope:
+            self.on_scope(ScopeFrame(start, end, amplitudes, centred, out_of_range))
+
+    # ---- front panel ----------------------------------------------------------------------
+
+    def controls(self) -> list[Control]:
+        return [c.control for c in self._controls.values()] + list(SPECIAL_CONTROLS)
+
+    def meters(self) -> list[Meter]:
+        return [m.meter for m in self._meters.values()]
+
+    async def read_meter(self, meter_id: str) -> float:
+        meter = self._meters.get(meter_id)
+        if meter is None:
+            raise RigError(f"{self.model.name}: no meter {meter_id}")
+        return meter.value(await self._read_level(meter.command))
+
+    async def read_control(self, control_id: str):
+        if control_id == "filter":
+            return str((await self.read_mode_raw())[1])
+        if control_id == "filter_width":
+            return await self.read_filter_width()
+        if control_id == "data_mode":
+            return bool((await self.read_data_mode())[0])
+        if control_id == "vfo":
+            return self._vfo
+        spec = self._controls.get(control_id)
+        if spec is None:
+            raise RigError(f"{self.model.name}: no control {control_id}")
+        frame = await self.transact(spec.command, spec.command)
+        data = frame.body[len(spec.command):]
+        if not data:
+            raise RigError(f"{self.model.name}: empty answer for {control_id}")
+        return spec.decode(data)
+
+    async def set_control(self, control_id: str, value) -> None:
+        if control_id == "filter":
+            mode, _ = await self.read_mode_raw()
+            await self.set_mode_raw(mode, int(value))
+            return
+        if control_id == "filter_width":
+            await self.set_filter_width(int(value))
+            return
+        if control_id == "data_mode":
+            _, filt = await self.read_mode_raw()
+            await self.set_data_mode(1 if value else 0, filt)
+            return
+        if control_id == "vfo":
+            await self.transact(b"\x07" + (b"\x01" if value == "B" else b"\x00"))
+            self._vfo = "B" if value == "B" else "A"
+            return
+        spec = self._controls.get(control_id)
+        if spec is None:
+            raise RigError(f"{self.model.name}: no control {control_id}")
+        armed = spec.arms_tx
+        if not self.tx_enabled and armed is not None and \
+                (value in armed if isinstance(armed, tuple) else value == armed):
+            raise TxDisabledError(f"{control_id} would let the radio transmit "
+                                  "(receive-only mode; start with --tx to enable)")
+        await self.transact(spec.command + spec.encode(value))
 
     # ---- frequency and mode -------------------------------------------------------------
 
@@ -215,10 +339,17 @@ class IcomRig(Rig):
 
     async def read_filter_width(self) -> int:
         frame = await self.transact(b"\x1a\x03", b"\x1a\x03")
-        return filter_index_to_width(civ.decode_bcd_byte(frame.body[2]))
+        index = civ.decode_bcd_byte(frame.body[2])
+        if self.state.mode == "AM":
+            return (index + 1) * 200          # AM: 200 Hz to 10 kHz in 200 Hz steps
+        return filter_index_to_width(index)
 
     async def set_filter_width(self, hz: int) -> None:
-        await self.transact(b"\x1a\x03" + bytes([civ.encode_bcd_byte(filter_width_to_index(hz))]))
+        if self.state.mode == "AM":
+            index = max(0, min(49, round(hz / 200) - 1))
+        else:
+            index = filter_width_to_index(hz)
+        await self.transact(b"\x1a\x03" + bytes([civ.encode_bcd_byte(index)]))
 
     async def set_power(self, percent: int) -> None:
         percent = max(0, min(100, percent))

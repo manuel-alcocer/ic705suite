@@ -15,6 +15,7 @@ from ic705suite.rig.base import (
     FEATURE_SWR_METER,
     RigModel,
 )
+from ic705suite.rig.icom.controls import IC705_CONTROLS, IC705_METERS, SCOPE_AMPLITUDE_MAX
 
 IC705 = RigModel(
     id="ic705",
@@ -27,7 +28,8 @@ IC705 = RigModel(
     ranges=((30_000, 199_999_999), (400_000_000, 470_000_000)),
     max_power_w=10.0,
     modes=("LSB", "USB", "AM", "CW", "CW-R", "RTTY", "RTTY-R", "FM", "WFM", "DV"),
-    params={"civ_address": 0xA4},
+    params={"civ_address": 0xA4, "controls": IC705_CONTROLS, "meters": IC705_METERS,
+            "scope_points": 475, "scope_amplitude": SCOPE_AMPLITUDE_MAX},
 )
 
 MODELS = (IC705,)

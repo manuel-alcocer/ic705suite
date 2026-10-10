@@ -10,6 +10,7 @@ can all run at the same time against a radio that accepts a single remote client
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import logging
 import wave
@@ -43,8 +44,10 @@ RIG_HELP = [
     N_('/mode <mode>            operating mode (USB LSB CW CW-R AM FM RTTY DV...)'),
     N_('/power <%>              RF power                 /filter <Hz> IF filter width'),
     N_('/raw <hex>              send a raw CI-V command body, e.g. /raw 03'),
+    N_('/set <control> <value>  any front-panel control, e.g. /set af 40, /set agc fast'),
 ]
-RIG_COMMANDS = {"f": "freq", "freq": "freq", "b": "band", "band": "band", "up": "up",
+SCOPE_INTERVAL = 0.1   # at most 10 scope frames a second to the clients
+RIG_COMMANDS = {"set": "set", "f": "freq", "freq": "freq", "b": "band", "band": "band", "up": "up",
                 "down": "down", "mode": "mode", "power": "power", "filter": "filter", "raw": "raw"}
 
 
@@ -74,8 +77,15 @@ class Station:
         self._recorded = 0
         self._tasks: list[asyncio.Task] = []
         self._reconnect_task: asyncio.Task | None = None
+        self.unsupported: set[str] = set()   # controls the radio refused to read
+        self._control_turn = 0
+        self.scope_on = False
+        self._scope_until = 0.0          # scope output stays on while viewers keep asking
+        self._scope_sent = 0.0
+        self.scope_frames = 0
         rig.transport.on_audio = self._on_audio
         rig.transport.on_disconnect = self._on_disconnect
+        rig.on_scope = self._on_scope
 
     @property
     def transport(self):
@@ -141,12 +151,16 @@ class Station:
                                     "(Ctrl-C to give up)"))
                     warned = True
                 await self.rig.close()
-        self._tasks = [asyncio.create_task(self._poll_loop())]
+        self._tasks = [asyncio.create_task(self._poll_loop()),
+                       asyncio.create_task(self._scope_keeper())]
 
     async def stop(self) -> None:
         for task in [*self._tasks, self._reconnect_task]:
             if task is not None:
                 task.cancel()
+        if self.connected and self.scope_on:
+            with contextlib.suppress(RigError, TransportError):
+                await self.rig.scope_output(False)
         await self.rig.close()
         self.connected = False
         self.stop_recording()
@@ -167,6 +181,10 @@ class Station:
         state.mode = await self.rig.read_mode()
         with contextlib.suppress(RigError):
             await self.rig.read_power()
+        await self._read_controls()
+        if self.scope_on:   # back after a reconnection with viewers waiting
+            with contextlib.suppress(RigError):
+                await self.rig.scope_output(True)
         if not self.config.tx_enabled:
             self.ui.info(N_("receive-only mode: transmission disabled (--tx to enable)"))
 
@@ -238,9 +256,98 @@ class Station:
                         self._notify_tune(old, freq)
                 if tick % 8 == 0:
                     self.rig.state.mode = await self.rig.read_mode()
+                await self._poll_meters(tick)
+                if tick % 2 == 0:
+                    await self._poll_next_control()
             except (RigError, TransportError) as exc:
                 log.debug("poll: %s", exc)
             self.ui.status_changed()
+
+    async def _poll_meters(self, tick: int) -> None:
+        meters = self.rig.state.meters
+        meters["s"] = self.rig.state.smeter
+        for meter in self.rig.meters():
+            if meter.id == "s":
+                continue
+            due = self.rig.state.transmitting if meter.tx_only else tick % 8 == 4
+            if due:
+                with contextlib.suppress(RigError):
+                    meters[meter.id] = await self.rig.read_meter(meter.id)
+
+    async def _poll_next_control(self) -> None:
+        """One control per turn, so knobs turned on the radio show up within seconds."""
+        controls = [c for c in self.rig.controls() if c.id not in self.unsupported]
+        if not controls:
+            return
+        control = controls[self._control_turn % len(controls)]
+        self._control_turn += 1
+        with contextlib.suppress(RigError):
+            self.rig.state.controls[control.id] = await self.rig.read_control(control.id)
+
+    async def _read_controls(self) -> None:
+        for control in self.rig.controls():
+            try:
+                self.rig.state.controls[control.id] = await self.rig.read_control(control.id)
+            except RigError as exc:
+                log.info("control %s not available: %s", control.id, exc)
+                self.unsupported.add(control.id)
+
+    # ---- front panel ----------------------------------------------------------------------
+
+    def describe(self) -> dict:
+        """Controls and meters of this rig, for the clients (sent in the welcome)."""
+        return {"controls": [c.as_dict() for c in self.rig.controls()
+                             if c.id not in self.unsupported],
+                "meters": [{"id": m.id, "label": m.label, "unit": m.unit, "maximum": m.maximum,
+                            "tx_only": m.tx_only} for m in self.rig.meters()]}
+
+    async def set_control(self, control_id: str, value) -> object:
+        control = next((c for c in self.rig.controls() if c.id == control_id), None)
+        if control is None:
+            raise ValueError(f"no control {control_id}")
+        if isinstance(value, str):
+            value = control.parse(value)
+        await self.rig.set_control(control_id, value)
+        with contextlib.suppress(RigError):
+            value = await self.rig.read_control(control_id)
+        self.rig.state.controls[control_id] = value
+        self.ui.status_changed()
+        return value
+
+    # ---- band scope -----------------------------------------------------------------------
+
+    async def scope_watch(self, seconds: float = 15.0) -> bool:
+        """A viewer wants the scope for the next `seconds` (it asks again to keep it)."""
+        if not self.model.has("scope"):
+            return False
+        self._scope_until = asyncio.get_running_loop().time() + seconds
+        if not self.scope_on and self.connected:
+            await self.rig.scope_output(True)
+            self.scope_on = True
+        return True
+
+    async def _scope_keeper(self) -> None:
+        while True:
+            await asyncio.sleep(2.0)
+            if self.scope_on and asyncio.get_running_loop().time() > self._scope_until:
+                self.scope_on = False
+                if self.connected:
+                    with contextlib.suppress(RigError, TransportError):
+                        await self.rig.scope_output(False)
+
+    def _on_scope(self, frame) -> None:
+        self.scope_frames += 1
+        loop = asyncio.get_running_loop()
+        if loop.time() - self._scope_sent < SCOPE_INTERVAL:
+            return
+        self._scope_sent = loop.time()
+        emit = getattr(self.ui, "emit", None)
+        if emit is None:
+            return
+        data = bytes(min(255, max(0, round(a * 255))) for a in frame.amplitudes)
+        emit({"type": "scope", "start": frame.start, "end": frame.end,
+              "center": frame.center_mode, "out_of_range": frame.out_of_range,
+              "data": base64.b64encode(data).decode("ascii")})
 
     # ---- rig commands -------------------------------------------------------------------
 
@@ -275,6 +382,9 @@ class Station:
             "tx_enabled": self.config.tx_enabled,
             "transmitting": st.transmitting,
             "recording": self._recorder is not None,
+            "controls": dict(st.controls),
+            "meters": dict(st.meters),
+            "scope": self.scope_on,
         }
 
     async def execute(self, line: str) -> bool:
@@ -293,6 +403,10 @@ class Station:
         except (RigError, TransportError) as exc:
             self.ui.error(N_("{error}"), error=str(exc))
         return True
+
+    async def _cmd_set(self, args: list[str]) -> None:
+        value = await self.set_control(args[0].lower(), " ".join(args[1:]))
+        self.ui.info(N_("{control} = {value}"), control=args[0].lower(), value=str(value))
 
     async def _cmd_freq(self, args: list[str]) -> None:
         await self.tune(bands.parse_frequency(args[0]))

@@ -69,6 +69,27 @@ class RigState:
     key_wpm: int = 20
     power: int | None = None   # percent
     transmitting: bool = False
+    controls: dict = field(default_factory=dict)   # control id -> value (see rig.controls)
+    meters: dict = field(default_factory=dict)     # meter id -> value in its unit
+
+
+@dataclass(frozen=True)
+class Meter:
+    id: str              # "s", "po", "swr", "alc", "comp", "vd", "id"
+    label: str           # N_() marked
+    unit: str
+    maximum: float
+    tx_only: bool = False
+
+
+@dataclass
+class ScopeFrame:
+    """One sweep of the band scope: amplitudes 0..1 from `start` to `end` Hz."""
+    start: int
+    end: int
+    amplitudes: list[float]
+    center_mode: bool = True       # centred on the dial (False: fixed edges)
+    out_of_range: bool = False
 
 
 def smeter_text(raw: int) -> str:
@@ -90,6 +111,7 @@ class Rig(abc.ABC):
         self.tx_enabled = False
         self.state = RigState()
         self.on_state: Callable[[], None] | None = None
+        self.on_scope: Callable[[ScopeFrame], None] | None = None
 
     @property
     def name(self) -> str:
@@ -137,6 +159,28 @@ class Rig(abc.ABC):
     async def raw(self, data: bytes) -> bytes:
         """Send a protocol command as is (debugging) and return the answer."""
         raise RigError(f"{self.model.name}: raw commands are not supported")
+
+    # ---- front panel ----------------------------------------------------------------------
+
+    def controls(self) -> list:
+        """The rig.controls.Control descriptions this rig can read and set."""
+        return []
+
+    async def read_control(self, control_id: str):
+        raise RigError(f"{self.model.name}: no control {control_id}")
+
+    async def set_control(self, control_id: str, value) -> None:
+        raise RigError(f"{self.model.name}: no control {control_id}")
+
+    def meters(self) -> list[Meter]:
+        return []
+
+    async def read_meter(self, meter_id: str) -> float:
+        raise RigError(f"{self.model.name}: no meter {meter_id}")
+
+    async def scope_output(self, on: bool) -> None:
+        """Start or stop the band scope data (frames arrive through on_scope)."""
+        raise RigError(f"{self.model.name}: has no band scope")
 
     # ---- CW (models with FEATURE_CW_KEYER) ----------------------------------------------
 

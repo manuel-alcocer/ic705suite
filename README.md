@@ -5,7 +5,7 @@ to the radio; a dashboard opens the applications, which all share that one conne
 
 | Key | Application | What it does |
 |---|---|---|
-| F2 | **IC-705 View** | rig control: large frequency, band, mode, S-meter, power; keyboard tuning (the start of our own wfview) |
+| F2 | **IC-705 View** | the whole front panel (about 50 controls), meters, and a band scope with waterfall: our own wfview for the console |
 | F3 | **CW** | Bayesian CW decoder, multi-signal skimmer, keyer, channels with plain-language translation (formerly *cwic705*) |
 | F4 | **D-STAR** | terminal mode, built-in gateway, reflectors, D-PRS: *QDStar* in the terminal — **coming soon** |
 | F5 | **Antenna** | SWR and noise sweeps, which way to move the coil, per-band history; also a page for the phone (formerly *swr-remote*) |
@@ -106,8 +106,22 @@ channels, macros, server, client, UI).
 
 ## Applications
 
-**View (F2).** PgUp/PgDn tune by the step, F2 changes the step (10 Hz–100 kHz), F3 cycles the
-mode, F4/F5 change band; `/f 7.030`, `/b 40`, `/mode USB`, `/power 50`, `/filter 500`.
+**View (F2).** Frequency in large digits with VFO, mode, filter and RIT; meters (S, Po, SWR,
+ALC, COMP, Vd, Id); the band scope as a spectrum over a colour waterfall (two waterfall rows
+per character cell; click to tune, `[` `]` contrast); and every front-panel control the rig
+offers, grouped as Receive (AF, RF, SQL, P.AMP, ATT, AGC, filter and width), DSP (NB, NR,
+notches, Twin PBT, filter shape), Transmit (power, mic, compressor, VOX, monitor), CW (speed,
+pitch, break-in), VFO (split, RIT, ΔTX, tuning step, data mode, lock) and Scope (mode, span,
+reference, speed, hold, VBW).
+
+Keys: PgUp/PgDn tune by the step, F2 step, F3 mode, F4/F5 band, F6 filter; Tab/↑↓ select a
+control, ←/→ (Shift ×10) turn it, Enter toggles, Ctrl+←/→ jump between groups; `/` opens the
+command line (`/f 7.030`, `/b 40`, `/mode USB`, `/set agc slow`, `/set rit_offset -120`).
+The scope streams only while a view is open. In receive-only mode VOX and break-in cannot be
+switched on (they would let the radio transmit by itself) and the tuner's TUNE is refused.
+
+Command codes come from Icom's IC-705 CI-V reference guide, cross-checked with wfview and
+hamlib (`rig/icom/controls.py`).
 
 **CW (F3).** As cwic705: F10 skimmer, F11 channels, `/help` for every command. While it is
 open the radio is kept in CW. Leaving it returns to the dashboard; the channels stay in the

@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 EventCallback = Callable[[dict], None]
 # Events of which only the latest matters; replayed to a newly attached client.
-LATEST = ("rig", "state", "skim", "channels", "swr")
+LATEST = ("rig", "state", "skim", "channels", "swr", "scope")
 # Events kept in the backlog (text for the operator).
 TEXT = ("rx", "tx", "info", "error", "history")
 

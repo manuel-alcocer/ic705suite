@@ -91,7 +91,8 @@ def test_receive_only_never_keys_the_radio():
             await asyncio.sleep(0.3)
             assert sim.sent_text == []
             assert not any(f[4] in (0x17, 0x1C) for f in sent)
-            assert not any(f[4:6] == b"\x16\x47" for f in sent)  # break-in left untouched
+            # Break-in is read for the front panel but never written.
+            assert not any(f[4:6] == b"\x16\x47" and len(f) > 7 for f in sent)
             assert len(ui.errors) == 4
         finally:
             await stop(session)
