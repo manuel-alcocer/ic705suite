@@ -13,6 +13,7 @@ from pathlib import Path
 from ic705suite import __version__, paths
 from ic705suite.config import DEFAULT_PATH, load_config, migrate_legacy, write_template
 from ic705suite.i18n import render, set_language
+from ic705suite.ui import glyphs
 from ic705suite.rig import MODELS
 from ic705suite.rig.base import RigError
 from ic705suite.rig.transport import Transport, TransportError
@@ -64,6 +65,9 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
                       help="connect to an ic705suite server instead of the radio")
     mode.add_argument("--token", help="token for --serve/--connect (default from the config)")
     p.add_argument("--lang", help="interface language (en, es)")
+    p.add_argument("--glyphs", choices=glyphs.MODES,
+                   help="characters for the screen: console for the plain Linux console "
+                        "(default: auto, from TERM)")
     p.add_argument("--config", type=Path, help="configuration file")
     p.add_argument("--init-config", action="store_true", help="write a configuration template and exit")
     p.add_argument("--update-scp", action="store_true",
@@ -230,6 +234,7 @@ def main(argv: list[str] | None = None) -> int:
         return update_scp(config.scp_path)
     apply_overrides(args, config)
     set_language(args.lang, config.language)
+    glyphs.configure(args.glyphs or config.glyphs)
     log_file = setup_logging(args.debug or args.verbose, args.verbose)
     logging.getLogger(__name__).info("ic705suite %s starting", __version__)
 

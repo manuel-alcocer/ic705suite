@@ -90,6 +90,9 @@ max_power = 30
 [ui]
 # Interface language: "en" or "es" (default: the system language; IC705SUITE_LANG overrides)
 # language = "es"
+# Characters for the screen: "auto" (plain ones on the Linux console, TERM=linux), "unicode",
+# or "console" (block font for the frequency, shaded 16-colour waterfall, square borders)
+# glyphs = "auto"
 
 [server]
 # ic705suite --serve: address to listen on and the token clients must present
@@ -144,6 +147,7 @@ class Config:
     swr_max_power: int = 30
     # [ui] [server] [client]
     language: str = ""
+    glyphs: str = "auto"
     listen: str = "127.0.0.1:7373"
     server_token: str = ""
     connect: str = ""
@@ -181,6 +185,7 @@ def load_config(path: Path | None = None) -> Config:
         if "scp_path" in data.get("skimmer", {}):
             cfg.scp_path = Path(data["skimmer"]["scp_path"]).expanduser()
         cfg.language = str(data.get("ui", {}).get("language", cfg.language))
+        cfg.glyphs = str(data.get("ui", {}).get("glyphs", cfg.glyphs))
         chans = data.get("channels", {})
         cfg.channels_db = str(chans.get("database", cfg.channels_db))
         cfg.channel_audio = bool(chans.get("audio", cfg.channel_audio))

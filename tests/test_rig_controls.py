@@ -177,7 +177,7 @@ def test_rig_view_from_the_keyboard(tmp_path):
                 await pilot.press("escape")
                 for _ in range(4):
                     await pilot.press("right")          # to the VFO column
-                await pilot.press("up")                 # from ΔTX (row of DELAY in CW) to RIT Hz
+                await pilot.press("up")                 # from XIT (row of DELAY in CW) to RIT Hz
                 assert panel.selected == "rit_offset"
                 await pilot.press("enter", *typed("-120"), "enter")
                 await pilot.pause(0.3)

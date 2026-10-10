@@ -21,6 +21,7 @@ from textual.widget import Widget
 
 from ic705suite.i18n import _
 from ic705suite.rig.controls import CHOICE, GROUPS, LEVEL, OFFSET, TOGGLE
+from ic705suite.ui import glyphs
 
 BAR_CELLS = 6
 
@@ -54,16 +55,16 @@ def bar(control: dict, value) -> Text:
         # Centre mark, filled towards the side of the offset.
         half = BAR_CELLS // 2
         cells = round((fraction - 0.5) * 2 * half)
-        left = "▮" * max(0, -cells)
-        right = "▮" * max(0, cells)
+        left = glyphs.BAR * max(0, -cells)
+        right = glyphs.BAR * max(0, cells)
         text.append("·" * (half - len(left)), style="dim")
         text.append(left, style="yellow")
-        text.append("┃", style="white")
+        text.append(glyphs.MARK, style="white")
         text.append(right, style="yellow")
         text.append("·" * (half - len(right)), style="dim")
         return text
     filled = round(fraction * BAR_CELLS)
-    text.append("▮" * filled, style="green")
+    text.append(glyphs.BAR * filled, style="green")
     text.append("·" * (BAR_CELLS - filled), style="dim")
     return text
 
@@ -233,7 +234,7 @@ class ControlPanel(Widget, can_focus=True):
                 cell.append(f"{_(c['label']):<6}", style=name_style)
                 cell.append(" ")
                 if editing and self.buffer:
-                    cell.append(self.buffer + "▏", style="bold black on yellow")
+                    cell.append(self.buffer + glyphs.CARET, style="bold black on yellow")
                     cells.append(cell)
                     continue
                 if c["kind"] in (LEVEL, OFFSET):

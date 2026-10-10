@@ -15,12 +15,14 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Digits, Input, Label, Static
+from textual.widgets import Input, Label, Static
 
 from ic705suite.i18n import N_, _, render
 from ic705suite.rig import bands
 from ic705suite.rig.base import smeter_text
 from ic705suite.station.links import Link, LinkError
+from ic705suite.ui import glyphs
+from ic705suite.ui.bigdigits import BigDigits
 from ic705suite.ui.controlpanel import ControlPanel, format_value
 from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.waterfall import Waterfall
@@ -130,7 +132,7 @@ class MeterPanel(Static):
                     if meter["maximum"] else 0
                 label = f"{value:.1f} {meter['unit']}".strip()
             hot = meter["id"] == "swr" and value >= 2 or meter["id"] == "alc" and value > 0.5
-            text.append("▮" * cells, style="red" if hot else "green")
+            text.append(glyphs.BAR * cells, style="red" if hot else "green")
             text.append("·" * (METER_CELLS - cells), style="dim")
             text.append(f"  {label}", style="bold white")
         return text
@@ -192,7 +194,7 @@ class ViewApp(App[int]):
         yield RigStatusLine(self.link.description, id="statusline")
         with Horizontal(id="top"):
             with Vertical(id="vfo-frame", classes="frame"):
-                yield Digits(digits_text(None), id="frequency")
+                yield BigDigits(digits_text(None), id="frequency")
                 yield VfoPanel(id="vfo")
             yield MeterPanel(id="meters", classes="frame")
         yield Waterfall(id="scope", classes="frame")
@@ -266,7 +268,7 @@ class ViewApp(App[int]):
         status = self.query_one("#statusline", RigStatusLine)
         status.rig = event
         status.refresh()
-        self.query_one("#frequency", Digits).update(digits_text(event.get("frequency")))
+        self.query_one("#frequency", BigDigits).update(digits_text(event.get("frequency")))
         vfo = self.query_one("#vfo", VfoPanel)
         vfo.rig, vfo.step = event, self.step
         vfo.refresh()

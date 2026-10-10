@@ -179,7 +179,7 @@ IC705_CONTROLS: tuple[IcomControl, ...] = (
     IcomControl(Control("rit_offset", N_("RIT Hz"), "vfo", OFFSET, minimum=-9999, maximum=9999,
                         step=10, unit="Hz", help=N_("RIT offset")),
                 b"\x21\x00", _decode_rit, _encode_rit),
-    _switch("dtx", N_("ΔTX"), "vfo", b"\x21\x02", N_("Transmit frequency offset")),
+    _switch("dtx", N_("XIT"), "vfo", b"\x21\x02", N_("Transmit frequency offset")),
     _choice("tuning_step", N_("TS"), "vfo", b"\x10",
             [("off", "10 Hz", 0), ("100", "100 Hz", 1), ("500", "500 Hz", 2), ("1k", "1 kHz", 3),
              ("5k", "5 kHz", 4), ("6.25k", "6.25 kHz", 5), ("8.33k", "8.33 kHz", 6),

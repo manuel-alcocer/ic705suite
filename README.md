@@ -16,6 +16,12 @@ Everything runs in a console (Textual) with the HAMRLOG look, in English or Span
 with the keyboard — no mouse: Tab, function keys and `/commands` (and the cursor keys on the
 rig view's front panel). The dashboard opens each application with its function key.
 
+It also works on the plain Linux console (no desktop), whose fonts have only the IBM PC
+characters and 16 colours: there the frequency is drawn with a block font, the waterfall is
+shaded with ░ ▒ ▓ between the console colours (about 25 levels), the spectrum uses half
+blocks and the borders are square. It is chosen by itself when `TERM=linux`; `[ui] glyphs` or
+`--glyphs console|unicode` force it.
+
 ```
 ╭─ Applications ──────────────────────────────────────────╮╭─ Rig ─────────────────────────────╮
 │ Key  Application   What it does                         ││ Icom IC-705                       │
@@ -67,6 +73,7 @@ uv run ic705suite                      # dashboard, core in this process
 uv run ic705suite --sim                # try it without a radio
 uv run ic705suite cw                   # open one application directly (view cw swr log packet)
 uv run ic705suite --lang es            # Spanish (or [ui] language / IC705SUITE_LANG)
+uv run ic705suite --glyphs console     # plain Linux console (automatic with TERM=linux)
 uv run ic705suite --tx                 # enable transmission (check your SWR first!)
 ```
 
@@ -114,7 +121,7 @@ per character cell; F7/F8 jump to the previous/next signal on it, `[` `]` contra
 every front-panel control the rig
 offers, grouped as Receive (AF, RF, SQL, P.AMP, ATT, AGC, filter and width), DSP (NB, NR,
 notches, Twin PBT, filter shape), Transmit (power, mic, compressor, VOX, monitor), CW (speed,
-pitch, break-in), VFO (split, RIT, ΔTX, tuning step, data mode, lock) and Scope (mode, span,
+pitch, break-in), VFO (split, RIT, XIT, tuning step, data mode, lock) and Scope (mode, span,
 reference, speed, hold, VBW).
 
 Keys (no mouse). The front panel has two modes. **Moving**: the cursor keys go from option

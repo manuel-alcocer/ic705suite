@@ -25,6 +25,7 @@ from ic705suite.ui.channels import ChannelSaving
 from ic705suite.ui.widgets import append_keys as _append_keys
 from ic705suite.ui.widgets import css
 from ic705suite.rig.transport import TransportError
+from ic705suite.ui import glyphs
 
 MAX_LINES = 2000
 LINE_HISTORY = 100
@@ -86,7 +87,7 @@ class StatusLine(Static):
         if len(text) > start:
             text.append(" · ", style="dim")
         text.append(f"{smeter_text(smeter):<6}", style="bold white")
-        text.append("▮" * cells, style="green")
+        text.append(glyphs.BAR * cells, style="green")
         text.append("·" * (15 - cells), style="dim")
         chunk(_("KEY"), f"{st.get('key_wpm', '-')} {_('wpm')}", "white")
         if st.get("power") is not None:

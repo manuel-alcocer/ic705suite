@@ -9,6 +9,10 @@ narrow CW signal never disappears between columns).
 The widget only draws; frames come from outside (``add_frame``) as amplitudes 0..1 with the
 frequency of the first and last point. Keyboard only: ``signals()`` lists the signals of the
 latest sweep so the application can jump from one to the next.
+
+On a plain console (``glyphs.CONSOLE``: 16 colours, 8 of them as background, no eighth
+blocks) each cell is one waterfall row shaded with ░ ▒ ▓ between two of those colours, about
+25 levels instead of 7, and the spectrum uses half blocks.
 """
 
 from __future__ import annotations
@@ -23,6 +27,8 @@ from rich.style import Style
 from textual.reactive import reactive
 from textual.strip import Strip
 from textual.widget import Widget
+
+from ic705suite.ui import glyphs
 
 BLOCKS = " ▁▂▃▄▅▆▇█"
 MAX_ROWS = 400
@@ -46,6 +52,28 @@ def _palette(n: int = 64) -> list[Color]:
 
 
 PALETTE = _palette()
+
+CONSOLE_BLOCKS = " ▄█"
+CONSOLE_GAMMA = 1.5        # the ramp brightens quickly: keep the noise floor dark
+
+
+def _console_ramp() -> list[tuple[str, Style]]:
+    """Levels for the 16-colour console, from black to white: each colour shaded into the next
+    with ░ ▒ ▓ (only the 8 dark colours can be a background)."""
+    ramp: list[tuple[str, str, str]] = []
+    for low, high in (("black", "blue"), ("blue", "cyan"), ("cyan", "green"),
+                      ("green", "yellow")):
+        ramp.append((" ", low, low))
+        ramp += [(shade, high, low) for shade in "░▒▓"]
+    ramp.append(("█", "yellow", "black"))
+    ramp += [(shade, "yellow", "red") for shade in "▓▒░"]
+    ramp.append((" ", "red", "red"))
+    ramp += [(shade, "white", "red") for shade in "░▒▓"]
+    ramp.append(("█", "white", "black"))
+    return [(char, Style(color=glyphs.VGA[fg], bgcolor=glyphs.VGA[bg])) for char, fg, bg in ramp]
+
+
+CONSOLE_RAMP = _console_ramp()
 
 
 @dataclass
@@ -151,6 +179,8 @@ class Waterfall(Widget, can_focus=True):
             return self._scale_line(width, marker)
         if y < self.spectrum_rows:
             return self._spectrum_line(y, width, rows[0] if rows else None, marker, band)
+        if glyphs.CONSOLE:
+            return self._console_waterfall_line(y - self.spectrum_rows - 1, width, rows, marker)
         index = 2 * (y - self.spectrum_rows - 1)
         newer = rows[index] if index < len(rows) else None
         older = rows[index + 1] if index + 1 < len(rows) else None
@@ -166,15 +196,33 @@ class Waterfall(Widget, can_focus=True):
                 segments.append(Segment("▀", Style(color=fg, bgcolor=bg)))
         return Strip(segments, width)
 
+    def _console_waterfall_line(self, index: int, width: int, rows: list[np.ndarray],
+                                marker: int | None) -> Strip:
+        row = rows[index] if index < len(rows) else None
+        last = len(CONSOLE_RAMP) - 1
+        segments = []
+        for x in range(width):
+            char, style = CONSOLE_RAMP[int(self._level(row[x]) ** CONSOLE_GAMMA * last)] \
+                if row is not None else CONSOLE_RAMP[0]
+            if x == marker:
+                char, style = glyphs.MARK, Style(color=glyphs.VGA["bright_red"],
+                                                 bgcolor=style.bgcolor)
+            segments.append(Segment(char, style))
+        return Strip(segments, width)
+
     def _spectrum_line(self, y: int, width: int, row: np.ndarray | None,
                        marker: int | None, band: tuple[int, int] | None) -> Strip:
         rows = self.spectrum_rows
+        console = glyphs.CONSOLE
         segments = []
         for x in range(width):
             in_band = band is not None and band[0] <= x <= band[1]
-            bg = "rgb(30,30,60)" if in_band else "black"
+            bg = (glyphs.VGA["blue"] if console else "rgb(30,30,60)") if in_band else "black"
             if row is None:
                 char = " "
+            elif console:
+                halves = int(self._level(row[x]) * rows * 2)
+                char = CONSOLE_BLOCKS[max(0, min(2, halves - (rows - 1 - y) * 2))]
             else:
                 eighths = int(self._level(row[x]) * rows * 8)
                 filled = eighths - (rows - 1 - y) * 8     # eighths reaching this row
@@ -183,7 +231,8 @@ class Waterfall(Widget, can_focus=True):
                 segments.append(Segment(char if char.strip() else "│",
                                         Style(color="red", bgcolor=bg, bold=True)))
             else:
-                segments.append(Segment(char, Style(color="rgb(120,220,255)", bgcolor=bg)))
+                segments.append(Segment(char, Style(color=glyphs.VGA["bright_cyan"] if console
+                                                else "rgb(120,220,255)", bgcolor=bg)))
         return Strip(segments, width)
 
     def _scale_line(self, width: int, marker: int | None) -> Strip:
@@ -206,7 +255,7 @@ class Waterfall(Widget, can_focus=True):
         if marker is not None:
             text = "".join(line)
             segments = [Segment(text[:marker], Style(color="rgb(170,170,170)", bgcolor="rgb(20,20,20)")),
-                        Segment(text[marker] if text[marker] != " " else "┃", Style(color="red", bold=True,
+                        Segment(text[marker] if text[marker] != " " else glyphs.MARK, Style(color="red", bold=True,
                                 bgcolor="rgb(20,20,20)")),
                         Segment(text[marker + 1:], Style(color="rgb(170,170,170)", bgcolor="rgb(20,20,20)"))]
         return Strip(segments, width)

@@ -8,12 +8,13 @@ from textual.widgets import Static
 from ic705suite.i18n import _
 from ic705suite.rig import bands
 from ic705suite.rig.base import smeter_text
+from ic705suite.ui import glyphs
 
 
 def smeter_bar(raw: int, cells: int = 15) -> tuple[str, str]:
     """(filled, empty) parts of an S-meter bar: 9 cells up to S9, one per 10 dB above."""
     filled = min(cells, round(raw / 120 * 9) if raw <= 120 else 9 + round((raw - 120) / 20))
-    return "▮" * filled, "·" * (cells - filled)
+    return glyphs.BAR * filled, "·" * (cells - filled)
 
 
 class RigStatusLine(Static):

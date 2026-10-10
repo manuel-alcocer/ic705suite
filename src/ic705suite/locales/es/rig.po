@@ -351,8 +351,8 @@ msgstr "VFO"
 msgid "VOX"
 msgstr "VOX"
 
-msgid "ΔTX"
-msgstr "ΔTX"
+msgid "XIT"
+msgstr "XIT"
 
 msgid "F2-F7 Open · Ctrl+Q Quit"
 msgstr "F2-F7 Abrir · Ctrl+Q Salir"
