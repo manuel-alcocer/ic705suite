@@ -50,7 +50,9 @@ class ChannelsScreen(Screen):
         Binding("t", "tune", show=False),
         Binding("p", "play", show=False),
         Binding("r", "reload", show=False),
-        # No cursor keys: Tab / Shift+Tab choose the channel, Enter shows it.
+        # Up/Down or Tab / Shift+Tab choose the channel, Enter shows it.
+        Binding("up", "select(-1)", show=False),
+        Binding("down", "select(1)", show=False),
         Binding("tab", "select(1)", show=False, priority=True),
         Binding("shift+tab", "select(-1)", show=False, priority=True),
         Binding("enter", "show", show=False, priority=True),
@@ -77,7 +79,7 @@ class ChannelsScreen(Screen):
         self.query_one("#chan-frame").border_title = _("Channels")
         self.query_one("#chan-detail").border_title = _("Transcript")
         hint = Text(no_wrap=True)
-        for key, label in (("Tab", _("choose")), ("Enter", _("show")), ("S", _("save")), ("T", _("tune")),
+        for key, label in (("↑↓", _("choose")), ("Enter", _("show")), ("S", _("save")), ("T", _("tune")),
                            ("P", _("play audio")), ("R", _("reload")), ("Esc", _("back"))):
             hint.append(f" {key} ", style="bold")
             hint.append(label + "  ", style="dim")

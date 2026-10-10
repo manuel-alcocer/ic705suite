@@ -161,8 +161,9 @@ switched on (they would let the radio transmit by itself) and the tuner's TUNE i
 Command codes come from Icom's IC-705 CI-V reference guide, cross-checked with wfview and
 hamlib (`rig/icom/controls.py`).
 
-**CW (F3).** As cwic705: F10 skimmer (Tab chooses a station, Enter or `/go N` tunes it),
-F11 channels (Tab, Enter), Ctrl+P/Ctrl+N recall earlier lines, `/help` or F1 opens a window
+**CW (F3).** As cwic705: F10 skimmer (↑↓ or Tab choose a station, Enter or `/go N` tunes
+it), F11 channels (↑↓ or Tab, Enter), ↑↓ (when not skimming) or Ctrl+P/Ctrl+N recall earlier
+lines, `/help` or F1 opens a window
 with every command and key (also over the skimmer). While it is
 open the radio is kept in CW. Leaving it returns to the dashboard; the channels stay in the
 core and leaving the suite offers to archive them.

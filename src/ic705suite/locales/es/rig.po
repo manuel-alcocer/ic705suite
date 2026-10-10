@@ -366,8 +366,8 @@ msgstr "F2-F9 Banda · N Barrido de ruido (RX) · S Barrido ROE (TX) · C Posici
 msgid "F2-F9 Band · N Noise · S SWR · Esc Back"
 msgstr "F2-F9 Banda · N Ruido · S ROE · Esc Volver"
 
-msgid "Tab select a station · Enter tune it (or /go N) · F10 back to single decoding"
-msgstr "Tab elige una estación · Enter la sintoniza (o /go N) · F10 vuelve a un solo canal"
+msgid "↑↓ select a station · Enter tune it (or /go N) · F10 back to single decoding"
+msgstr "↑↓ elige una estación · Enter la sintoniza (o /go N) · F10 vuelve a un solo canal"
 
 msgid "choose"
 msgstr "elegir"

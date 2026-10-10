@@ -22,7 +22,13 @@
     background: $surface;
 }
 
-/* The skimmer takes the receive pane's place in the same frame. */
+/* The skimmer takes the receive pane's place in the same frame, under a strip of
+   waterfall: spectrum, scale and five rows of waterfall (two sweeps per row). */
+#skim-scope {
+    height: 8;
+    min-height: 8;
+}
+
 #skim {
     height: 1fr;
     border: none;

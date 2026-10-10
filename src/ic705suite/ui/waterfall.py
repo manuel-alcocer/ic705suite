@@ -19,7 +19,7 @@ full ones when the font has no half blocks.
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from rich.color import Color
@@ -89,6 +89,9 @@ class ScopeView:
     end: int = 0
     dial: int | None = None          # receive frequency marker
     passband: tuple[int, int] | None = None
+    # Labelled frequencies on the scale (the skimmer's stations), the chosen one highlighted.
+    marks: list[tuple[int, str]] = field(default_factory=list)
+    chosen: int | None = None
 
 
 def resample_peak(values: np.ndarray, width: int) -> np.ndarray:
@@ -248,7 +251,7 @@ class Waterfall(Widget, can_focus=True):
         return Strip(segments, width)
 
     def _scale_line(self, width: int, marker: int | None) -> Strip:
-        """Frequency labels every ~16 columns, with the hovered frequency on the right."""
+        """Frequency labels every ~16 columns, the marks over them and the dial marker."""
         start, end = self.view.start, self.view.end
         line = [" "] * width
         if end > start and width > 0:
@@ -263,14 +266,22 @@ class Waterfall(Widget, can_focus=True):
                 for i, ch in enumerate(label, 1):
                     if x + i < width and line[x + i] == " ":
                         line[x + i] = ch
-        segments = [Segment("".join(line), Style(color="rgb(170,170,170)", bgcolor="rgb(20,20,20)"))]
+        grey = Style(color="rgb(170,170,170)", bgcolor="rgb(20,20,20)")
+        styles = [grey] * width
+        mark = Style(color="yellow", bgcolor="rgb(20,20,20)", bold=True)
+        chosen = Style(color="black", bgcolor="yellow", bold=True)
+        for hz, label in self.view.marks:
+            x = self.frequency_column(hz)
+            if x is None:
+                continue
+            for i, ch in enumerate(label):
+                if x + i < width:
+                    line[x + i] = ch
+                    styles[x + i] = chosen if hz == self.view.chosen else mark
         if marker is not None:
-            text = "".join(line)
-            segments = [Segment(text[:marker], Style(color="rgb(170,170,170)", bgcolor="rgb(20,20,20)")),
-                        Segment(text[marker] if text[marker] != " " else glyphs.MARK, Style(color="red", bold=True,
-                                bgcolor="rgb(20,20,20)")),
-                        Segment(text[marker + 1:], Style(color="rgb(170,170,170)", bgcolor="rgb(20,20,20)"))]
-        return Strip(segments, width)
+            line[marker] = line[marker] if line[marker] != " " else glyphs.MARK
+            styles[marker] = Style(color="red", bold=True, bgcolor="rgb(20,20,20)")
+        return Strip([Segment(ch, style) for ch, style in zip(line, styles, strict=True)], width).simplify()
 
     # ---- signals ----------------------------------------------------------------------
 

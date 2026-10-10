@@ -6,8 +6,10 @@ core in this process or on a remote `ic705suite --serve` (e.g. a Raspberry Pi).
 
 from __future__ import annotations
 
+import base64
 import datetime as dt
 
+import numpy as np
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -28,9 +30,12 @@ from ic705suite.ui.widgets import TextScreen, css
 from ic705suite.rig.transport import TransportError
 from ic705suite.ui import glyphs
 from ic705suite.ui.sysload import with_load
+from ic705suite.ui.waterfall import Waterfall
 
 MAX_LINES = 2000
 LINE_HISTORY = 100
+# The scope streams only while someone watches: asked again this often while skimming.
+SCOPE_KEEPALIVE = 5.0
 
 STYLES = {"rx": "white", "tx": "bold yellow", "info": "cyan", "error": "bold red",
           "spot": "bold green", "summary": "bold white", "glossary": "dim",
@@ -182,7 +187,7 @@ class DetailPanel(Static):
                 text.append("≈ ", style="bold green")
                 text.append(self.meaning, style="white")
             else:
-                _append_keys(text, _("Tab select a station · Enter tune it (or /go N) · "
+                _append_keys(text, _("↑↓ select a station · Enter tune it (or /go N) · "
                                      "F10 back to single decoding"))
             return text
 
@@ -238,9 +243,9 @@ class StatsFooter(Static):
 
 
 KEYS = [
-    N_("Tab / Shift+Tab         choose a skimmer station; Enter tunes it"),
+    N_("↑↓ or Tab / Shift+Tab   choose a skimmer station; Enter tunes it"),
     N_("F10 skimmer · F11 channels · F2-F9 macros · PgUp/PgDn tune"),
-    N_("Ctrl+P / Ctrl+N         earlier lines · F1 this help · Ctrl+Q back"),
+    N_("↑↓ or Ctrl+P / Ctrl+N   earlier lines · F1 this help · Ctrl+Q back"),
 ]
 
 
@@ -258,8 +263,11 @@ class CwApp(ChannelSaving, App[int]):
         Binding("escape", "command('/stop')", show=False),
         Binding("pageup", "command('/up 100')", show=False),
         Binding("pagedown", "command('/down 100')", show=False),
-        # No cursor keys: Tab / Shift+Tab choose a skimmer station, Ctrl+P / Ctrl+N recall
-        # earlier command lines.
+        # Up/Down (or Tab / Shift+Tab) choose a skimmer station; when not skimming Up/Down
+        # recall earlier command lines, as Ctrl+P / Ctrl+N always do. Not priority bindings,
+        # so a window opened on top (the help) keeps its own.
+        Binding("up", "arrow(-1)", show=False),
+        Binding("down", "arrow(1)", show=False),
         Binding("tab", "station(1)", show=False, priority=True),
         Binding("shift+tab", "station(-1)", show=False, priority=True),
         Binding("ctrl+p", "recall(-1)", show=False, priority=True),
@@ -288,6 +296,7 @@ class CwApp(ChannelSaving, App[int]):
         yield StatusLine(self.link.description, id="statusline")
         with Vertical(id="main-frame"):
             yield TextPane(id="rx")
+            yield Waterfall(id="skim-scope")
             yield DataTable(id="skim", cursor_type="row", zebra_stripes=False)
         with Vertical(id="meaning-frame"):
             yield TextPane(id="meaning")
@@ -303,6 +312,12 @@ class CwApp(ChannelSaving, App[int]):
         table.add_columns("#", _("QRG"), _("Call"), _("WPM"), _("SNR"), _("Text"))
         table.can_focus = False
         table.display = False
+        scope = self.query_one("#skim-scope", Waterfall)
+        scope.can_focus = False
+        scope.spectrum_rows = 2
+        scope.display = False
+        self._scope_wanted = False      # skimming on a radio that has a scope
+        self.set_interval(SCOPE_KEEPALIVE, self._keep_scope)
         self.query_one("#main-frame").border_title = _("Receive")
         self.query_one("#detail").border_title = _("Detail")
         self.query_one("#meaning-frame").border_title = _("Translation")
@@ -340,6 +355,8 @@ class CwApp(ChannelSaving, App[int]):
             self._apply_state(event)
         elif kind == "skim":
             self._apply_skim(event["channels"])
+        elif kind == "scope":
+            self._apply_scope(event)
         elif kind == "rx":
             pane.add("rx", event["text"], append=True)
             for result in self.interpreter.feed(event["text"]):
@@ -394,6 +411,12 @@ class CwApp(ChannelSaving, App[int]):
             self.query_one("#rx").display = not skimming
             self.query_one("#meaning-frame").display = not skimming
             self.query_one("#skim").display = skimming
+            scope = self.query_one("#skim-scope", Waterfall)
+            scope.clear()
+            self._scope_wanted = skimming
+            scope.display = skimming
+            if skimming:
+                self.run_worker(self._keep_scope())
             frame = self.query_one("#main-frame")
             frame.border_title = _("Skimmer") if skimming else _("Receive")
             if not skimming:
@@ -418,6 +441,51 @@ class CwApp(ChannelSaving, App[int]):
         detail.channels = channels
         detail.selected = table.cursor_row if channels else 0
         self._update_selected_meaning()
+        self._mark_stations()
+
+    # ---- the skimmer's waterfall ------------------------------------------------------------
+
+    def _mark_stations(self) -> None:
+        """The stations' numbers on the scale, the chosen one highlighted."""
+        detail = self.query_one("#detail", DetailPanel)
+        scope = self.query_one("#skim-scope", Waterfall)
+        scope.view.marks = [(ch["frequency"], str(ch["index"])) for ch in detail.channels]
+        chosen = detail.channels[detail.selected] if 0 <= detail.selected < len(detail.channels) \
+            else None
+        scope.view.chosen = chosen["frequency"] if chosen else None
+        scope.refresh()
+
+    def _apply_scope(self, event: dict) -> None:
+        """A sweep, cut down to the skimmer's range with as much again around it: the whole
+        span would squeeze the stations into a few columns."""
+        if not self._scope_wanted:
+            return
+        data = np.frombuffer(base64.b64decode(event["data"]), dtype=np.uint8) / 255.0
+        start, end = int(event["start"]), int(event["end"])
+        scope = self.query_one("#skim-scope", Waterfall)
+        scope.view.dial = self.state.get("frequency")
+        span = self.state.get("skim_range")
+        if span and len(data) > 1 and end > start:
+            margin = max(span[1] - span[0], 200) / 2
+            per_point = (end - start) / (len(data) - 1)
+            first = max(0, int((span[0] - margin - start) / per_point))
+            last = min(len(data) - 1, int(np.ceil((span[1] + margin - start) / per_point)))
+            if last - first >= 4:
+                data = data[first:last + 1]
+                start, end = round(start + first * per_point), round(start + last * per_point)
+            scope.view.passband = (span[0], span[1])
+        scope.add_frame(data, start, end)
+
+    async def _keep_scope(self) -> None:
+        if not self._scope_wanted:
+            return
+        try:
+            reply = await self.link.call("scope.watch", seconds=SCOPE_KEEPALIVE * 3)
+        except (LinkError, OSError):
+            return
+        if reply.get("scope") is False:      # a radio without a scope (errors are retried)
+            self._scope_wanted = False
+            self.query_one("#skim-scope").display = False
 
     def _update_selected_meaning(self) -> None:
         detail = self.query_one("#detail", DetailPanel)
@@ -464,6 +532,12 @@ class CwApp(ChannelSaving, App[int]):
     async def action_command(self, line: str) -> None:
         self.run_worker(self.link.command(line))
 
+    def action_arrow(self, step: int) -> None:
+        if self.state.get("skimming"):
+            self.action_station(step)
+        else:
+            self.action_recall(step)
+
     def action_station(self, step: int) -> None:
         if not self.state.get("skimming"):
             return
@@ -473,6 +547,7 @@ class CwApp(ChannelSaving, App[int]):
             detail = self.query_one("#detail", DetailPanel)
             detail.selected = table.cursor_row
             self._update_selected_meaning()
+            self._mark_stations()
 
     def action_recall(self, step: int) -> None:
         if not self._history:
