@@ -87,6 +87,29 @@ CONSOLE_BORDERS = {"round": "solid", "dashed": "solid", "heavy": "double", "tall
                    "vkey": "solid", "inner": "thick", "outer": "thick"}
 
 
+# Backgrounds a console cannot show (it has only the 8 dark colours as background), and the
+# (text, background) drawn instead, chosen for contrast.
+CONSOLE_BACKGROUNDS = {
+    "yellow": ("white", "brown"), "bright_yellow": ("white", "brown"),
+    "red": ("white", "red"), "dark_red": ("white", "red"), "bright_red": ("white", "red"),
+    "green": ("black", "green"), "cyan": ("black", "cyan"), "magenta": ("white", "magenta"),
+    "blue": ("white", "blue"), "grey35": ("black", "grey"), "grey": ("black", "grey"),
+    "rgb(120,180,255)": ("black", "cyan"),
+}
+
+
+def style(text: str) -> str:
+    """A "bold black on yellow" style as the console can show it (unchanged elsewhere)."""
+    if not CONSOLE or " on " not in text:
+        return text
+    head, background = text.rsplit(" on ", 1)
+    if background not in CONSOLE_BACKGROUNDS:
+        return text
+    foreground, background = CONSOLE_BACKGROUNDS[background]
+    attributes = [word for word in head.split() if word in ("bold", "italic", "underline")]
+    return " ".join(attributes + [VGA[foreground], "on", VGA[background]])
+
+
 def has(char: str) -> bool:
     """Whether the terminal can draw `char`."""
     return CHARSET is None or char in CHARSET

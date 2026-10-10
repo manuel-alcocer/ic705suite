@@ -228,20 +228,20 @@ class ControlPanel(Widget, can_focus=True):
                 selected = c["id"] == self.selected
                 editing = selected and self.editing
                 cell = Text(no_wrap=True, overflow="ellipsis")
-                name_style = "bold black on yellow" if editing \
-                    else "bold black on rgb(120,180,255)" if selected and self.has_focus \
+                name_style = glyphs.style("bold black on yellow") if editing \
+                    else glyphs.style("bold black on rgb(120,180,255)") if selected and self.has_focus \
                     else "bold reverse" if selected else "dim"
                 cell.append(f"{_(c['label']):<6}", style=name_style)
                 cell.append(" ")
                 if editing and self.buffer:
-                    cell.append(self.buffer + glyphs.CARET, style="bold black on yellow")
+                    cell.append(self.buffer + glyphs.CARET, style=glyphs.style("bold black on yellow"))
                     cells.append(cell)
                     continue
                 if c["kind"] in (LEVEL, OFFSET):
                     cell.append_text(bar(c, value))
                     cell.append(" ")
                 on = c["kind"] == TOGGLE and value
-                value_style = "bold black on yellow" if editing else "bold green" if on \
+                value_style = glyphs.style("bold black on yellow") if editing else "bold green" if on \
                     else "bold white" if value is not None else "dim"
                 cell.append(format_value(c, value), style=value_style)
                 cells.append(cell)

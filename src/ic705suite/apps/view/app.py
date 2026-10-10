@@ -89,12 +89,12 @@ class VfoPanel(Static):
         text.append("\n")
         chunk("VFO", self._value("vfo"), "bold cyan")
         if controls.get("split"):
-            text.append("SPLIT   ", style="bold black on yellow")
+            text.append("SPLIT   ", style=glyphs.style("bold black on yellow"))
         if controls.get("rit"):
             chunk("RIT", self._value("rit_offset"), "bold yellow")
         chunk(_("Step"), f"{self.step:,} Hz".replace(",", "."))
         if controls.get("dial_lock"):
-            text.append("LOCK", style="bold white on red")
+            text.append("LOCK", style=glyphs.style("bold white on red"))
         return text
 
 

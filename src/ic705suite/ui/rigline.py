@@ -31,7 +31,7 @@ class RigStatusLine(Static):
         text = Text(no_wrap=True, overflow="ellipsis")
 
         def badge(label: str, style: str) -> None:
-            text.append(f" {label} ", style=style)
+            text.append(f" {label} ", style=glyphs.style(style))
             text.append(" ")
 
         if not rig:

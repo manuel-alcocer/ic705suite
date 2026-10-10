@@ -14,6 +14,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
 
 from ic705suite.i18n import _
+from ic705suite.ui import glyphs
 
 _KEY = re.compile(r"F\d+(?:-F\d+)?|Esc|PgUp/PgDn|Ctrl\+\w(?:/Ctrl\+\w)?|Enter|Shift\+Tab|Tab|Space|↑↓|←→")
 
@@ -40,7 +41,7 @@ def clock_footer(width: int, counters: list[tuple[str, object]], hints: list[str
     """UTC clock, counters and the longest key hint that fits."""
     now = dt.datetime.now(dt.timezone.utc)
     text = Text(no_wrap=True)
-    text.append(f" {now:%Y-%m-%d %H:%M:%S} UTC ", style="bold black on rgb(120,180,255)")
+    text.append(f" {now:%Y-%m-%d %H:%M:%S} UTC ", style=glyphs.style("bold black on rgb(120,180,255)"))
     for label, value in counters:
         text.append("   ")
         text.append(f"{label} ", style="dim")

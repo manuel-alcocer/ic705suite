@@ -51,7 +51,7 @@ class StatusLine(Static):
         text = Text(no_wrap=True, overflow="ellipsis")
 
         def badge(label: str, style: str) -> None:
-            text.append(f" {label} ", style=style)
+            text.append(f" {label} ", style=glyphs.style(style))
             text.append(" ")
 
         if st and not st.get("connected"):
@@ -218,7 +218,7 @@ class StatsFooter(Static):
     def render(self) -> Text:
         now = dt.datetime.now(dt.timezone.utc)
         text = Text(no_wrap=True)
-        text.append(f" {now:%Y-%m-%d %H:%M:%S} UTC ", style="bold black on rgb(120,180,255)")
+        text.append(f" {now:%Y-%m-%d %H:%M:%S} UTC ", style=glyphs.style("bold black on rgb(120,180,255)"))
         for label, value in ((_("RX chars"), self.rx_chars), (_("spots"), self.spots)):
             text.append("   ")
             text.append(f"{label} ", style="dim")

@@ -86,3 +86,11 @@ def test_rig_view_on_the_console(tmp_path, font):
             await link.close()
 
     asyncio.run(run())
+
+
+def test_backgrounds_the_console_can_show(font):
+    assert glyphs.style("bold black on yellow") == "bold rgb(255,255,255) on rgb(170,85,0)"
+    assert glyphs.style("bold white on grey35") == "bold rgb(0,0,0) on rgb(170,170,170)"
+    assert glyphs.style("bold green") == "bold green"
+    glyphs.configure("unicode", environ={})
+    assert glyphs.style("bold black on yellow") == "bold black on yellow"
