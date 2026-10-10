@@ -24,8 +24,8 @@ from ic705suite.ui.channels import ChannelSaving
 from ic705suite.ui.rigline import RigStatusLine, smeter_bar
 from ic705suite.ui.widgets import clock_footer, css
 
-HINT = N_("F2-F7 Open · F9 Reconnect · Ctrl+Q Quit")
-SHORT_HINT = N_("F2-F7 Open · Ctrl+Q Quit")
+HINT = N_("↑↓ Enter or F2-F7 Open · F9 Reconnect · Ctrl+Q Quit")
+SHORT_HINT = N_("↑↓ Enter or F2-F7 Open · Ctrl+Q Quit")
 MAX_MESSAGES = 200
 
 FEATURE_NAMES = {"cw_keyer": N_("CW keyer"), "audio": N_("audio"), "dstar": "D-STAR",
@@ -127,8 +127,16 @@ class DashboardApp(ChannelSaving, App[str]):
     TITLE = "ic705suite"
     ENABLE_COMMAND_PALETTE = False
 
+    chosen: str | None = None     # the application last opened, chosen again on return
+
     BINDINGS = [
         *(Binding(app.key.lower(), f"open('{app.id}')", show=False, priority=True) for app in APPS),
+        # ↑↓ choose an application, Enter or Space opens it (or its function key directly).
+        # Not priority bindings: in a dialog, Enter and Space belong to its buttons.
+        Binding("up", "choose(-1)", show=False),
+        Binding("down", "choose(1)", show=False),
+        Binding("enter", "open_chosen", show=False),
+        Binding("space", "open_chosen", show=False),
         Binding("f9", "reconnect", show=False, priority=True),
         Binding("ctrl+q", "leave", show=False, priority=True),
     ]
@@ -147,7 +155,7 @@ class DashboardApp(ChannelSaving, App[str]):
         yield RigStatusLine(self.link.description if self.link else _("no core"), id="statusline")
         with Horizontal(id="top"):
             with Vertical(id="apps-frame", classes="frame"):
-                yield DataTable(id="apps", cursor_type="none", zebra_stripes=False)
+                yield DataTable(id="apps", cursor_type="row", zebra_stripes=False)
             with Vertical(id="side"):
                 yield RigPanel(id="rig", classes="frame")
                 yield StationPanel(self.config, id="station", classes="frame")
@@ -161,7 +169,7 @@ class DashboardApp(ChannelSaving, App[str]):
         self.query_one("#log").border_title = _("Messages")
         table = self.query_one("#apps", DataTable)
         table.add_columns(_("Key"), _("Application"), _("What it does"))
-        table.can_focus = False   # opened with its function key, never by moving a cursor
+        table.can_focus = False   # the keys are the dashboard's (↑↓ Enter, F2-F7)
         self._fill_apps()
         panel = self.query_one("#rig", RigPanel)
         panel.problem = self.problem
@@ -229,6 +237,10 @@ class DashboardApp(ChannelSaving, App[str]):
             elif app["needs_rig"] and self.link is None:
                 desc = Text(_("needs the radio") + " · ", style="italic") + desc
             table.add_row(Text(app["key"], style="bold cyan"), name, desc)
+        ids = [a["id"] for a in self.apps]
+        if DashboardApp.chosen in ids:      # back from an application: still on it
+            row = ids.index(DashboardApp.chosen)
+            DashboardApp.chosen = None
         if self.apps:
             table.move_cursor(row=min(row, len(self.apps) - 1))
 
@@ -236,6 +248,16 @@ class DashboardApp(ChannelSaving, App[str]):
         return app["ready"] and app["available"] and (self.link is not None or not app["needs_rig"])
 
     # ---- actions ------------------------------------------------------------------------
+
+    def action_choose(self, step: int) -> None:
+        table = self.query_one("#apps", DataTable)
+        if table.row_count:
+            table.move_cursor(row=(table.cursor_row + step) % table.row_count)
+
+    def action_open_chosen(self) -> None:
+        table = self.query_one("#apps", DataTable)
+        if table.row_count:
+            self.action_open(self.apps[table.cursor_row]["id"])
 
     def action_open(self, app_id: str) -> None:
         app = next((a for a in self.apps if a["id"] == app_id), None)
@@ -249,6 +271,7 @@ class DashboardApp(ChannelSaving, App[str]):
             return
         if self.link is not None:
             self.link.detach()
+        DashboardApp.chosen = app_id
         self.exit(app_id)
 
     def action_reconnect(self) -> None:

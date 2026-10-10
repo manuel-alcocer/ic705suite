@@ -14,7 +14,8 @@ to the radio; a dashboard opens the applications, which all share that one conne
 
 Everything runs in a console (Textual) with the HAMRLOG look, in English or Spanish, and only
 with the keyboard — no mouse: Tab, function keys and `/commands` (and the cursor keys on the
-rig view's front panel). The dashboard opens each application with its function key.
+rig view's front panel). The dashboard opens each application with its function key, or
+chosen with ↑↓ and opened with Enter or Space.
 
 It also works on the plain Linux console (no desktop), whose fonts have a few hundred
 characters and 16 colours. The suite asks the kernel which characters the loaded font has and

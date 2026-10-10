@@ -141,3 +141,29 @@ def test_rig_view_tunes_with_the_keyboard(tmp_path):
             await link.close()
 
     asyncio.run(run())
+
+
+def test_dashboard_with_the_cursor_keys(tmp_path):
+    from ic705suite.dashboard.app import DashboardApp
+
+    async def run():
+        config = sim_config(tmp_path)
+        DashboardApp.chosen = None
+        app = DashboardApp(None, config)
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.press("down", "down", "down", "down")     # View -> ... -> Logbook
+            await pilot.press("up", "down", "down", "enter")      # Antenna, Logbook, Packet
+            await pilot.pause(0.1)
+        assert app.return_value == "packet"
+        # Back on the dashboard, still on Packet: down goes round to View, which needs the
+        # radio (there is none here) and stays; up twice is the Logbook, opened with Space.
+        app = DashboardApp(None, config)
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.press("down", "enter")
+            await pilot.pause(0.1)
+            assert app.is_running and "needs the radio" in app.messages[-1][1]
+            await pilot.press("up", "up", "space")
+            await pilot.pause(0.1)
+        assert app.return_value == "log"
+
+    asyncio.run(run())

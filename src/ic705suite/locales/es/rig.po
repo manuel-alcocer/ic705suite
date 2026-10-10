@@ -354,11 +354,11 @@ msgstr "VOX"
 msgid "XIT"
 msgstr "XIT"
 
-msgid "F2-F7 Open · Ctrl+Q Quit"
-msgstr "F2-F7 Abrir · Ctrl+Q Salir"
+msgid "↑↓ Enter or F2-F7 Open · Ctrl+Q Quit"
+msgstr "↑↓ Enter o F2-F7 Abrir · Ctrl+Q Salir"
 
-msgid "F2-F7 Open · F9 Reconnect · Ctrl+Q Quit"
-msgstr "F2-F7 Abrir · F9 Reconectar · Ctrl+Q Salir"
+msgid "↑↓ Enter or F2-F7 Open · F9 Reconnect · Ctrl+Q Quit"
+msgstr "↑↓ Enter o F2-F7 Abrir · F9 Reconectar · Ctrl+Q Salir"
 
 msgid "F2-F9 Band · N Noise sweep (RX) · S SWR sweep (TX) · C Coil position · Esc Stop/Back"
 msgstr "F2-F9 Banda · N Barrido de ruido (RX) · S Barrido ROE (TX) · C Posición de bobina · Esc Parar/Volver"
