@@ -279,3 +279,17 @@ def test_dashboard_quick_log(tmp_path):
             await link.close()
 
     asyncio.run(run())
+
+
+def test_simulator_uses_the_demo_logbook(monkeypatch):
+    import os
+
+    from ic705suite.cli import demo_logbook
+
+    real = os.environ["HAMRLOG_DATABASE_URL"]
+    with demo_logbook(Config(connection="lan")):
+        assert os.environ["HAMRLOG_DATABASE_URL"] == real
+    with demo_logbook(Config(connection="sim")) as folder:
+        url = os.environ["HAMRLOG_DATABASE_URL"]
+        assert url != real and str(folder) in url and os.path.exists(url.split("///")[1])
+    assert os.environ["HAMRLOG_DATABASE_URL"] == real and not folder.exists()

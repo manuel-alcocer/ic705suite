@@ -98,6 +98,10 @@ def entry_hint() -> str:
 class QuickLog(Vertical):
     """The entry line and today's contacts below it (newest at the bottom)."""
 
+    def __init__(self, demo: bool = False, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.demo = demo          # hamrlog's demo log (the simulator): said in the title
+
     def compose(self) -> ComposeResult:
         yield Input(id="qso-input")
         yield DataTable(id="qso-today", cursor_type="none", zebra_stripes=False)
@@ -107,7 +111,7 @@ class QuickLog(Vertical):
         table.add_columns(_("UTC"), _("Call"), _("Name"), _("Band"), _("Mode"), _("Sent"),
                           _("Rcvd"), _("QTH"))
         table.can_focus = False
-        self.border_title = _("Quick log · today")
+        self.border_title = _("Quick log · today") + (" · " + _("demo") if self.demo else "")
         self.run_worker(self._start())
 
     async def _start(self) -> None:

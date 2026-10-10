@@ -215,7 +215,8 @@ class DashboardApp(PanelKeys, ChannelSaving, App[str]):
             with Vertical(id="left"):
                 with Vertical(id="apps-frame", classes="frame"):
                     yield DataTable(id="apps", cursor_type="row", zebra_stripes=False)
-                yield QuickLog(id="quicklog", classes="frame")
+                yield QuickLog(demo=self.config.connection == "sim", id="quicklog",
+                               classes="frame")
             with Vertical(id="side"):
                 yield RigPanel(id="rig", classes="frame")
                 yield Waterfall(id="scope", classes="frame")

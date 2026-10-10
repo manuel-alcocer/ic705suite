@@ -279,12 +279,23 @@ def main(argv: list[str] | None = None) -> int:
             from ic705suite.launcher import run_suite
 
             coro = run_suite(link, config, scp, start_app=app, problem=problem)
-    with contextlib.suppress(KeyboardInterrupt):
+    with contextlib.suppress(KeyboardInterrupt), demo_logbook(config):
         code = asyncio.run(coro)
         if code:
             print(f"(details in {log_file})", file=sys.stderr)
         return code
     return 130
+
+
+def demo_logbook(config):
+    """With the simulator, the logbook is hamrlog's demo too: an invented log in a throwaway
+    copy, so trying the suite never writes into the real one."""
+    if config.connection != "sim":
+        return contextlib.nullcontext()
+    from ic705suite.apps.log import demo
+    from ic705suite.i18n import language
+
+    return demo.session(language())
 
 
 async def _run_cw(link: Link, startup: list[str], scp: set[str]) -> int:

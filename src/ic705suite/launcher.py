@@ -57,7 +57,8 @@ async def run_app(app_id: str, link: Link | None, config: Config, scp: set[str] 
 
         # hamrlog keeps its own database (~/.local/share/hamrlog) and settings (F9).
         init_engine(None)
-        await HamrlogApp().run_async(mouse=False)
+        # With the simulator it is hamrlog's demo log (see cli.demo_logbook).
+        await HamrlogApp(demo=config.connection == "sim").run_async(mouse=False)
         return 0
     if app_id == "packet":
         from ic705suite.apps.packet import config as packet_config
