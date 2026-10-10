@@ -1,3 +1,4 @@
-"""cwic705 - console CW decoder/encoder for the Icom IC-705."""
+"""CW application: decoder (Bayesian and classic), skimmer, keyer, channels and translation.
 
-__version__ = "0.1.0"
+Formerly the cwic705 program.
+"""

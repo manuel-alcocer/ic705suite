@@ -1,0 +1,143 @@
+"""The suite around the applications: rig models, configuration, station, dashboard."""
+
+import asyncio
+
+import pytest
+
+from ic705suite.config import Config, load_config, migrate_legacy
+from ic705suite.rig import get_model, open_rig
+from ic705suite.rig.base import FEATURE_DSTAR, TxDisabledError
+from ic705suite.rig.icom.sim import SimTransport
+from ic705suite.station.links import LocalLink
+
+
+def sim_config(tmp_path, **kwargs) -> Config:
+    return Config(connection="sim", swr_web=False,
+                  database_url=f"sqlite:///{tmp_path / 'suite.db'}", **kwargs)
+
+
+def test_models_and_factory():
+    model = get_model("IC-705")
+    assert model.id == "ic705" and model.has(FEATURE_DSTAR) and model.covers(7_030_000)
+    assert not model.covers(300_000_000)
+    with pytest.raises(ValueError, match="unknown rig model"):
+        get_model("ft-817")
+    rig = open_rig(Config(connection="sim"))
+    assert isinstance(rig.transport, SimTransport) and rig.model is model
+    with pytest.raises(ValueError, match="no radio address"):
+        open_rig(Config(connection="lan"))
+
+
+def test_cwic705_settings_are_imported(tmp_path):
+    legacy = tmp_path / "cwic705"
+    legacy.mkdir()
+    (legacy / "config.toml").write_text(
+        '[radio]\nhost = "10.0.0.5"\nusername = "op"\n\n[keyer]\ntx_enabled = false\n'
+        '[skimmer]\nscp_path = "~/.config/cwic705/MASTER.SCP"\n')
+    (legacy / "MASTER.SCP").write_text("EA1AAA\n")
+    new = tmp_path / "suite" / "config.toml"
+    assert migrate_legacy(new, legacy) == new
+    assert migrate_legacy(new, legacy) is None          # only once
+    config = load_config(new)
+    assert (config.rig_model, config.connection, config.host) == ("ic705", "lan", "10.0.0.5")
+    assert str(config.scp_path).endswith(".config/ic705suite/MASTER.SCP")
+    assert (new.parent / "MASTER.SCP").exists()
+
+
+def test_rig_commands_through_the_core(tmp_path):
+    async def run():
+        link = LocalLink(None, sim_config(tmp_path))
+        events = []
+        link.attach(events.append)
+        await link.connect()
+        try:
+            await link.command("/f 14.060", app="rig")
+            await link.command("/mode USB", app="rig")
+            await link.command("/mode XYZ", app="rig")
+            rig = await link.call("rig")
+            assert rig["frequency"] == 14_060_000 and rig["mode"] == "USB"
+            assert rig["band"] == "20m" and rig["model"] == "ic705" and not rig["tx_enabled"]
+            assert any(e.get("msgid") == "{model} has no {mode} mode" for e in events)
+            # Receive only: the rig itself refuses to key the transmitter.
+            with pytest.raises(TxDisabledError):
+                await link.core.station.rig.ptt(True)
+            await asyncio.sleep(0.6)
+            assert link.latest["rig"]["connected"]
+            # A client attached later gets the welcome, the messages and the latest rig state.
+            replay = []
+            link.attach(replay.append)
+            kinds = [e["type"] for e in replay]
+            assert kinds[0] == "welcome" and "rig" in kinds and "info" in kinds
+        finally:
+            await link.close()
+
+    asyncio.run(run())
+
+
+def test_dashboard_lists_the_apps_and_opens_one(tmp_path):
+    from ic705suite.dashboard.app import DashboardApp
+    from ic705suite.launcher import start_link
+
+    async def run():
+        link = LocalLink(None, sim_config(tmp_path))
+        start_link(link)
+        app = DashboardApp(link, link.core.config)
+        try:
+            async with app.run_test(size=(120, 36)) as pilot:
+                for _ in range(40):
+                    await pilot.pause(0.1)
+                    if link.connected and app.rig.get("connected"):
+                        break
+                ids = [a["id"] for a in app.apps]
+                assert ids == ["view", "cw", "dstar", "swr", "log", "packet"]
+                await pilot.press("f4")              # D-STAR: not ready yet, stays here
+                await pilot.pause(0.1)
+                assert app.is_running and "coming soon" in app.messages[-1][1]
+                await pilot.press("f3")              # CW
+                await pilot.pause(0.1)
+            assert app.return_value == "cw"
+        finally:
+            await link.close()
+
+    asyncio.run(run())
+
+
+def test_dashboard_without_a_radio_still_opens_the_logbook(tmp_path):
+    from ic705suite.dashboard.app import DashboardApp
+
+    async def run():
+        app = DashboardApp(None, Config(), problem="no radio address")
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.press("f2")                  # rig view needs the radio
+            await pilot.pause(0.1)
+            assert app.is_running
+            await pilot.press("f6")                  # logbook works without it
+            await pilot.pause(0.1)
+        assert app.return_value == "log"
+
+    asyncio.run(run())
+
+
+def test_rig_view_tunes_with_the_keyboard(tmp_path):
+    from ic705suite.apps.view.app import ViewApp
+
+    async def run():
+        link = LocalLink(None, sim_config(tmp_path))
+        await link.connect()
+        app = ViewApp(link)
+        try:
+            async with app.run_test(size=(100, 30)) as pilot:
+                await pilot.pause(0.6)
+                start = app.rig["frequency"]
+                await pilot.press("pageup")
+                await pilot.pause(0.6)
+                assert app.rig["frequency"] == (start // 100 + 1) * 100
+                await pilot.press("f2", "pagedown")  # step 1 kHz, down to the previous kHz
+                await pilot.pause(0.6)
+                assert app.rig["frequency"] % 1000 == 0 and app.rig["frequency"] < start + 100
+                await pilot.press("escape")
+            assert app.return_value == 0 and link.connected   # the link outlives the app
+        finally:
+            await link.close()
+
+    asyncio.run(run())

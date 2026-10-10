@@ -1,14 +1,12 @@
 """Full-screen client (Textual), laid out and styled after HAMRLOG.
 
 It only talks to a Link: events in, command lines out. The same client works with the
-core in this process or on a remote `cwic705 --serve` (e.g. a Raspberry Pi).
+core in this process or on a remote `ic705suite --serve` (e.g. a Raspberry Pi).
 """
 
 from __future__ import annotations
 
 import datetime as dt
-import re
-from importlib import resources
 
 from rich.text import Text
 from textual.app import App, ComposeResult
@@ -17,13 +15,16 @@ from textual.containers import Horizontal, Vertical
 from textual.widget import Widget
 from textual.widgets import DataTable, Input, Label, Static
 
-from ic705suite.apps.cw import bands
-from ic705suite.apps.cw.i18n import N_, _, render
+from ic705suite.rig import bands
+from ic705suite.i18n import N_, _, render
 from ic705suite.apps.cw.interpret import Interpretation, Interpreter, interpret
-from ic705suite.apps.cw.links import Link, LinkError
-from ic705suite.apps.cw.radio import CivError, smeter_text
-from ic705suite.apps.cw.screens import ChannelsScreen, ChoiceScreen, NameScreen
-from ic705suite.apps.cw.transport import TransportError
+from ic705suite.station.links import Link, LinkError
+from ic705suite.rig.base import RigError, smeter_text
+from ic705suite.apps.cw.screens import ChannelsScreen
+from ic705suite.ui.channels import ChannelSaving
+from ic705suite.ui.widgets import append_keys as _append_keys
+from ic705suite.ui.widgets import css
+from ic705suite.rig.transport import TransportError
 
 MAX_LINES = 2000
 LINE_HISTORY = 100
@@ -35,19 +36,6 @@ STYLES = {"rx": "white", "tx": "bold yellow", "info": "cyan", "error": "bold red
 HELP_HINT = N_("F1 Help · F2-F9 Macros · F10 Skimmer · F11 Channels · Esc Stop · "
                "PgUp/PgDn Tune · Ctrl+Q Quit")
 SHORT_HINT = N_("F1 Help · F10 Skimmer · F11 Channels · Ctrl+Q Quit")
-_KEY = re.compile(r"F\d+(?:-F\d+)?|Esc|PgUp/PgDn|Ctrl\+\w|Enter|↑↓")
-
-
-def _append_keys(text: Text, hint: str) -> None:
-    """Append a hint with its keys bold and the rest dim (as HAMRLOG's footer)."""
-    position = 0
-    for match in _KEY.finditer(hint):
-        text.append(hint[position:match.start()], style="dim")
-        text.append(match.group(), style="bold")
-        position = match.end()
-    text.append(hint[position:], style="dim")
-
-
 class StatusLine(Static):
     """One line: radio, frequency, mode, S-meter, keyer and the state badges."""
 
@@ -243,9 +231,9 @@ class StatsFooter(Static):
         return text
 
 
-class CwApp(App[int]):
-    CSS = resources.files("ic705suite.apps.cw").joinpath("styles.tcss").read_text(encoding="utf-8")
-    TITLE = "cwic705"
+class CwApp(ChannelSaving, App[int]):
+    CSS = css("ic705suite.apps.cw")
+    TITLE = "ic705suite CW"
     ENABLE_COMMAND_PALETTE = False
 
     BINDINGS = [
@@ -263,9 +251,10 @@ class CwApp(App[int]):
     ]
 
     def __init__(self, link: Link, startup: list[str] | None = None,
-                 scp: set[str] | None = None) -> None:
+                 scp: set[str] | None = None, owns_link: bool = True) -> None:
         super().__init__()
         self.link = link
+        self.owns_link = owns_link
         self.scp = scp or set()
         self.startup = startup or []
         self.state: dict = {}
@@ -304,17 +293,21 @@ class CwApp(App[int]):
         self.set_interval(1.0, self._interpreter_tick)
         self._update_entry_title()
         self.query_one("#entry-input", Input).focus()
-        self.link.on_event = self._on_event
+        self.link.attach(self._on_event)
         self.run_worker(self._connect(), exclusive=True)
 
     async def _connect(self) -> None:
         try:
             await self.link.connect()
-        except (LinkError, TransportError, CivError, OSError) as exc:
+        except (LinkError, TransportError, RigError, OSError) as exc:
             self._message("error", _("cannot connect: {error}").format(error=exc))
             self._message("info", _("press Ctrl+Q to leave"))
             self.exit_code = 1
             return
+        try:
+            await self.link.call("cw.activate")  # the radio goes to CW while this is open
+        except (LinkError, OSError) as exc:
+            self._message("error", str(exc))
         for line in self.startup:
             await self.link.command(line)
         await self.link.closed.wait()
@@ -469,73 +462,12 @@ class CwApp(App[int]):
         self.run_worker(self._leave(), exclusive=True, group="leave")
 
     async def _leave(self) -> None:
-        """Offer to archive the unsaved channels, then quit."""
-        try:
-            listing = await self.link.call("channels")
-        except Exception:
-            listing = {}
-        pending = [c for c in listing.get("session", []) if c.get("unsaved")]
-        if pending:
-            names = ", ".join(c["label"] for c in pending[:8]) + ("..." if len(pending) > 8 else "")
-            options = [("audio", _("Save with audio")), ("text", _("Save without audio")),
-                       ("no", _("Don't save")), ("cancel", _("Cancel"))]
-            if not listing.get("audio_available", True):
-                options = [o for o in options if o[0] != "audio"]
-            choice = await self.push_screen_wait(ChoiceScreen(
-                _("Save channels"),
-                _("{n} channels of this session are not saved: {names}").format(
-                    n=len(pending), names=names), options))
-            if choice in ("", "cancel"):
+        """Standalone: offer to archive the unsaved channels, then quit. Inside the suite:
+        back to the dashboard (the channels stay in the core; leaving the suite asks)."""
+        if self.owns_link:
+            if not await self.offer_save_channels():
                 return
-            if choice in ("audio", "text"):
-                for channel in pending:
-                    await self.save_channel_flow(channel, audio=choice == "audio")
-        await self.link.close()
+            await self.link.close()
+        else:
+            self.link.detach()
         self.exit(self.exit_code)
-
-    async def save_channel_flow(self, channel: dict, audio: bool = False,
-                                ask_audio: bool = False) -> None:
-        """Archive one channel, asking for a name when it has no callsign and before
-        reusing an existing name (append mode)."""
-        if ask_audio:
-            choice = await self.push_screen_wait(ChoiceScreen(
-                _("Save channel"), _("Save {label} with its audio?").format(label=channel["label"]),
-                [("audio", _("With audio")), ("text", _("Text only")), ("cancel", _("Cancel"))]))
-            if choice in ("", "cancel"):
-                return
-            audio = choice == "audio"
-        params: dict = {"id": channel["id"], "audio": audio}
-        while True:
-            result = await self.link.call("save_channel", **params)
-            status = result.get("status")
-            if status == "needs_name":
-                name = await self.push_screen_wait(NameScreen(
-                    _("Name the channel"),
-                    _("The channel {label} has no callsign. Name for it (empty: {suggestion}):")
-                    .format(label=result.get("label", channel["label"]),
-                            suggestion=result.get("suggestion", "")),
-                    placeholder=result.get("suggestion", "")))
-                if name is None:
-                    return  # skipped
-                params.update(name=name.strip(), auto=not name.strip(), append=False)
-            elif status == "name_exists":
-                answer = await self.push_screen_wait(ChoiceScreen(
-                    _("Name in use"),
-                    _("A channel named «{name}» already exists. Add this conversation to it?")
-                    .format(name=result["name"]),
-                    [("yes", _("Yes, append")), ("no", _("No, another name"))]))
-                if answer == "yes":
-                    params["append"] = True
-                else:
-                    params.pop("name", None)
-                    params.pop("auto", None)
-            elif status in ("saved", "appended"):
-                msg = _("channel saved as «{name}»") if status == "saved" else \
-                    _("conversation added to channel «{name}»")
-                self._message("info", msg.format(name=result["name"]))
-                return
-            else:
-                if status == "error":
-                    self._message("error", _("cannot save {label}: {error}").format(
-                        label=channel["label"], error=result.get("error")))
-                return

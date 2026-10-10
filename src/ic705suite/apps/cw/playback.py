@@ -53,11 +53,13 @@ def load_sidecar(wav: str | Path) -> list[tuple[float, int]]:
             from mutagen.flac import FLAC
 
             tags = FLAC(str(wav)).tags or {}
-            if "cwic705_frequency_timeline" in tags:
-                return [(float(t), int(f)) for t, f in
-                        json.loads(tags["cwic705_frequency_timeline"][0])]
-            if "cwic705_frequency" in tags:
-                return [(0.0, int(tags["cwic705_frequency"][0]))]
+            # Files archived by cwic705, before the suite, carry the same tags under its name.
+            for prefix in ("ic705suite", "cwic705"):
+                if f"{prefix}_frequency_timeline" in tags:
+                    return [(float(t), int(f)) for t, f in
+                            json.loads(tags[f"{prefix}_frequency_timeline"][0])]
+                if f"{prefix}_frequency" in tags:
+                    return [(0.0, int(tags[f"{prefix}_frequency"][0]))]
         except (OSError, ValueError, KeyError):
             pass
         return []

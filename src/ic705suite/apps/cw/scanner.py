@@ -7,9 +7,9 @@ import logging
 from collections.abc import Callable
 
 from ic705suite.apps.cw.audio import AudioRing
-from ic705suite.apps.cw.bands import Band
+from ic705suite.rig.bands import Band
 from ic705suite.apps.cw.decoder import detect_cw
-from ic705suite.apps.cw.radio import CivError, Radio
+from ic705suite.rig.base import Rig, RigError
 
 log = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ DWELL_S = 1.2          # audio analysed at each step
 
 
 class Scanner:
-    def __init__(self, radio: Radio, audio: AudioRing,
+    def __init__(self, radio: Rig, audio: AudioRing,
                  on_progress: Callable[[int, float], None] | None = None) -> None:
         self.radio = radio
         self.audio = audio
@@ -82,6 +82,6 @@ class Scanner:
     async def _try(coro):
         try:
             return await coro
-        except CivError as exc:
+        except RigError as exc:
             log.warning("scanner: %s", exc)
             return None

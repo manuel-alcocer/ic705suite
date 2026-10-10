@@ -1,0 +1,34 @@
+/* Antenna: bands on the left, the sweep and its verdict on the right. */
+
+#top {
+    height: 1fr;
+}
+
+#bands-frame {
+    width: 40;
+    height: 1fr;
+}
+
+#bands {
+    height: 1fr;
+    border: none;
+    background: $surface;
+}
+
+#bands > .datatable--cursor {
+    background: $primary;
+    text-style: bold;
+}
+
+#sweep {
+    width: 1fr;
+    height: 1fr;
+    padding: 0 1;
+    background: $surface;
+    overflow-y: auto;
+}
+
+#message {
+    height: 1;
+    background: $boost;
+}

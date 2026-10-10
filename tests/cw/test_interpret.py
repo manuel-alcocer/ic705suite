@@ -1,4 +1,4 @@
-from ic705suite.apps.cw import i18n
+from ic705suite import i18n
 from ic705suite.apps.cw.interpret import Interpreter, interpret
 
 

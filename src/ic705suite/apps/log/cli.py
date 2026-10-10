@@ -243,11 +243,8 @@ def _cmd_metrics(port: int) -> int:
 
 
 def _offer_update(argv: list[str] | None) -> int | None:
-    from . import updater
-
-    if not updater.should_check():
-        return None
-    return updater.offer_update(list(sys.argv[1:] if argv is None else argv))
+    # Inside ic705suite the logbook is updated with the suite, not from hamrlog's releases.
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:

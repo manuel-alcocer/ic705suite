@@ -1,0 +1,122 @@
+/* ic705suite: what every screen shares, after HAMRLOG's look.
+   Status line on top, framed windows, the entry window and the footer at the bottom. */
+
+Screen {
+    layout: vertical;
+    background: $surface;
+}
+
+/* Exactly one row, separated by background colour rather than a border. */
+#statusline {
+    height: 1;
+    background: $primary-darken-3;
+    color: $text;
+    padding: 0 1;
+}
+
+.frame {
+    border: round $primary-darken-2;
+    border-title-color: $accent;
+    border-title-align: left;
+}
+
+/* Messages go on the entry's bottom edge, so they never take a row. */
+#entry {
+    border: round $primary-darken-2;
+    border-title-color: $accent;
+    border-title-align: left;
+    border-subtitle-align: left;
+    height: auto;
+    background: $boost;
+    padding: 0;
+}
+
+#entry-row {
+    height: 1;
+    width: 100%;
+}
+
+#entry-label {
+    height: 1;
+    padding: 0 1;
+    color: $text-muted;
+    text-style: bold;
+}
+
+#entry-input {
+    border: none;
+    height: 1;
+    width: 1fr;
+    padding: 0 1;
+    background: $boost;
+}
+
+#entry-input:focus {
+    background: $primary-darken-2;
+    text-style: bold;
+}
+
+#stats {
+    height: 1;
+    background: $panel;
+    padding: 0 1;
+}
+
+/* ----------------------------------------------------------- dialogs ---- */
+
+/* Dialogs, framed like the windows (as in HAMRLOG). */
+ModalScreen {
+    align: center middle;
+    background: $background 60%;
+}
+
+.modal {
+    width: 84;
+    height: auto;
+    padding: 0 1;
+    background: $surface;
+    border: round $accent;
+    border-title-color: $accent;
+    border-title-style: bold;
+    border-title-align: left;
+}
+
+.modal-subtitle {
+    width: 100%;
+    color: $text;
+    padding: 1 0;
+}
+
+.modal-help {
+    width: 100%;
+    color: $text-muted;
+    text-style: italic;
+    padding-top: 1;
+}
+
+.modal-buttons {
+    height: auto;
+    width: 100%;
+    align-horizontal: right;
+    padding-top: 1;
+}
+
+.modal-buttons Button {
+    margin-left: 2;
+    border: none;
+    height: 1;
+    min-width: 14;
+}
+
+.modal Input {
+    border: none;
+    height: 1;
+    padding: 0 1;
+    background: $boost;
+}
+
+.modal Input:focus {
+    background: $primary-darken-2;
+    text-style: bold;
+}
+

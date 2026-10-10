@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from ic705suite.apps.cw.decoder import CwDecoder, detect_cw
-from ic705suite.apps.cw.synth import cw_signal, noise
+from ic705suite.synth import cw_signal, noise
 
 FS = 8000
 MESSAGE = "CQ CQ DE EA4ABC EA4ABC PSE K"

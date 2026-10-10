@@ -28,14 +28,16 @@ from pathlib import Path
 import numpy as np
 import sqlalchemy as sa
 
-from ic705suite.apps.cw import bands
+from ic705suite import db, paths
+
+from ic705suite.rig import bands
 from ic705suite.apps.cw.hamdata import QCODE_BY_NAME
-from ic705suite.apps.cw.i18n import N_, _
+from ic705suite.i18n import N_, _
 from ic705suite.apps.cw.interpret import ABBREVIATIONS, CALLSIGN_RE, RST_RE, Interpretation, Interpreter
 
 log = logging.getLogger(__name__)
 
-DATA_DIR = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "cwic705"
+DATA_DIR = paths.data_dir() / "cw"
 KEY_TOLERANCE_HZ = 500      # same callsign within this distance: the same archived channel
 RETUNE_HZ = 150             # the tuned channel ends when the dial moves further than this
 LINE_MAX = 300              # long receive lines are cut into entries of this size
@@ -316,7 +318,7 @@ class AudioSpool:
 
     def __init__(self, sample_rate: int) -> None:
         self.sample_rate = sample_rate
-        cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "cwic705"
+        cache = paths.cache_dir()
         cache.mkdir(parents=True, exist_ok=True)
         fd, name = tempfile.mkstemp(prefix="spool-", suffix=".raw", dir=cache)
         self.path = Path(name)
@@ -367,7 +369,7 @@ def write_flac(path: Path, samples: np.ndarray, sample_rate: int, tags: dict[str
 metadata = sa.MetaData()
 
 channels_table = sa.Table(
-    "channels", metadata,
+    "cw_channels", metadata,
     sa.Column("id", sa.Integer, primary_key=True),
     sa.Column("name", sa.String(80), nullable=False, unique=True),
     sa.Column("callsign", sa.String(20), index=True),
@@ -377,33 +379,24 @@ channels_table = sa.Table(
     sa.Column("stats", sa.Text, nullable=False, default="{}"),
 )
 entries_table = sa.Table(
-    "entries", metadata,
+    "cw_entries", metadata,
     sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("channel_id", sa.Integer, sa.ForeignKey("channels.id", ondelete="CASCADE"),
+    sa.Column("channel_id", sa.Integer, sa.ForeignKey("cw_channels.id", ondelete="CASCADE"),
               nullable=False, index=True),
     sa.Column("utc", sa.String(32), nullable=False),
     sa.Column("kind", sa.String(10), nullable=False),
     sa.Column("text", sa.Text, nullable=False),
 )
 audio_table = sa.Table(
-    "audio", metadata,
+    "cw_audio", metadata,
     sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("channel_id", sa.Integer, sa.ForeignKey("channels.id", ondelete="CASCADE"),
+    sa.Column("channel_id", sa.Integer, sa.ForeignKey("cw_channels.id", ondelete="CASCADE"),
               nullable=False, index=True),
     sa.Column("path", sa.Text, nullable=False),
     sa.Column("started", sa.String(32), nullable=False),
     sa.Column("seconds", sa.Float, nullable=False),
 )
 
-DEFAULT_URL = f"sqlite:///{DATA_DIR / 'channels.db'}"
-
-
-def database_url(url: str | None) -> str:
-    """Config value -> SQLAlchemy URL; "~" is expanded in SQLite paths."""
-    url = url or DEFAULT_URL
-    if url.startswith("sqlite:///~"):
-        url = "sqlite:///" + str(Path(url[len("sqlite:///"):]).expanduser())
-    return url
 
 
 class ChannelStore:
@@ -411,13 +404,8 @@ class ChannelStore:
     plus their FLAC files, kept next to the core."""
 
     def __init__(self, url: str | None = None, audio_dir: Path | None = None) -> None:
-        self.url = database_url(url)
-        if self.url.startswith("sqlite:///"):
-            Path(self.url[len("sqlite:///"):]).parent.mkdir(parents=True, exist_ok=True)
-        self.engine = sa.create_engine(self.url, future=True)
-        if self.engine.dialect.name == "sqlite":
-            sa.event.listen(self.engine, "connect",
-                            lambda conn, _rec: conn.execute("PRAGMA foreign_keys = ON"))
+        self.url = db.database_url(url)
+        self.engine = db.make_engine(self.url)
         metadata.create_all(self.engine)
         self.audio_dir = audio_dir or DATA_DIR / "audio"
 
@@ -493,11 +481,11 @@ class ChannelStore:
             seconds=(spool.position - start) / spool.sample_rate)).isoformat(timespec="seconds")
         write_flac(path, samples, spool.sample_rate, {
             "TITLE": name, "ARTIST": record.callsign or "", "DATE": started[:10],
-            "COMMENT": f"cwic705 CW recording, {bands.format_frequency(record.frequency)} MHz",
-            "CWIC705_CHANNEL": name, "CWIC705_CALLSIGN": record.callsign or "",
-            "CWIC705_FREQUENCY": record.frequency, "CWIC705_START_UTC": started,
-            "CWIC705_SAMPLE_RATE": spool.sample_rate,
-            "CWIC705_FREQUENCY_TIMELINE": json.dumps(spool.frequencies(start, end)),
+            "COMMENT": f"ic705suite CW recording, {bands.format_frequency(record.frequency)} MHz",
+            "IC705SUITE_CHANNEL": name, "IC705SUITE_CALLSIGN": record.callsign or "",
+            "IC705SUITE_FREQUENCY": record.frequency, "IC705SUITE_START_UTC": started,
+            "IC705SUITE_SAMPLE_RATE": spool.sample_rate,
+            "IC705SUITE_FREQUENCY_TIMELINE": json.dumps(spool.frequencies(start, end)),
         })
         conn.execute(audio_table.insert().values(channel_id=channel_id, path=str(path),
                                                  started=started, seconds=seconds))

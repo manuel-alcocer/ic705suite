@@ -1,0 +1,55 @@
+/* Dashboard: applications on the left, rig and station on the right, messages below. */
+
+#top {
+    height: 1fr;
+    min-height: 12;
+}
+
+#apps-frame {
+    width: 3fr;
+    height: 1fr;
+}
+
+#apps {
+    height: 1fr;
+    border: none;
+    background: $surface;
+}
+
+#apps > .datatable--header {
+    background: $panel;
+    text-style: bold;
+}
+
+#apps > .datatable--cursor,
+#apps > .datatable--hover {
+    background: $primary;
+    text-style: bold;
+}
+
+#side {
+    width: 2fr;
+    min-width: 40;
+    height: 1fr;
+}
+
+#rig {
+    height: 1fr;
+    padding: 0 1;
+    background: $surface;
+}
+
+#station {
+    height: auto;
+    max-height: 7;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+    padding: 0 1;
+    background: $surface;
+}
+
+#log {
+    height: 8;
+    padding: 0 1;
+    background: $surface;
+}

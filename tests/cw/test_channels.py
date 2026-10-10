@@ -5,11 +5,11 @@ import wave
 import numpy as np
 
 from ic705suite.apps.cw.channels import AudioSpool, ChannelBook, ChannelStore
-from ic705suite.apps.cw.config import Config
+from ic705suite.config import Config
 from ic705suite.apps.cw.playback import load_sidecar, load_wav
-from ic705suite.apps.cw.session import Session
-from ic705suite.apps.cw.synth import cw_signal, noise
-from ic705suite.apps.cw.transport.sim import SimTransport
+from tests.cw.helpers import make_session, start, stop
+from ic705suite.synth import cw_signal, noise
+from ic705suite.rig.icom.sim import SimTransport
 
 
 def make_store(tmp_path) -> ChannelStore:
@@ -33,7 +33,7 @@ def test_callsign_channels_append_and_statistics_are_not_counted_twice(tmp_path)
         assert saved["stats"]["words"] == 6 + 4
         assert [e["kind"] for e in saved["entries"]].count("rx") == 2
         tags = __import__("mutagen.flac", fromlist=["FLAC"]).FLAC(saved["audio"][0]["path"]).tags
-        assert tags["cwic705_callsign"] == ["SP3BZU"] and tags["cwic705_frequency"] == ["7007240"]
+        assert tags["ic705suite_callsign"] == ["SP3BZU"] and tags["ic705suite_frequency"] == ["7007240"]
         assert load_sidecar(saved["audio"][0]["path"]) == [(0.0, 7_007_240)]
         samples, rate = load_wav(saved["audio"][0]["path"])
         assert rate == 8000 and len(samples) == 12000  # 10 s lookback, capped at the start
@@ -45,7 +45,7 @@ def test_callsign_channels_append_and_statistics_are_not_counted_twice(tmp_path)
 def test_naming_rules_without_callsign(tmp_path):
     async def scenario():
         config = Config(channels_db=f"sqlite:///{tmp_path / 'c.db'}")
-        session = Session(SimTransport(stations=[], seed=1), config, _Ui())
+        session = make_session(SimTransport(stations=[], seed=1), config, _Ui())
         session.store.audio_dir = tmp_path / "audio"
         for text in ("QRL? ", "TNX FB ", "HW? "):
             session.book.end_tuned()
@@ -96,8 +96,8 @@ def test_skimmer_channels_follow_the_station_and_survive_the_round_trip(tmp_path
     async def scenario():
         ui = _Ui()
         config = Config(channels_db=f"sqlite:///{tmp_path / 'c.db'}")
-        session = Session(SimTransport(stations=[], frequency=14_060_000, seed=4), config, ui)
-        await session.start()
+        session = make_session(SimTransport(stations=[], frequency=14_060_000, seed=4), config, ui)
+        await start(session)
         try:
             await session.execute("/skim")
             await session.execute(f"/play {wav_path} x10")
@@ -113,7 +113,7 @@ def test_skimmer_channels_follow_the_station_and_survive_the_round_trip(tmp_path
             assert session.skimmer is not None and len(session.skimmer.channels) >= 2
             assert any("skimmer resumed" in i for i in ui.infos)
         finally:
-            await session.stop()
+            await stop(session)
 
     asyncio.run(scenario())
 

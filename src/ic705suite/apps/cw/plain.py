@@ -8,9 +8,9 @@ from __future__ import annotations
 import asyncio
 import sys
 
-from ic705suite.apps.cw.i18n import _, render
+from ic705suite.i18n import _, render
 from ic705suite.apps.cw.interpret import Interpretation, Interpreter
-from ic705suite.apps.cw.links import Link
+from ic705suite.station.links import Link
 
 
 class PlainClient:
@@ -21,7 +21,7 @@ class PlainClient:
         self._at_line_start = True
         self._transmitting = False
         self.interpreter = Interpreter(scp=scp)
-        link.on_event = self._on_event
+        link.attach(self._on_event)
 
     def _line(self, text: str) -> None:
         if not self._at_line_start:

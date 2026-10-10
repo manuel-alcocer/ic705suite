@@ -6,7 +6,10 @@ can never leak into the next.
 
 from __future__ import annotations
 
+import os
+
 import pytest
+import sqlalchemy as sa
 
 from ic705suite.apps.log.core import units
 from ic705suite.apps.log.core.services import AntennaService, OperatorService, StationService
@@ -39,6 +42,14 @@ def temp_database(tmp_path, monkeypatch):
     (the TUI does, on mount) resolves to the same file.
     """
     url = f"sqlite:///{(tmp_path / 'test.sqlite3').as_posix()}"
+    postgres = os.environ.get("IC705SUITE_TEST_POSTGRES")
+    if postgres:
+        # Same tests on PostgreSQL: an empty schema for each one.
+        url = postgres
+        engine = sa.create_engine(url)
+        with engine.begin() as conn:
+            conn.execute(sa.text("DROP SCHEMA public CASCADE; CREATE SCHEMA public"))
+        engine.dispose()
     monkeypatch.setenv("HAMRLOG_HOME", str(tmp_path))
     monkeypatch.setenv("HAMRLOG_DATABASE_URL", url)
     # Most tests count rows; the catalog has its own tests.

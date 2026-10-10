@@ -1,4 +1,4 @@
-"""Run the CW decoder over a recorded WAV file (e.g. one made with `cwic705 --record`)."""
+"""Run the CW decoder over a recorded WAV file (e.g. one made with `ic705suite --record`)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from ic705suite.apps.cw.playback import load_wav
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="cwic705-replay", description=__doc__)
+    p = argparse.ArgumentParser(prog="ic705suite-replay", description=__doc__)
     p.add_argument("wav")
     p.add_argument("--pitch", type=float, default=600, help="CW pitch of the radio (Hz)")
     p.add_argument("--wpm", type=float, default=18, help="initial speed estimate")
@@ -43,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def skim(samples: np.ndarray, rate: int) -> int:
     """Print each callsign as the skimmer validates it, then every channel's text."""
-    from ic705suite.apps.cw.config import DEFAULT_SCP_PATH
+    from ic705suite.config import DEFAULT_SCP_PATH
     from ic705suite.apps.cw.skimmer import Skimmer, load_scp
 
     scp = load_scp(DEFAULT_SCP_PATH) if DEFAULT_SCP_PATH.exists() else set()

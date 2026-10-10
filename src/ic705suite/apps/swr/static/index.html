@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>Ajuste de antena</title>
+<style>
+  :root {
+    --bg: #f4f6f9; --card: #ffffff; --fg: #0f172a; --muted: #5b6577; --line: #d8dee8;
+    --accent: #1d4ed8; --ok: #15803d; --warn: #b45309; --bad: #b91c1c; --curve: #1d4ed8;
+    --tx: #b91c1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1120; --card: #131c2e; --fg: #e8edf5; --muted: #94a0b4; --line: #26324a;
+      --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --curve: #60a5fa;
+      --tx: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 12px 16px 40px; }
+  header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  header h1 { font-size: 18px; margin: 0; flex: 1; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.on { background: var(--ok); }
+  .dot.tx { background: var(--tx); animation: blink .6s infinite alternate; }
+  @keyframes blink { to { opacity: .3; } }
+  .rig { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; text-align: right; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+          padding: 14px; margin-bottom: 12px; }
+  .bands { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .bands button { padding: 10px 0; border-radius: 10px; border: 1px solid var(--line);
+                  background: transparent; color: var(--fg); font-size: 16px; font-weight: 600; }
+  .bands button.sel { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .row { display: flex; gap: 10px; margin-top: 12px; }
+  .row > label { flex: 1; min-width: 0; }
+  label span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  input { width: 100%; padding: 10px; font-size: 18px; border-radius: 10px;
+          border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+          font-variant-numeric: tabular-nums; }
+  .coil { display: flex; gap: 6px; }
+  .coil input { text-align: center; }
+  .coil button { width: 46px; flex: none; border-radius: 10px; border: 1px solid var(--line);
+                 background: transparent; color: var(--fg); font-size: 22px; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .actions button { padding: 16px 8px; border: 0; border-radius: 12px; font-size: 17px;
+                    font-weight: 700; color: #fff; background: var(--accent); }
+  .actions button.tx { background: var(--tx); }
+  .actions button.stop { grid-column: 1 / -1; background: var(--fg); color: var(--bg); }
+  .actions small { display: block; font-weight: 400; font-size: 12px; opacity: .85; }
+  .finish, .save { width: 100%; margin-top: 12px; padding: 12px; border-radius: 12px; font-size: 16px;
+                   font-weight: 700; border: 1px solid var(--accent); background: transparent; color: var(--accent); }
+  .save { background: var(--accent); color: #fff; }
+  .final { margin-top: 12px; }
+  button:disabled { opacity: .45; }
+  details { margin-top: 10px; }
+  summary { color: var(--muted); font-size: 14px; }
+  .verdict { font-size: 24px; font-weight: 800; line-height: 1.2; }
+  .verdict.ok { color: var(--ok); } .verdict.warn { color: var(--warn); } .verdict.bad { color: var(--bad); }
+  .sub { color: var(--muted); margin-top: 6px; }
+  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: 12px;
+           font-variant-numeric: tabular-nums; }
+  .facts div span { display: block; font-size: 12px; color: var(--muted); }
+  .facts div b { font-size: 18px; }
+  svg { width: 100%; height: auto; display: block; }
+  .msg { padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; font-size: 15px; }
+  .msg.err { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+  .msg.txw { background: color-mix(in srgb, var(--tx) 15%, transparent); color: var(--tx); font-weight: 700; }
+  .hist { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .hist td, .hist th { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+  .hist th { color: var(--muted); font-weight: 500; }
+  .hidden { display: none; }
+  h2 { font-size: 15px; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="dot" id="dot"></div>
+    <h1>Ajuste de antena</h1>
+    <div class="rig" id="rig">—</div>
+  </header>
+
+  <div class="msg err hidden" id="err"></div>
+  <div class="msg txw hidden" id="txwarn">⚠ Transmitiendo: no toques la antena</div>
+
+  <section class="card">
+    <div class="bands" id="bands"></div>
+    <div class="row">
+      <label><span>Objetivo (MHz)</span><input id="target" inputmode="decimal"></label>
+    </div>
+    <details>
+      <summary>Rango del barrido</summary>
+      <div class="row">
+        <label><span>Desde (MHz)</span><input id="start" inputmode="decimal"></label>
+        <label><span>Hasta (MHz)</span><input id="stop" inputmode="decimal"></label>
+      </div>
+      <div class="row">
+        <label><span>Paso (kHz)</span><input id="step" inputmode="decimal"></label>
+        <label><span>Potencia (%)</span><input id="power" inputmode="numeric"></label>
+      </div>
+    </details>
+  </section>
+
+  <section class="actions card" style="padding:10px">
+    <button class="tx" id="btnSwr">Barrido ROE<small>transmite unos W</small></button>
+    <button id="btnNoise">Barrido ruido<small>sin transmitir</small></button>
+    <button class="stop hidden" id="btnStop">Parar</button>
+  </section>
+
+  <section class="card hidden" id="resultCard">
+    <div class="verdict" id="verdict"></div>
+    <div class="sub" id="advice"></div>
+    <div class="facts" id="facts"></div>
+    <button class="finish hidden" id="btnFinish">Terminar ajuste</button>
+    <div class="final hidden" id="finalBox">
+      <label><span id="finalQuestion">¿En qué número ha quedado la bobina?</span>
+        <div class="coil">
+          <button type="button" data-d="-0.25">−</button>
+          <input id="coil" inputmode="decimal" placeholder="p. ej. 11,25">
+          <button type="button" data-d="0.25">+</button>
+        </div>
+      </label>
+      <button class="save" id="btnSave">Guardar ajuste</button>
+    </div>
+    <div class="sub hidden" id="savedMsg"></div>
+  </section>
+
+  <section class="card hidden" id="chartCard">
+    <svg id="chart" viewBox="0 0 340 200" role="img" aria-label="Curva del barrido"></svg>
+  </section>
+
+  <section class="card hidden" id="histCard">
+    <h2>Ajustes guardados en esta banda</h2>
+    <table class="hist"><thead><tr><th>Hora</th><th>Bobina</th><th>Resonancia</th><th>Mín.</th></tr></thead>
+      <tbody id="hist"></tbody></table>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const mhz = hz => (hz / 1e6).toFixed(3);
+const toHz = text => Math.round(parseFloat(String(text).replace(",", ".")) * 1e6);
+let bands = [], band = null, state = null, lastShownFinish = 0;
+let finishing = false, savedFor = null;
+
+function remember() {
+  try {
+    localStorage.setItem("swr-remote", JSON.stringify({
+      band: band && band.name, coil: $("coil").value,
+    }));
+  } catch (e) {}
+}
+function stored() {
+  try { return JSON.parse(localStorage.getItem("swr-remote") || "{}"); } catch (e) { return {}; }
+}
+
+async function api(path, body) {
+  const opts = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" },
+                                           body: JSON.stringify(body) };
+  const res = await fetch(path, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+function showError(text) {
+  $("err").textContent = text || "";
+  $("err").classList.toggle("hidden", !text);
+}
+
+function selectBand(b) {
+  band = b;
+  document.querySelectorAll("#bands button").forEach(x => x.classList.toggle("sel", x.dataset.b === b.name));
+  $("target").value = mhz(b.target);
+  $("start").value = mhz(b.start);
+  $("stop").value = mhz(b.end);
+  $("step").value = b.step / 1000;
+  remember();
+  loadHistory();
+}
+
+async function loadHistory() {
+  if (!band) return;
+  const rows = await api("/api/history?band=" + band.name).catch(() => []);
+  const finals = rows.filter(h => h.kind === "final");
+  $("histCard").classList.toggle("hidden", finals.length === 0);
+  $("hist").innerHTML = finals.slice().reverse().map(h => `<tr><td>${h.ts.slice(5, 16)}</td>
+    <td>${String(h.coil).replace(".", ",")}</td><td>${mhz(h.resonance)}${h.at_edge ? " (borde)" : ""}</td>
+    <td>${h.best.toFixed(2)}</td></tr>`).join("");
+}
+
+function sweepRequest(kind) {
+  const req = { kind, band: band.name, target: toHz($("target").value), 
+                start: toHz($("start").value), stop: toHz($("stop").value),
+                step: Math.round(parseFloat($("step").value.replace(",", ".")) * 1000),
+                power: parseInt($("power").value, 10) || undefined };
+  if (kind === "noise") {
+    // Off-air listening may go beyond the band edges: widen by half the range on each side.
+    const half = Math.round((req.stop - req.start) / 2);
+    req.start = Math.max(req.start - half, 1_000_000);
+    req.stop = req.stop + half;
+    req.step = Math.max(req.step, Math.round((req.stop - req.start) / 40 / 1000) * 1000);
+  }
+  return req;
+}
+
+async function startSweep(kind) {
+  showError("");
+  finishing = false;
+  $("finalQuestion").textContent = "¿En qué número ha quedado la bobina?";
+  try {
+    state = await api("/api/sweep", sweepRequest(kind));
+    render();
+  } catch (e) { showError(e.message); }
+}
+
+function drawChart(sw) {
+  const svg = $("chart"), pts = sw.points;
+  if (!pts.length) { svg.innerHTML = ""; return; }
+  const W = 340, H = 200, L = 34, R = 8, T = 10, B = 26;
+  const isSwr = sw.kind === "swr";
+  const req = sweepRange(sw);
+  const f0 = req[0], f1 = Math.max(req[1], f0 + 1);
+  let y0, y1;
+  if (isSwr) { y0 = 1; y1 = 3; }
+  else {
+    const vs = pts.map(p => p.v);
+    y0 = Math.min(...vs) - 2; y1 = Math.max(...vs) + 2;
+  }
+  const x = f => L + (f - f0) / (f1 - f0) * (W - L - R);
+  const y = v => T + (1 - (Math.min(Math.max(v, y0), y1) - y0) / (y1 - y0)) * (H - T - B);
+  const css = getComputedStyle(document.documentElement);
+  const c = n => css.getPropertyValue(n).trim();
+  let s = "";
+  const ticks = isSwr ? [1, 1.5, 2, 3] : [y0, (y0 + y1) / 2, y1];
+  for (const t of ticks) {
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="${c("--line")}" />`;
+    s += `<text x="${L - 4}" y="${y(t) + 4}" text-anchor="end" font-size="10" fill="${c("--muted")}">${isSwr ? t : Math.round(t)}</text>`;
+  }
+  for (const f of [f0, (f0 + f1) / 2, f1]) {
+    s += `<text x="${x(f)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="${c("--muted")}">${mhz(f)}</text>`;
+  }
+  if (sw.target) {
+    s += `<line x1="${x(sw.target)}" x2="${x(sw.target)}" y1="${T}" y2="${H - B}" stroke="${c("--ok")}" stroke-dasharray="4 3" />`;
+  }
+  s += `<polyline fill="none" stroke="${c("--curve")}" stroke-width="2.5" stroke-linejoin="round"
+        points="${pts.map(p => `${x(p.f)},${y(p.v)}`).join(" ")}" />`;
+  for (const p of pts) s += `<circle cx="${x(p.f)}" cy="${y(p.v)}" r="2.5" fill="${c("--curve")}" />`;
+  if (sw.analysis) {
+    const a = sw.analysis;
+    s += `<line x1="${x(a.resonance)}" x2="${x(a.resonance)}" y1="${T}" y2="${H - B}" stroke="${c("--warn")}" stroke-width="2" />`;
+  }
+  svg.innerHTML = s;
+}
+
+function sweepRange(sw) {
+  const fs = sw.points.map(p => p.f);
+  return [Math.min(...fs), Math.max(...fs)];
+}
+
+function renderResult(sw) {
+  const card = $("resultCard");
+  const a = sw.analysis;
+  if (sw.running) {
+    card.classList.remove("hidden");
+    $("verdict").className = "verdict";
+    $("verdict").textContent = `Midiendo… ${sw.points.length}/${sw.total}`;
+    const last = sw.points[sw.points.length - 1];
+    $("advice").textContent = last ? `${mhz(last.f)} MHz → ${sw.kind === "swr" ? "ROE " + last.v.toFixed(2) : "S " + last.v}` : "";
+    $("facts").innerHTML = "";
+    return;
+  }
+  if (!sw.kind) { card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+  if (sw.error && sw.error !== "stopped") {
+    $("verdict").className = "verdict bad";
+    $("verdict").textContent = "Error en el barrido";
+    $("advice").textContent = sw.error;
+    $("facts").innerHTML = "";
+    return;
+  }
+  if (!a) {
+    $("verdict").className = "verdict";
+    $("verdict").textContent = sw.error === "stopped" ? "Barrido parado" : "Sin datos suficientes";
+    $("advice").textContent = ""; $("facts").innerHTML = "";
+    return;
+  }
+  const isSwr = sw.kind === "swr";
+  let verdict, cls, advice = "";
+  if (!a.confident) {
+    verdict = "Ruido sin pico claro"; cls = "warn";
+    advice = "El ruido es casi plano o lo dominan emisoras: no se puede decir dónde resuena. Prueba de noche, en una banda más tranquila o haz un barrido ROE.";
+  } else if (a.tuned) {
+    verdict = "¡Afinada! Deja la bobina así"; cls = "ok";
+  } else if (a.centered) {
+    verdict = "Resonancia en su sitio"; cls = "warn";
+    advice = `La frecuencia está bien pero la ROE mínima es ${a.best_value.toFixed(2)}: no es cosa de la bobina (masa/plano de tierra, radiales, conexión).`;
+  } else {
+    const dir = a.move === "lower" ? "Baja" : "Sube";
+    verdict = `${dir} la bobina`;
+    cls = "bad";
+    const where = a.delta_khz < 0 ? "por debajo" : "por encima";
+    const hint = a.at_edge ? "bastante" : a.units ? `≈ ${a.units.toString().replace(".", ",")} división${a.units === 1 ? "" : "es"}` : "un poco";
+    advice = `La resonancia está ${Math.abs(a.delta_khz).toFixed(0)} kHz ${where} del objetivo: a un número ${a.move === "lower" ? "menor" : "mayor"} (${hint}) y repite el barrido.`;
+    if (a.far) {
+      advice = `ROE de más de 3 en todo el barrido: la antena no resuena en esta banda. La resonancia está por ${a.at_edge === "high" ? "encima" : "debajo"} del rango: mueve la bobina a un número ${a.move === "lower" ? "menor" : "mayor"} (comprueba que está en la posición de esta banda).`;
+    } else if (a.at_edge) {
+      advice += ` Ojo: el ${isSwr ? "mínimo" : "pico"} está en el borde del barrido; la resonancia real está aún más ${a.at_edge === "low" ? "abajo" : "arriba"}.`;
+    }
+  }
+  if (a.tuned) {
+    $("finalQuestion").textContent = "¡Conseguido! ¿En qué número ha quedado la bobina?";
+  }
+  if (sw.warning === "no_power") {
+    advice += " ⚠ La radio casi no sacaba potencia: revisa batería/potencia; la ROE medida no es fiable.";
+  }
+  if (!isSwr && a.confident) advice += " (Barrido de ruido: es orientativo; confirma con un barrido ROE.)";
+  $("verdict").className = "verdict " + cls;
+  $("verdict").textContent = verdict;
+  $("advice").textContent = advice;
+  const facts = [["Resonancia", mhz(a.resonance) + " MHz"],
+                 [isSwr ? "ROE mínima" : "Ruido pico", isSwr ? a.best_value.toFixed(2) : String(a.best_value)],
+                 ["Desvío", (a.delta_khz > 0 ? "+" : "") + a.delta_khz.toFixed(0) + " kHz"]];
+  if (a.swr_at_target != null) facts.push(["ROE en objetivo", a.swr_at_target.toFixed(2)]);
+  if (a.bw_15) facts.push(["ROE ≤ 1,5", `${mhz(a.bw_15[0])}–${mhz(a.bw_15[1])}`]);
+  else if (a.khz_per_unit) facts.push(["kHz/división", String(Math.abs(a.khz_per_unit))]);
+  $("facts").innerHTML = facts.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+}
+
+function render() {
+  if (!state) return;
+  const sw = state.sweep;
+  const transmitting = sw.running && sw.kind === "swr";
+  $("dot").className = "dot" + (transmitting ? " tx" : state.connected ? " on" : "");
+  $("rig").innerHTML = state.connected
+    ? `${state.frequency ? mhz(state.frequency) : "—"} MHz<br>${state.mode || ""}`
+    : state.status;
+  $("txwarn").classList.toggle("hidden", !transmitting);
+  $("btnSwr").disabled = sw.running || !state.allow_tx;
+  $("btnNoise").disabled = sw.running;
+  $("btnStop").classList.toggle("hidden", !sw.running);
+  if (!$("power").value) $("power").value = state.max_power;
+  $("chartCard").classList.toggle("hidden", !sw.points.length);
+  drawChart(sw);
+  renderResult(sw);
+  const canFinish = !sw.running && sw.kind === "swr" && !!sw.analysis;
+  const asking = canFinish && (finishing || sw.analysis.tuned) && savedFor !== sw.finished_at;
+  $("btnFinish").classList.toggle("hidden", !canFinish || asking || savedFor === sw.finished_at);
+  $("finalBox").classList.toggle("hidden", !asking);
+  $("savedMsg").classList.toggle("hidden", savedFor !== sw.finished_at);
+  if (!sw.running && sw.finished_at && sw.finished_at !== lastShownFinish) {
+    if (lastShownFinish && navigator.vibrate) navigator.vibrate(sw.analysis && sw.analysis.tuned ? [100, 80, 100] : 300);
+    lastShownFinish = sw.finished_at;
+    loadHistory();
+  }
+}
+
+async function poll() {
+  try {
+    state = await api("/api/state");
+    if (lastShownFinish === 0) lastShownFinish = state.sweep.finished_at || -1;
+    render();
+  } catch (e) {
+    $("dot").className = "dot";
+    $("rig").textContent = "sin conexión con el PC";
+  }
+  setTimeout(poll, state && state.sweep.running ? 400 : 1500);
+}
+
+async function init() {
+  bands = await api("/api/bands");
+  $("bands").innerHTML = bands.map(b => `<button data-b="${b.name}">${b.name.replace("m", "")}</button>`).join("");
+  $("bands").addEventListener("click", e => {
+    const b = bands.find(x => x.name === e.target.dataset.b);
+    if (b) selectBand(b);
+  });
+  const saved = stored();
+  if (saved.coil) $("coil").value = saved.coil;
+  selectBand(bands.find(b => b.name === saved.band) || bands[0]);
+  document.querySelectorAll(".coil button").forEach(btn => btn.addEventListener("click", () => {
+    const v = parseFloat(($("coil").value || "0").replace(",", ".")) || 0;
+    $("coil").value = Math.max(0, v + parseFloat(btn.dataset.d)).toString().replace(".", ",");
+    remember();
+  }));
+  $("coil").addEventListener("change", remember);
+  $("btnFinish").addEventListener("click", () => { finishing = true; render(); $("coil").focus(); });
+  $("btnSave").addEventListener("click", async () => {
+    showError("");
+    try {
+      const e = await api("/api/final", { coil: $("coil").value });
+      savedFor = state.sweep.finished_at;
+      $("savedMsg").textContent = `Guardado: bobina ${String(e.coil).replace(".", ",")} → resonancia ${mhz(e.resonance)} MHz, ROE ${e.best.toFixed(2)}.`;
+      remember(); render(); loadHistory();
+    } catch (err) { showError(err.message); }
+  });
+  $("btnSwr").addEventListener("click", () => startSweep("swr"));
+  $("btnNoise").addEventListener("click", () => startSweep("noise"));
+  $("btnStop").addEventListener("click", () => api("/api/stop", {}).catch(() => {}));
+  poll();
+}
+init().catch(e => showError("No se pudo cargar: " + e.message));
+</script>
+</body>
+</html>

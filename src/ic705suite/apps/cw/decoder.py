@@ -13,7 +13,7 @@ from collections.abc import Callable
 
 import numpy as np
 
-from ic705suite.apps.cw.morse import DECODE
+from ic705suite.morse import DECODE
 
 HOP_RATE = 250  # envelope samples per second
 MIN_WPM, MAX_WPM = 5.0, 60.0

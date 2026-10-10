@@ -16,7 +16,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from ic705suite.apps.cw.hamdata import QCODE_BY_NAME, country_for
-from ic705suite.apps.cw.i18n import N_, _
+from ic705suite.i18n import N_, _
 
 CALLSIGN_RE = re.compile(r"(?=[A-Z0-9]{0,3}[A-Z])[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?")
 # Contest "cut numbers": letters sent instead of digits to save time (5NN = 599).

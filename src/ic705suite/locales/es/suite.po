@@ -1,0 +1,301 @@
+# Spanish translations of the suite: dashboard, rig view, antenna, shared parts.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "(Noise sweep: a hint only; confirm with an SWR sweep.)"
+msgstr "(Barrido de ruido: es orientativo; confirma con un barrido ROE.)"
+
+msgid "/f 7.030 · /b 40 · /mode USB · /power 50"
+msgstr "/f 7.030 · /b 40 · /mode USB · /power 50"
+
+msgid "/mode <mode>            operating mode (USB LSB CW CW-R AM FM RTTY DV...)"
+msgstr "/mode <modo>            modo de operación (USB LSB CW CW-R AM FM RTTY DV...)"
+
+msgid "Antenna"
+msgstr "Antena"
+
+msgid "Antenna page"
+msgstr "Página de antena"
+
+msgid "Application"
+msgstr "Aplicación"
+
+msgid "Applications"
+msgstr "Aplicaciones"
+
+msgid "Band"
+msgstr "Banda"
+
+msgid "CW"
+msgstr "CW"
+
+msgid "CW keyer"
+msgstr "manipulador CW"
+
+msgid "Callsign"
+msgstr "Indicativo"
+
+msgid "Can do"
+msgstr "Puede"
+
+msgid "Choose a band and start a sweep."
+msgstr "Elige una banda y empieza un barrido."
+
+msgid "Coil position"
+msgstr "Posición de la bobina"
+
+msgid "D-STAR"
+msgstr "D-STAR"
+
+msgid "Database"
+msgstr "Base de datos"
+
+msgid "Decoder, skimmer and keyer; channels and plain-language translation"
+msgstr "Decodificador, skimmer y manipulador; canales y traducción a lenguaje llano"
+
+msgid "Enter Open · Ctrl+Q Quit"
+msgstr "Enter Abrir · Ctrl+Q Salir"
+
+msgid "Enter saves · Esc cancels"
+msgstr "Enter guarda · Esc cancela"
+
+msgid "F2-F7 Open · ↑↓ Enter Open · F9 Reconnect · Ctrl+Q Quit"
+msgstr "F2-F7 Abrir · ↑↓ Enter Abrir · F9 Reconectar · Ctrl+Q Salir"
+
+msgid "History"
+msgstr "Historial"
+
+msgid "Key"
+msgstr "Tecla"
+
+msgid "Link"
+msgstr "Enlace"
+
+msgid "Logbook"
+msgstr "Diario de contactos"
+
+msgid "Lower the coil"
+msgstr "Baja la bobina"
+
+msgid "Lowest SWR"
+msgstr "ROE mínima"
+
+msgid "Messages"
+msgstr "Mensajes"
+
+msgid "Mode"
+msgstr "Modo"
+
+msgid "N Noise · S SWR · Esc Back"
+msgstr "N Ruido · S ROE · Esc Volver"
+
+msgid "NO RIG"
+msgstr "SIN EMISORA"
+
+msgid "Noise peak"
+msgstr "Ruido pico"
+
+msgid "Noise sweep"
+msgstr "Barrido de ruido"
+
+msgid "Noise without a clear peak"
+msgstr "Ruido sin pico claro"
+
+msgid "Not enough data"
+msgstr "Sin datos suficientes"
+
+msgid "Off target"
+msgstr "Desvío"
+
+msgid "Packet"
+msgstr "Packet"
+
+msgid "PgUp/PgDn Tune · Esc Back"
+msgstr "PgUp/PgDn Sintonizar · Esc Volver"
+
+msgid "PgUp/PgDn Tune · F2 Step · F3 Mode · F4-F5 Band · Esc Back"
+msgstr "PgUp/PgDn Sintonizar · F2 Paso · F3 Modo · F4-F5 Banda · Esc Volver"
+
+msgid "Phone page"
+msgstr "Página para el móvil"
+
+msgid "Power"
+msgstr "Potencia"
+
+msgid "Raise the coil"
+msgstr "Sube la bobina"
+
+msgid "Receive only (start with --tx to transmit)"
+msgstr "Solo recepción (arranca con --tx para transmitir)"
+
+msgid "Receive only: noise sweeps only (start with --tx for SWR sweeps)"
+msgstr "Solo recepción: solo barridos de ruido (arranca con --tx para barridos ROE)"
+
+msgid "Resonance"
+msgstr "Resonancia"
+
+msgid "Resonance in place"
+msgstr "Resonancia en su sitio"
+
+msgid "Rig"
+msgstr "Emisora"
+
+msgid "Rig commands"
+msgstr "Órdenes de la emisora"
+
+msgid "Rig control: frequency, band, mode, power, meters"
+msgstr "Control de la emisora: frecuencia, banda, modo, potencia, medidores"
+
+msgid "SWR above 3 over the whole sweep: the antenna does not resonate on this band. Move the coil to {number} (check it is on this band's position)."
+msgstr "ROE de más de 3 en todo el barrido: la antena no resuena en esta banda. Mueve la bobina a {number} (comprueba que está en la posición de esta banda)."
+
+msgid "SWR and noise sweeps, which way to move the coil; phone page"
+msgstr "Barridos de ROE y de ruido, hacia dónde mover la bobina; página para el móvil"
+
+msgid "SWR meter"
+msgstr "medidor de ROE"
+
+msgid "SWR sweep"
+msgstr "Barrido ROE"
+
+msgid "Station"
+msgstr "Estación"
+
+msgid "Step"
+msgstr "Paso"
+
+msgid "Sweep failed"
+msgstr "Error en el barrido"
+
+msgid "Sweep stopped"
+msgstr "Barrido parado"
+
+msgid "Target"
+msgstr "Objetivo"
+
+msgid "Terminal mode, built-in gateway, reflectors and D-PRS (QDStar)"
+msgstr "Modo terminal, pasarela propia, reflectores y D-PRS (QDStar)"
+
+msgid "The extreme is at the edge of the sweep: the real resonance is further out."
+msgstr "El extremo está en el borde del barrido: la resonancia real está aún más allá."
+
+msgid "The frequency is right but the lowest SWR is {swr:.2f}: it is not the coil (ground, radials, connections)."
+msgstr "La frecuencia está bien pero la ROE mínima es {swr:.2f}: no es cosa de la bobina (masa, radiales, conexiones)."
+
+msgid "The noise is almost flat or stations dominate it: the resonance cannot be told. Try at night, on a quieter band, or make an SWR sweep."
+msgstr "El ruido es casi plano o lo dominan emisoras: no se puede decir dónde resuena. Prueba de noche, en una banda más tranquila o haz un barrido ROE."
+
+msgid "The radio was hardly putting out power: the SWR read is not reliable."
+msgstr "⚠ La radio casi no sacaba potencia: la ROE medida no es fiable."
+
+msgid "The resonance is {khz:.0f} kHz {where} the target: move to {number} ({units}) and sweep again."
+msgstr "La resonancia está {khz:.0f} kHz {where} del objetivo: pasa a {number} ({units}) y repite el barrido."
+
+msgid "Transmission enabled"
+msgstr "Transmisión activada"
+
+msgid "Tuned! Leave the coil there"
+msgstr "¡Afinada! Deja la bobina así"
+
+msgid "What it does"
+msgstr "Qué hace"
+
+msgid "Which number did the coil end on?"
+msgstr "¿En qué número ha quedado la bobina?"
+
+msgid "a higher number"
+msgstr "un número mayor"
+
+msgid "a little"
+msgstr "un poco"
+
+msgid "a lower number"
+msgstr "un número menor"
+
+msgid "about {units} divisions"
+msgstr "unas {units} divisiones"
+
+msgid "above"
+msgstr "por encima"
+
+msgid "antenna page not available on port {port}: {error}"
+msgstr "página de antena no disponible en el puerto {port}: {error}"
+
+msgid "antenna: resonance at {freq} MHz"
+msgstr "antena: resonancia en {freq} MHz"
+
+msgid "antenna: SWR sweep {start}-{end} MHz started"
+msgstr "antena: barrido ROE {start}-{end} MHz en marcha"
+
+msgid "antenna: noise sweep {start}-{end} MHz started"
+msgstr "antena: barrido de ruido {start}-{end} MHz en marcha"
+
+msgid "audio"
+msgstr "audio"
+
+msgid "below"
+msgstr "por debajo"
+
+msgid "coil"
+msgstr "bobina"
+
+msgid "coil position {coil} saved for {band}"
+msgstr "posición de bobina {coil} guardada para {band}"
+
+msgid "coming soon"
+msgstr "próximamente"
+
+msgid "connected"
+msgstr "conectada"
+
+msgid "connecting to the core..."
+msgstr "conectando con el núcleo..."
+
+msgid "data mode"
+msgstr "modo datos"
+
+msgid "hamrlog: contacts, ADIF, repeaters, address book"
+msgstr "hamrlog: contactos, ADIF, repetidores, agenda"
+
+msgid "hamrpkt: AX.25 terminal over AGWPE or Telnet (LinBPQ, Direwolf)"
+msgstr "hamrpkt: terminal AX.25 por AGWPE o Telnet (LinBPQ, Direwolf)"
+
+msgid "mode {mode}"
+msgstr "modo {mode}"
+
+msgid "needs the radio"
+msgstr "necesita la emisora"
+
+msgid "no core"
+msgstr "sin núcleo"
+
+msgid "not connected"
+msgstr "sin conexión"
+
+msgid "quite a lot"
+msgstr "bastante"
+
+msgid "running..."
+msgstr "en marcha..."
+
+msgid "scope"
+msgstr "espectro"
+
+msgid "this rig cannot"
+msgstr "esta emisora no puede"
+
+msgid "unknown command {line}"
+msgstr "orden desconocida {line}"
+
+msgid "waiting for the core..."
+msgstr "esperando al núcleo..."
+
+msgid "{model} View"
+msgstr "Visor {model}"
+
+msgid "{model} has no {mode} mode"
+msgstr "{model} no tiene modo {mode}"
+
+msgid "↑↓ Band · N Noise sweep (RX) · S SWR sweep (TX) · F Coil position · Esc Stop/Back"
+msgstr "↑↓ Banda · N Barrido de ruido (RX) · S Barrido ROE (TX) · F Posición de bobina · Esc Parar/Volver"

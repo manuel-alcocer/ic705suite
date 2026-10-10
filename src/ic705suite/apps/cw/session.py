@@ -6,32 +6,29 @@ import asyncio
 import contextlib
 import logging
 import time
-import wave
 from pathlib import Path
 from typing import Protocol
 
 import numpy as np
 
-from ic705suite.apps.cw import bands, civ, morse
+from ic705suite import morse
+from ic705suite.rig import bands
 from ic705suite.apps.cw.audio import AudioRing
-from ic705suite.apps.cw.config import Config
+from ic705suite.config import Config
 from ic705suite.apps.cw.decoder import CwDecoder
-from ic705suite.apps.cw.i18n import N_
-from ic705suite.apps.cw.radio import BREAK_IN_SEMI, CivError, Radio
-from ic705suite.apps.cw.channels import AudioSpool, ChannelBook, ChannelRecord, ChannelStore
-from ic705suite.apps.cw.playback import SidecarWriter, WavPlayback
+from ic705suite.i18n import N_
+from ic705suite.apps.cw.channels import AudioSpool, ChannelBook, ChannelStore
+from ic705suite.apps.cw.playback import WavPlayback
 from ic705suite.apps.cw.scanner import STEP_HZ, Scanner
 from ic705suite.apps.cw.skimmer import Channel, Skimmer, load_scp
-from ic705suite.apps.cw.transport import Transport, TransportError
+from ic705suite.rig.base import RigError
+from ic705suite.rig.transport import TransportError
+from ic705suite.station.station import Station
 
 log = logging.getLogger(__name__)
-rx_log = logging.getLogger("cwic705.rx")
+rx_log = logging.getLogger("ic705suite.cw.rx")
 
-RECONNECT_DELAY = 5.0
 SKIM_FILTER_HZ = 3600  # widest CW filter: about 2.2 kHz of band in the audio
-# A radio left with an open session (program killed, WiFi dropped) ignores new
-# connections until that session expires, which takes up to about a minute.
-STALE_SESSION_WAIT = 90.0
 
 HELP = [
     N_('Plain text + Enter      send it in CW (prosigns: <AR> <BT> <KN> <SK> <AS> <BK>)'),
@@ -56,7 +53,7 @@ HELP = [
 
 class UiSink(Protocol):
     """Receives the session's output. Messages are an English template marked with N_()
-    plus its arguments, so each client can translate them (see cwic705.i18n)."""
+    plus its arguments, so each client can translate them (see ic705suite.i18n)."""
 
     def rx_text(self, text: str) -> None: ...
     def tx_text(self, text: str) -> None: ...
@@ -66,13 +63,16 @@ class UiSink(Protocol):
 
 
 class Session:
-    def __init__(self, transport: Transport, config: Config, ui: UiSink) -> None:
-        self.transport = transport
+    """The CW application's engine: decoder, skimmer, scanner, keyer and channels, attached
+    to the shared station (it never opens a connection of its own)."""
+
+    def __init__(self, station: Station, config: Config, ui: UiSink) -> None:
+        self.station = station
+        self.transport = transport = station.transport
         self.config = config
         self.ui = ui
-        self.radio = Radio(transport, config.civ_address or civ.IC705_ADDR)
-        self.radio.on_state = ui.status_changed
-        self.radio.tx_enabled = config.tx_enabled
+        self.radio = station.rig
+        self.active = False   # a CW client is open: the radio is kept in CW mode
         self.audio = AudioRing(transport.sample_rate)
         self.scp: set[str] = load_scp(config.scp_path) if config.scp_path.exists() else set()
         self.decoder_class: type[CwDecoder] = CwDecoder
@@ -86,14 +86,10 @@ class Session:
             self.decoder = CwDecoder(transport.sample_rate, on_text=self._on_rx_text)
         self._rx_pending = ""
         self._rx_flushed = time.monotonic()
-        self._recorder: wave.Wave_write | None = None
-        self._sidecar: SidecarWriter | None = None
-        self._recorded = 0
         self.playback: WavPlayback | None = None
         self._playback_task: asyncio.Task | None = None
         self.decoder.afc = config.afc
         self.scanner = Scanner(self.radio, self.audio, self._scan_progress)
-        self.connected = False
         self.transmitting = False
         self.scanning = False
         self.scan_freq: int | None = None
@@ -114,19 +110,18 @@ class Session:
         self._tx_queue: asyncio.Queue[str] = asyncio.Queue()
         self._tx_current: asyncio.Task | None = None
         self._scan_task: asyncio.Task | None = None
-        self._reconnect_task: asyncio.Task | None = None
         self._tasks: list[asyncio.Task] = []
-        transport.on_audio = self._on_audio
-        transport.on_disconnect = self._on_disconnect
+        station.add_audio_listener(self._on_audio)
+        station.add_tune_listener(self._on_tune)
+        station.add_connect_listener(self._on_connected)
+
+    @property
+    def connected(self) -> bool:
+        return self.station.connected
 
     def record_to(self, path: str) -> None:
-        """Save all received audio to a 16-bit mono WAV file (for offline analysis)."""
-        self._recorder = wave.open(path, "wb")
-        self._recorder.setnchannels(1)
-        self._recorder.setsampwidth(2)
-        self._recorder.setframerate(self.transport.sample_rate)
-        self._sidecar = SidecarWriter(path, self.transport.sample_rate)
-        log.info("recording receive audio to %s", path)
+        """Save all received audio to a WAV file (for offline analysis)."""
+        self.station.record_to(path)
 
     def _on_rx_text(self, text: str) -> None:
         self._rx_pending += text
@@ -151,34 +146,24 @@ class Session:
     # ---- lifecycle ----------------------------------------------------------------------------
 
     async def start(self) -> None:
-        loop = asyncio.get_running_loop()
-        deadline = loop.time() + STALE_SESSION_WAIT
-        warned = False
-        while True:
-            try:
-                await self._connect()
-                break
-            except CivError as exc:
-                # Right after a stale session expires the radio may open the streams but
-                # ignore our CI-V commands; a clean logout and a new login fixes it.
-                self.connected = False
-                await self.transport.close()
-                if loop.time() > deadline:
-                    raise
-                log.warning("CI-V not answering after connect (%s), reconnecting", exc)
-                self.ui.info(N_("the radio is not answering CI-V yet; reconnecting..."))
-                await asyncio.sleep(2.0)
-            except TransportError as exc:
-                if type(exc).__name__ != "RadioNotAnswering" or loop.time() > deadline:
-                    raise
-                if not warned:
-                    self.ui.info(N_("the radio does not answer: it may still hold a previous "
-                                    "session (expires in about a minute); waiting... "
-                                    "(Ctrl-C to give up)"))
-                    warned = True
-                await self.transport.close()
-        self._tasks = [asyncio.create_task(self._poll_loop()),
+        """Start the CW engine's own tasks (the station is started by the core)."""
+        self._tasks = [asyncio.create_task(self._housekeeping()),
                        asyncio.create_task(self._tx_worker())]
+        if self.connected:
+            await self._on_connected()
+
+    async def activate(self) -> None:
+        """A CW client opened: put the radio in CW and keep it there after reconnecting."""
+        self.active = True
+        if self.connected:
+            await self._ensure_cw_mode()
+
+    async def _ensure_cw_mode(self) -> None:
+        mode = self.radio.state.mode
+        if mode not in ("CW", "CW-R"):
+            await self.radio.set_mode("CW")
+            self.ui.info(N_("mode {mode} -> CW"), mode=mode)
+            self.decoder.reset(self.radio.state.pitch)
 
     # ---- skimmer ----------------------------------------------------------------------------------
 
@@ -232,7 +217,7 @@ class Session:
             self._skim_filter = self._skim_saved_filter
             await self.radio.set_filter_width(SKIM_FILTER_HZ)
             self._skim_filter = SKIM_FILTER_HZ
-        except CivError as exc:
+        except RigError as exc:
             log.warning("skimmer: cannot widen the filter: %s", exc)
         if self._paused_skim is not None:
             # Back from a station: the stations found before are still there, moved by
@@ -254,7 +239,7 @@ class Session:
                             "{count} callsigns in MASTER.SCP"), count=len(self.scp))
         else:
             self.ui.info(N_("skimmer on: decoding every signal in the passband; "
-                            "no MASTER.SCP (cwic705 --update-scp)"))
+                            "no MASTER.SCP (ic705suite --update-scp)"))
         self.ui.status_changed()
 
     def _skim_text(self, ch: Channel, text: str) -> None:
@@ -270,7 +255,7 @@ class Session:
         if self._skim_saved_filter:
             try:
                 await self.radio.set_filter_width(self._skim_saved_filter)
-            except CivError as exc:
+            except RigError as exc:
                 log.warning("skimmer: cannot restore the filter: %s", exc)
         self.decoder.reset(self.radio.state.pitch)
         self.ui.info(N_("skimmer off"))
@@ -316,7 +301,7 @@ class Session:
     @property
     def store(self) -> ChannelStore:
         if self._store is None:
-            self._store = ChannelStore(self.config.channels_db or None)
+            self._store = ChannelStore(self.config.channels_url or None)
         return self._store
 
     def list_channels(self) -> dict:
@@ -394,88 +379,40 @@ class Session:
         return saved
 
     async def stop(self) -> None:
-        for task in [*self._tasks, self._scan_task, self._tx_current, self._reconnect_task,
-                     self._playback_task]:
+        for task in [*self._tasks, self._scan_task, self._tx_current, self._playback_task]:
             if task is not None:
                 task.cancel()
         if self.connected and self.skimmer is not None:
-            with contextlib.suppress(CivError, TransportError):
+            with contextlib.suppress(RigError, TransportError):
                 await self.stop_skim()  # give the radio its filter back
         if self.connected and self.transmitting:
-            with contextlib.suppress(CivError, TransportError):
+            with contextlib.suppress(RigError, TransportError):
                 await self.radio.stop_cw()
-        await self.transport.close()
         self._flush_rx_log(force=True)
-        if self._recorder is not None:
-            self._recorder.close()
-            self._recorder = None
-        if self._sidecar is not None:
-            self._sidecar.close()
-            self._sidecar = None
         if self.spool is not None:
             self.spool.close()
             self.spool = None
         if self._store is not None:
             self._store.close()
 
-    async def _connect(self) -> None:
-        self.ui.info(N_("connecting ({transport})..."), transport=self.transport.name)
-        await self.transport.connect()
-        if self.config.civ_address is None and self.transport.civ_address is not None:
-            self.radio.address = self.transport.civ_address
-        self.connected = True
-        await self._init_radio()
-        self.ui.info(N_("connected to {radio}"), radio=self.transport.radio_name or "radio")
-        self.ui.status_changed()
-
-    async def _init_radio(self) -> None:
-        state = self.radio.state
-        state.frequency = await self.radio.read_frequency()
-        mode = await self.radio.read_mode()
-        if mode not in ("CW", "CW-R"):
-            await self.radio.set_mode_cw()
-            self.ui.info(N_("mode {mode} -> CW"), mode=mode)
-        else:
-            state.mode = mode
-        self.decoder.reset(await self.radio.read_pitch())
-        actions = [self.radio.read_key_speed(), self.radio.read_power()]
+    async def _on_connected(self) -> None:
+        """After every (re)connection: CW settings of the radio."""
+        with contextlib.suppress(RigError):
+            self.decoder.reset(await self.radio.read_pitch())
+        actions = [self.radio.read_key_speed()]
         if self.config.tx_enabled:
-            actions += [self.radio.set_key_speed(self.config.wpm),
-                        self.radio.set_break_in(BREAK_IN_SEMI)]
-        else:
-            self.ui.info(N_("receive-only mode: transmission disabled (--tx to enable)"))
+            actions += [self.radio.set_key_speed(self.config.wpm), self.radio.set_break_in(True)]
         for action in actions:
             try:
                 await action
-            except CivError as exc:
+            except RigError as exc:
                 log.warning("init: %s", exc)
-
-    def _on_disconnect(self, reason: str) -> None:
-        if not self.connected:
-            return
-        self.connected = False
-        self.ui.error(N_("connection lost ({reason}); reconnecting..."), reason=reason)
-        self.ui.status_changed()
-        if self._reconnect_task is None or self._reconnect_task.done():
-            self._reconnect_task = asyncio.create_task(self._reconnect())
-
-    async def _reconnect(self) -> None:
-        while not self.connected:
-            await self.transport.close()
-            await asyncio.sleep(RECONNECT_DELAY)
-            try:
-                await self._connect()
-            except (TransportError, CivError, OSError) as exc:
-                self.connected = False
-                self.ui.error(N_("reconnect failed: {error}"), error=str(exc))
+        if self.active:
+            await self._ensure_cw_mode()
 
     # ---- audio / polling ------------------------------------------------------------------------
 
     def _on_audio(self, samples: np.ndarray) -> None:
-        if self._recorder is not None:
-            self._recorder.writeframes((np.clip(samples, -1, 1) * 32767).astype("<i2").tobytes())
-            self._sidecar.note(self._recorded, self.radio.state.frequency)
-            self._recorded += len(samples)
         if self.playback is None:  # a recording being played replaces the radio audio
             self._process_audio(samples)
 
@@ -489,33 +426,21 @@ class Session:
         self.decoder.muted = self.transmitting or self.scanning
         self.decoder.process(samples)
 
-    async def _poll_loop(self) -> None:
+    def _on_tune(self, old: int | None, new: int) -> None:
+        """The dial moved (from here, another client or the radio's own knob)."""
+        self._flush_rx_log(force=True)
+        self.decoder.reset()
+        if self.skimmer is not None and self.playback is None and old is not None:
+            self.skimmer.shift(self.scanner.sideband_sign * (new - old))
+
+    async def _housekeeping(self) -> None:
         tick = 0
         while True:
             await asyncio.sleep(0.25)
-            if not self.connected or self.scanning:
-                continue
             tick += 1
             self._flush_rx_log()
             if tick % 4 == 0:
                 self.book.tick()  # transmissions that ended in silence get their summary
-            try:
-                self.radio.state.smeter = await self.radio.read_smeter()
-                if tick % 4 == 0:
-                    freq = await self.radio.read_frequency()
-                    if freq != self.radio.state.frequency:
-                        self._flush_rx_log(force=True)
-                        log.info("frequency changed on the radio: %d Hz", freq)
-                        old = self.radio.state.frequency
-                        self.radio.state.frequency = freq
-                        self.decoder.reset()
-                        if self.skimmer is not None and old is not None:
-                            self.skimmer.shift(self.scanner.sideband_sign * (freq - old))
-                if tick % 8 == 0:
-                    self.radio.state.mode = await self.radio.read_mode()
-            except (CivError, TransportError) as exc:
-                log.debug("poll: %s", exc)
-            self.ui.status_changed()
 
     # ---- transmit -----------------------------------------------------------------------------------
 
@@ -535,7 +460,7 @@ class Session:
             except asyncio.CancelledError:
                 if not self._tx_current.cancelled():
                     raise
-            except (CivError, TransportError) as exc:
+            except (RigError, TransportError) as exc:
                 self.ui.error(N_("TX failed: {error}"), error=str(exc))
             finally:
                 self._tx_current = None
@@ -568,7 +493,7 @@ class Session:
         if self._tx_current is not None:
             self._tx_current.cancel()
         if self.transmitting and self.connected:
-            with contextlib.suppress(CivError, TransportError):
+            with contextlib.suppress(RigError, TransportError):
                 await self.radio.stop_cw()
             stopped.append("tx")
         if self._scan_task is not None and not self._scan_task.done():
@@ -609,19 +534,21 @@ class Session:
 
     async def _scan(self, band: bands.Band, start: int, direction: int) -> None:
         self.scanning = True
+        self.station.paused.add("scan")
         self.ui.info(N_("searching {band} {start}-{end} up...") if direction > 0 else
                      N_("searching {band} {start}-{end} down..."), band=band.name,
                      start=bands.format_frequency(band.cw_start),
                      end=bands.format_frequency(band.cw_end))
         try:
             if self.radio.state.mode not in ("CW", "CW-R"):
-                await self.radio.set_mode_cw()
+                await self.radio.set_mode("CW")
             found = await self.scanner.search(band, start, direction)
-        except (CivError, TransportError) as exc:
+        except (RigError, TransportError) as exc:
             self.ui.error(N_("search failed: {error}"), error=str(exc))
             return
         finally:
             self.scanning = False
+            self.station.paused.discard("scan")
             self.scan_freq = None
             self.decoder.reset(self.radio.state.pitch)
             self.ui.status_changed()
@@ -650,22 +577,13 @@ class Session:
             await handler(args)
         except (ValueError, IndexError):
             self.ui.error(N_("bad arguments for /{name} (/help)"), name=name)
-        except (CivError, TransportError) as exc:
+        except (RigError, TransportError) as exc:
             self.ui.error(N_("{error}"), error=str(exc))
 
     async def _tune(self, freq: int) -> None:
-        if not 30_000 <= freq <= 470_000_000:
-            raise ValueError
-        if self.skimmer is not None and self.playback is None:
-            old = self.radio.state.frequency
-            if old is not None:
-                self.skimmer.shift(self.scanner.sideband_sign * (freq - old))
         if self.playback is not None:
             self.ui.info(N_("the radio was tuned, but the audio still comes from the recording"))
-        self._flush_rx_log(force=True)
-        log.info("tune %d Hz", freq)
-        await self.radio.set_frequency(freq)
-        self.decoder.reset()
+        await self.station.tune(freq)
 
     async def _cmd_help(self, args: list[str]) -> None:
         for row in HELP:
@@ -680,7 +598,7 @@ class Session:
             raise ValueError
         await self._tune(band.default)
         if self.radio.state.mode not in ("CW", "CW-R"):
-            await self.radio.set_mode_cw()
+            await self.radio.set_mode("CW")
 
     async def _cmd_up(self, args: list[str]) -> None:
         await self._tune((self.radio.state.frequency or 0) + int(args[0] if args else 100))
@@ -752,9 +670,10 @@ class Session:
         self.send_macro(key)
 
     async def _cmd_raw(self, args: list[str]) -> None:
-        body = bytes.fromhex("".join(args))
-        frame = await self.radio.transact(body, body[:1])  # OK/NG also match
-        self.ui.info(N_("{text}"), text="<- " + frame.body.hex(" "))
+        await self.station.execute("/raw " + " ".join(args))
+
+    async def _cmd_activate(self, args: list[str]) -> None:
+        await self.activate()
 
     async def _cmd_skim(self, args: list[str]) -> None:
         if args and args[0] == "list":

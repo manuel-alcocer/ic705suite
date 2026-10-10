@@ -1,0 +1,200 @@
+# Spanish translation of the cwic705 core messages (session, server, links).
+msgid ""
+msgstr ""
+"Language: es\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "cannot reach the radio: {error}; retrying in {seconds} s"
+msgstr "no se puede contactar con la radio: {error}; reintento en {seconds} s"
+
+msgid "connection to the server lost"
+msgstr "se ha perdido la conexión con el servidor"
+
+msgid "server listening on {host}:{port}"
+msgstr "servidor escuchando en {host}:{port}"
+
+msgid "Plain text + Enter      send it in CW (prosigns: <AR> <BT> <KN> <SK> <AS> <BK>)"
+msgstr "Texto + Enter           lo envía en CW (prosignos: <AR> <BT> <KN> <SK> <AS> <BK>)"
+
+msgid "/f <freq>               tune (7.030 = MHz, 7030.5 = kHz, 7030500 = Hz)"
+msgstr "/f <frec>               sintoniza (7.030 = MHz, 7030.5 = kHz, 7030500 = Hz)"
+
+msgid "/b <band>               go to a band (160 80 60 40 30 20 17 15 12 10 6 2 70cm)"
+msgstr "/b <banda>              va a una banda (160 80 60 40 30 20 17 15 12 10 6 2 70cm)"
+
+msgid "/up [Hz] /down [Hz]     move the dial (default 100 Hz)   PgUp/PgDn = +/-100 Hz"
+msgstr "/up [Hz] /down [Hz]     mueve el dial (100 Hz por defecto)   PgUp/PgDn = +/-100 Hz"
+
+msgid "/scan [up|down] [band]  automatic search for CW signals in the band's CW segment"
+msgstr "/scan [up|down] [banda] búsqueda automática de señales en el segmento CW de la banda"
+
+msgid "/next /prev             continue the search from the current frequency"
+msgstr "/next /prev             sigue buscando desde la frecuencia actual"
+
+msgid "/stop  (or Esc)         stop transmission and search"
+msgstr "/stop  (o Esc)          detiene la transmisión y la búsqueda"
+
+msgid "/wpm <n>                keyer speed (6-48)       /pitch <Hz>  CW pitch (300-900)"
+msgstr "/wpm <n>                velocidad del manipulador (6-48)   /pitch <Hz>  tono CW (300-900)"
+
+msgid "/power <%>              RF power                 /filter <Hz> IF filter width"
+msgstr "/power <%>              potencia RF              /filter <Hz> ancho del filtro FI"
+
+msgid "/afc on|off             decoder follows the tone /rxwpm <n>   decoder speed hint"
+msgstr "/afc on|off             el decodificador sigue el tono   /rxwpm <n>  velocidad inicial"
+
+msgid "/call <CALL>            your callsign for macros /macros      list F-key macros"
+msgstr "/call <INDICATIVO>      tu indicativo para macros   /macros  lista las macros F"
+
+msgid "/skim  (F10)            skimmer: decode every CW signal in a 3.6 kHz window"
+msgstr "/skim  (F10)            skimmer: decodifica todas las señales CW en 3,6 kHz"
+
+msgid "/go <n>                 tune to skimmer station n and leave the skimmer"
+msgstr "/go <n>                 sintoniza la estación n del skimmer y sale de él"
+
+msgid "/raw <hex>              send a raw CI-V command body, e.g. /raw 03"
+msgstr "/raw <hex>              envía un comando CI-V en bruto, p. ej. /raw 03"
+
+msgid "/clear  /help  /quit"
+msgstr "/clear  /help  /quit"
+
+msgid "spot {freq}  {call}{known}  {wpm} wpm  {snr} dB"
+msgstr "spot {freq}  {call}{known}  {wpm} ppm  {snr} dB"
+
+msgid "skimmer off"
+msgstr "skimmer desactivado"
+
+msgid "connecting ({transport})..."
+msgstr "conectando ({transport})..."
+
+msgid "connected to {radio}"
+msgstr "conectado a {radio}"
+
+msgid "connection lost ({reason}); reconnecting..."
+msgstr "conexión perdida ({reason}); reconectando..."
+
+msgid "keyer speed {wpm} wpm"
+msgstr "velocidad del manipulador {wpm} ppm"
+
+msgid "CW pitch {hz} Hz"
+msgstr "tono CW {hz} Hz"
+
+msgid "RF power {percent} %"
+msgstr "potencia RF {percent} %"
+
+msgid "IF filter {hz} Hz"
+msgstr "filtro FI {hz} Hz"
+
+msgid "callsign {call}"
+msgstr "indicativo {call}"
+
+msgid "skimmer on: decoding every signal in the passband; {count} callsigns in MASTER.SCP"
+msgstr "skimmer activado: decodificando todas las señales de la banda pasante; {count} indicativos en MASTER.SCP"
+
+msgid "skimmer on: decoding every signal in the passband; no MASTER.SCP (ic705suite --update-scp)"
+msgstr "skimmer activado: decodificando todas las señales de la banda pasante; sin MASTER.SCP (cwic705 --update-scp)"
+
+msgid "mode {mode} -> CW"
+msgstr "modo {mode} -> CW"
+
+msgid "receive-only mode: transmission disabled (--tx to enable)"
+msgstr "modo solo recepción: transmisión desactivada (--tx para activarla)"
+
+msgid "receive-only mode: text not sent (start with --tx to transmit)"
+msgstr "modo solo recepción: texto no enviado (arranca con --tx para transmitir)"
+
+msgid "characters not sendable in CW dropped: {chars}"
+msgstr "caracteres que no existen en CW descartados: {chars}"
+
+msgid "search already running (/stop to cancel)"
+msgstr "ya hay una búsqueda en marcha (/stop para cancelarla)"
+
+msgid "leave the skimmer first (/skim or F10)"
+msgstr "sal antes del skimmer (/skim o F10)"
+
+msgid "searching {band} {start}-{end} up..."
+msgstr "buscando en {band} {start}-{end} hacia arriba..."
+
+msgid "searching {band} {start}-{end} down..."
+msgstr "buscando en {band} {start}-{end} hacia abajo..."
+
+msgid "no CW signals found in {band}"
+msgstr "no se han encontrado señales CW en {band}"
+
+msgid "signal found at {freq} MHz (/next to keep searching)"
+msgstr "señal encontrada en {freq} MHz (/next para seguir buscando)"
+
+msgid "unknown command /{name} (/help)"
+msgstr "comando desconocido /{name} (/help)"
+
+msgid "AFC on"
+msgstr "AFC activado"
+
+msgid "AFC off"
+msgstr "AFC desactivado"
+
+msgid "tuned to {freq} MHz ({call})"
+msgstr "sintonizado en {freq} MHz ({call})"
+
+msgid "tuned to {freq} MHz"
+msgstr "sintonizado en {freq} MHz"
+
+msgid "not connected, text discarded"
+msgstr "sin conexión, texto descartado"
+
+msgid "current frequency is outside the amateur bands; use /scan <band>"
+msgstr "la frecuencia actual está fuera de las bandas de aficionado; usa /scan <banda>"
+
+msgid "search failed: {error}"
+msgstr "la búsqueda ha fallado: {error}"
+
+msgid "bad arguments for /{name} (/help)"
+msgstr "argumentos incorrectos para /{name} (/help)"
+
+msgid "the radio is not answering CI-V yet; reconnecting..."
+msgstr "la radio aún no responde por CI-V; reconectando..."
+
+msgid "reconnect failed: {error}"
+msgstr "la reconexión ha fallado: {error}"
+
+msgid "TX failed: {error}"
+msgstr "la transmisión ha fallado: {error}"
+
+msgid "TX stopped"
+msgstr "transmisión detenida"
+
+msgid "search stopped"
+msgstr "búsqueda detenida"
+
+msgid "TX and search stopped"
+msgstr "transmisión y búsqueda detenidas"
+
+msgid "the radio does not answer: it may still hold a previous session (expires in about a minute); waiting... (Ctrl-C to give up)"
+msgstr "la radio no responde: puede que aún tenga abierta una sesión anterior (caduca en un minuto aprox.); esperando... (Ctrl-C para abandonar)"
+
+msgid "/play <file> [MHz] [x2] decode a recording as if it came from the radio"
+msgstr "/play <fichero> [MHz] [x2] decodifica una grabación como si llegara de la radio"
+
+msgid "/play stop              back to the radio audio"
+msgstr "/play stop              vuelve al audio de la radio"
+
+msgid "decoding the station at {freq} from the recording"
+msgstr "decodificando la estación de {freq} de la grabación"
+
+msgid "a recording is playing: searching needs the radio (/play stop)"
+msgstr "se está reproduciendo una grabación: para buscar hace falta la radio (/play stop)"
+
+msgid "the radio was tuned, but the audio still comes from the recording"
+msgstr "se ha sintonizado la radio, pero el audio sigue saliendo de la grabación"
+
+msgid "cannot play {file}: {error}"
+msgstr "no se puede reproducir {file}: {error}"
+
+msgid "playing {file} ({minutes} min, recorded on {freq} MHz)"
+msgstr "reproduciendo {file} ({minutes} min, grabado en {freq} MHz)"
+
+msgid "end of the recording; back to the radio audio"
+msgstr "fin de la grabación; vuelve el audio de la radio"
+
+msgid "playback stopped; back to the radio audio"
+msgstr "reproducción detenida; vuelve el audio de la radio"

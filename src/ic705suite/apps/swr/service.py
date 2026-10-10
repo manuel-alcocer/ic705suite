@@ -1,0 +1,379 @@
+"""Antenna tuning: SWR and noise sweeps on the shared station (formerly swr-remote).
+
+* SWR sweep (transmits): RTTY carrier at low power, about 0.4 s per point, PTT watchdog,
+  only inside one amateur band; restores frequency, mode, data mode and power afterwards.
+  Needs transmission enabled ([rig] tx_enabled or --tx).
+* Noise sweep (receive only): the S-meter noise peak marks the resonance.
+
+Results say which way to move the coil and, with the per-band history kept in the suite
+database (table ``swr_history``), roughly how much.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import datetime as dt
+import json
+import logging
+import os
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import sqlalchemy as sa
+
+from ic705suite import db
+from ic705suite.apps.swr.analysis import analyze
+from ic705suite.config import Config
+from ic705suite.i18n import N_
+from ic705suite.rig.bands import band_for, find_band, format_frequency
+from ic705suite.rig.base import FEATURE_SWR_METER, RigError
+from ic705suite.rig.transport import TransportError
+from ic705suite.station.station import Station
+
+log = logging.getLogger(__name__)
+
+MAX_POINTS = 61
+MIN_STEP = 1_000
+NOISE_OFFSETS = (-1_500, 0, 1_500)
+NO_POWER_W = 0.3
+# Above this raw SWR reading the meter is saturated (about 3:1 on the IC-705).
+SWR_SATURATED = 3.0
+
+# Bands the antenna is tuned on, with an FT8 target and the default SWR sweep step.
+TUNE_BANDS = [("40m", 7_074_000, 10_000), ("30m", 10_136_000, 5_000), ("20m", 14_074_000, 25_000),
+              ("17m", 18_100_000, 10_000), ("15m", 21_074_000, 25_000), ("12m", 24_915_000, 10_000),
+              ("10m", 28_074_000, 50_000), ("6m", 50_313_000, 50_000)]
+TEN_METRE_SWEEP_END = 29_000_000  # the whole 10 m band is too wide for one useful sweep
+
+# History of the standalone swr-remote, imported once into the database.
+LEGACY_HISTORY = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share") \
+    / "swr-remote" / "history.json"
+
+metadata = sa.MetaData()
+history_table = sa.Table(
+    "swr_history", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("ts", sa.String(32), nullable=False),
+    sa.Column("band", sa.String(10), nullable=False, index=True),
+    sa.Column("kind", sa.String(10), nullable=False),
+    sa.Column("data", sa.Text, nullable=False),   # the whole entry, JSON
+)
+
+
+class SweepError(Exception):
+    pass
+
+
+@dataclass
+class Sweep:
+    kind: str = ""             # "swr" or "noise"
+    running: bool = False
+    band: str = ""
+    target: int = 0
+    total: int = 0
+    points: list[dict] = field(default_factory=list)
+    analysis: dict | None = None
+    warning: str = ""
+    error: str = ""
+    finished_at: float = 0.0
+
+
+class HistoryStore:
+    def __init__(self, url: str | None, legacy: Path | None = LEGACY_HISTORY) -> None:
+        self.engine = db.make_engine(url)
+        metadata.create_all(self.engine)
+        if legacy is not None and legacy.exists():
+            self._import(legacy)
+
+    def _import(self, path: Path) -> None:
+        with self.engine.begin() as conn:
+            if conn.execute(sa.select(sa.func.count()).select_from(history_table)).scalar():
+                return
+            try:
+                entries = json.loads(path.read_text())
+            except (OSError, ValueError):
+                return
+            for entry in entries:
+                self._insert(conn, entry)
+        log.info("imported %d antenna sweeps from %s", len(entries), path)
+
+    @staticmethod
+    def _insert(conn, entry: dict) -> None:
+        conn.execute(history_table.insert().values(
+            ts=entry.get("ts", ""), band=entry.get("band", ""), kind=entry.get("kind", ""),
+            data=json.dumps(entry)))
+
+    def add(self, entry: dict) -> None:
+        with self.engine.begin() as conn:
+            self._insert(conn, entry)
+
+    def entries(self, band: str = "", limit: int | None = None) -> list[dict]:
+        query = sa.select(history_table.c.data).order_by(history_table.c.id)
+        if band:
+            query = query.where(history_table.c.band == band)
+        with self.engine.connect() as conn:
+            rows = [json.loads(r[0]) for r in conn.execute(query)]
+        return rows[-limit:] if limit else rows
+
+    def close(self) -> None:
+        self.engine.dispose()
+
+
+class SwrService:
+    def __init__(self, station: Station, config: Config, ui) -> None:
+        self.station = station
+        self.config = config
+        self.ui = ui
+        self.max_power = max(1, min(100, config.swr_max_power))
+        self.port = config.swr_port if config.swr_web else None
+        self.sweep = Sweep()
+        self._task: asyncio.Task | None = None
+        self._history: HistoryStore | None = None
+        self._web = None
+        self._version = 0
+        self._sent = -1
+
+    @property
+    def allow_tx(self) -> bool:
+        return self.config.tx_enabled
+
+    @property
+    def history(self) -> HistoryStore:
+        if self._history is None:
+            self._history = HistoryStore(self.config.database_url or None)
+        return self._history
+
+    # ---- lifecycle ----------------------------------------------------------------------
+
+    async def start(self) -> None:
+        if self.port is None or not self.station.model.has(FEATURE_SWR_METER):
+            return
+        from ic705suite.apps.swr.web import serve
+
+        try:
+            # Reachable from the phone on the local network, as swr-remote was.
+            self._web = await serve(self, "0.0.0.0", self.port)
+        except OSError as exc:
+            self.ui.error(N_("antenna page not available on port {port}: {error}"),
+                          port=self.port, error=str(exc))
+            self.port = None
+
+    async def stop(self) -> None:
+        task = self._task
+        self.stop_sweep()
+        if task is not None:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await asyncio.wait_for(task, 15)  # lets the sweep unkey and restore the radio
+        if self._web is not None:
+            self._web.close()
+            with contextlib.suppress(Exception):
+                await self._web.wait_closed()
+        if self._history is not None:
+            self._history.close()
+
+    def changed(self) -> bool:
+        """True once per change, or continuously while a sweep runs (the "swr" event)."""
+        if self.sweep.running or self._version != self._sent:
+            self._sent = self._version
+            return True
+        return False
+
+    # ---- sweeps --------------------------------------------------------------------------
+
+    def start_sweep(self, req: dict) -> None:
+        if self._task and not self._task.done():
+            raise SweepError("a sweep is already running")
+        if not self.station.connected:
+            raise SweepError("the radio is not connected")
+        kind = req.get("kind")
+        if kind not in ("swr", "noise"):
+            raise SweepError("kind must be 'swr' or 'noise'")
+        start, stop = int(req["start"]), int(req["stop"])
+        step = max(MIN_STEP, int(req.get("step") or MIN_STEP))
+        if stop < start:
+            start, stop = stop, start
+        freqs = list(range(start, stop + 1, step))
+        if freqs[-1] != stop:
+            freqs.append(stop)
+        if len(freqs) > MAX_POINTS:
+            raise SweepError(f"too many points ({len(freqs)}); use a larger step (max {MAX_POINTS})")
+        band = band_for(start)
+        if kind == "swr":
+            if not self.allow_tx:
+                raise SweepError("transmission disabled: SWR sweeps need --tx "
+                                 "(or [rig] tx_enabled); the noise sweep never transmits")
+            if band is None or band_for(stop) is not band:
+                raise SweepError("SWR sweep must stay inside one amateur band")
+        target = int(req.get("target") or (start + stop) // 2)
+        power = max(1, min(self.max_power, int(req.get("power") or self.max_power)))
+        self.sweep = Sweep(kind=kind, running=True, band=req.get("band") or (band.name if band else ""),
+                           target=target, total=len(freqs))
+        self._version += 1
+        self._task = asyncio.create_task(self._run_sweep(freqs, power))
+
+    def stop_sweep(self) -> None:
+        if self._task and not self._task.done():
+            self._task.cancel()
+
+    async def _run_sweep(self, freqs: list[int], power: int) -> None:
+        sweep, rig = self.sweep, self.station.rig
+        saved = None
+        # The sweep owns the radio: no polling, and the CW screens see no dial changes.
+        self.station.paused.add("swr")
+        self.ui.info(N_("antenna: SWR sweep {start}-{end} MHz started") if sweep.kind == "swr"
+                     else N_("antenna: noise sweep {start}-{end} MHz started"),
+                     start=format_frequency(freqs[0]), end=format_frequency(freqs[-1]))
+        try:
+            saved = await rig.save_settings()
+            if sweep.kind == "swr":
+                if hasattr(rig, "set_data_mode"):
+                    await rig.set_data_mode(0)
+                await rig.set_mode("RTTY")
+                await rig.set_power(power)
+                await asyncio.sleep(0.2)
+            no_power = 0
+            for hz in freqs:
+                if sweep.kind == "swr":
+                    point = await self._measure_swr(hz)
+                    if point["watts"] < NO_POWER_W:
+                        no_power += 1
+                else:
+                    point = await self._measure_noise(hz)
+                sweep.points.append(point)
+            if sweep.kind == "swr" and no_power > len(freqs) // 2:
+                sweep.warning = "no_power"
+            self._finish(sweep)
+        except asyncio.CancelledError:
+            sweep.error = sweep.error or "stopped"
+        except (SweepError, RigError, TransportError) as exc:
+            sweep.error = str(exc)
+            log.error("sweep failed: %s", exc)
+        finally:
+            if getattr(rig, "keyed_at", None) is not None:
+                await rig.unkey()
+            if saved is not None and self.station.connected:
+                await rig.restore_settings(saved)
+            self.station.paused.discard("swr")
+            sweep.running = False
+            sweep.finished_at = time.time()
+            self._version += 1
+            if sweep.analysis and sweep.analysis["confident"] and not sweep.error:
+                self.ui.info(N_("antenna: resonance at {freq} MHz"),
+                             freq=format_frequency(sweep.analysis["resonance"]))
+
+    async def _measure_swr(self, hz: int) -> dict:
+        rig = self.station.rig
+        await rig.set_frequency(hz)
+        await asyncio.sleep(0.08)
+        await rig.ptt(True)
+        try:
+            # The SWR meter jumps from one read to the next: take the median of four.
+            await asyncio.sleep(0.2)
+            readings = []
+            for _ in range(4):
+                readings.append(await rig.read_swr())
+                await asyncio.sleep(0.08)
+            watts = await rig.read_rf_watts()
+        finally:
+            await rig.unkey()
+        await asyncio.sleep(0.15)
+        readings.sort()
+        value = round((readings[1] + readings[2]) / 2, 2)
+        return {"f": hz, "v": value, "sat": value >= SWR_SATURATED, "watts": watts}
+
+    async def _measure_noise(self, hz: int) -> dict:
+        """Noise floor near hz: the quietest of three nearby spots, so a carrier on one of
+        them (broadcast, CW, digital) does not look like an antenna resonance."""
+        rig = self.station.rig
+        floors = []
+        for offset in NOISE_OFFSETS:
+            await rig.set_frequency(hz + offset)
+            await asyncio.sleep(0.25)
+            readings = []
+            for _ in range(3):
+                readings.append(await rig.read_smeter())
+                await asyncio.sleep(0.05)
+            floors.append(sorted(readings)[1])
+        await rig.set_frequency(hz)
+        return {"f": hz, "v": float(min(floors))}
+
+    def _finish(self, sweep: Sweep) -> None:
+        freqs = [p["f"] for p in sweep.points]
+        values = [p["v"] for p in sweep.points]
+        result = analyze(sweep.kind, freqs, values, sweep.target, sweep.band,
+                         self.history.entries(sweep.band))
+        if result is None:
+            return
+        sweep.analysis = result.to_dict()
+        if not result.confident:
+            return
+        self.history.add({"ts": _now(), "band": sweep.band, "kind": sweep.kind,
+                          "target": sweep.target, "resonance": result.resonance,
+                          "best": result.best_value, "at_edge": result.at_edge})
+
+    def save_final(self, coil_text: str) -> dict:
+        """Record where the coil ended up, with the last sweep's resonance on that band."""
+        coil = float(str(coil_text).strip().replace(",", "."))
+        sweep = self.sweep
+        if sweep.running or not sweep.analysis or sweep.kind != "swr":
+            raise SweepError("finish with an SWR sweep before saving the coil position")
+        a = sweep.analysis
+        entry = {"ts": _now(), "band": sweep.band, "kind": "final", "coil": coil,
+                 "target": sweep.target, "resonance": a["resonance"], "best": a["best_value"],
+                 "at_edge": a["at_edge"], "tuned": a["tuned"]}
+        self.history.add(entry)
+        self._version += 1
+        return entry
+
+    # ---- API ------------------------------------------------------------------------------
+
+    def state(self) -> dict:
+        st, s = self.station.state, self.sweep
+        if self.station.connected:
+            status = f"connected to {self.station.rig.name}"
+        else:
+            status = "radio not connected"
+        return {"connected": self.station.connected, "status": status,
+                "allow_tx": self.allow_tx, "max_power": self.max_power, "port": self.port,
+                "frequency": st.frequency, "mode": st.mode,
+                "sweep": {"kind": s.kind, "running": s.running, "band": s.band, "target": s.target,
+                          "total": s.total, "points": s.points,
+                          "analysis": s.analysis, "warning": s.warning, "error": s.error,
+                          "finished_at": s.finished_at}}
+
+    @staticmethod
+    def bands() -> list[dict]:
+        out = []
+        for name, target, step in TUNE_BANDS:
+            band = find_band(name)
+            end = min(band.end, TEN_METRE_SWEEP_END) if name == "10m" else band.end
+            out.append({"name": name, "start": band.start, "end": end, "target": target,
+                        "step": step})
+        return out
+
+    async def call(self, method: str, params: dict) -> dict:
+        """The "swr.*" calls of the core protocol (the TUI uses them; the web page uses HTTP)."""
+        try:
+            if method == "state":
+                return self.state()
+            if method == "bands":
+                return {"bands": self.bands()}
+            if method == "history":
+                return {"history": self.history.entries(params.get("band", ""), limit=20)}
+            if method == "sweep":
+                self.start_sweep(params)
+                return self.state()
+            if method == "stop":
+                self.stop_sweep()
+                return self.state()
+            if method == "final":
+                return {"entry": self.save_final(params.get("coil", ""))}
+        except (SweepError, KeyError, ValueError) as exc:
+            return {"error": str(exc)}
+        return {"error": f"unknown method swr.{method}"}
+
+
+def _now() -> str:
+    return dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")

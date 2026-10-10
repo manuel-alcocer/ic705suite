@@ -1,7 +1,7 @@
 """Decoder benchmark: realistic synthetic QSOs with known text, character error rate.
 
-    python -m cwic705.bench                    # compare the decoders over a SNR sweep
-    python -m cwic705.bench --snr 6 --cases 20
+    python -m ic705suite.apps.cw.bench                    # compare the decoders over a SNR sweep
+    python -m ic705suite.apps.cw.bench --snr 6 --cases 20
 
 The text is built like real contacts (CQ calls, answers, reports, names, contest exchanges)
 with callsigns from MASTER.SCP when available, keyed with a human-like irregular fist and
@@ -15,8 +15,8 @@ import time
 
 import numpy as np
 
-from ic705suite.apps.cw.config import DEFAULT_SCP_PATH
-from ic705suite.apps.cw.synth import keying_envelope, qrn, qsb
+from ic705suite.config import DEFAULT_SCP_PATH
+from ic705suite.synth import keying_envelope, qrn, qsb
 
 FS = 8000
 TONE = 600.0
@@ -109,7 +109,7 @@ def decoders() -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="python -m cwic705.bench", description=__doc__,
+    p = argparse.ArgumentParser(prog="python -m ic705suite.apps.cw.bench", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--snr", type=float, nargs="*", default=[20, 12, 8, 5, 3, 1])
     p.add_argument("--cases", type=int, default=12)

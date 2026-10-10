@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import datetime as dt
+import os
 import re
+
+import pytest
 
 from ic705suite.apps.log import appconfig, i18n
 from ic705suite.apps.log.core import qcodes
@@ -252,6 +255,8 @@ def test_the_config_file_survives_a_broken_or_strange_file():
     assert appconfig.load() == appconfig.AppConfig(language="es")
 
 
+@pytest.mark.skipif(bool(os.environ.get("IC705SUITE_TEST_POSTGRES")),
+                    reason="checks the SQLite URL the tests use by default")
 def test_the_database_comes_from_the_settings_unless_the_environment_says(
     tmp_path, monkeypatch
 ):

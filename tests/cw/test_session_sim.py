@@ -2,9 +2,9 @@
 
 import asyncio
 
-from ic705suite.apps.cw.config import Config
-from ic705suite.apps.cw.session import Session
-from ic705suite.apps.cw.transport.sim import SimStation, SimTransport
+from ic705suite.config import Config
+from tests.cw.helpers import make_session, start, stop
+from ic705suite.rig.icom.sim import SimStation, SimTransport
 
 
 class RecordingUi:
@@ -29,8 +29,8 @@ class RecordingUi:
 
 async def _session(transport, tx_enabled=False):
     ui = RecordingUi()
-    session = Session(transport, Config(callsign="EA4TST", wpm=30, tx_enabled=tx_enabled), ui)
-    await session.start()
+    session = make_session(transport, Config(callsign="EA4TST", wpm=30, tx_enabled=tx_enabled), ui)
+    await start(session)
     return session, ui
 
 
@@ -50,7 +50,7 @@ def test_tune_decode_and_transmit():
             assert ui.tx == ["CQ DE EA4TST +"]
             assert not ui.errors
         finally:
-            await session.stop()
+            await stop(session)
 
     asyncio.run(scenario())
 
@@ -71,7 +71,7 @@ def test_scan_finds_station_skips_carrier_and_learns_sideband():
             assert sim.filter_index == 9  # filter restored to 500 Hz after the search
             assert any("signal found" in i for i in ui.infos)
         finally:
-            await session.stop()
+            await stop(session)
 
     asyncio.run(scenario())
 
@@ -94,7 +94,7 @@ def test_receive_only_never_keys_the_radio():
             assert not any(f[4:6] == b"\x16\x47" for f in sent)  # break-in left untouched
             assert len(ui.errors) == 4
         finally:
-            await session.stop()
+            await stop(session)
 
     asyncio.run(scenario())
 
@@ -105,7 +105,7 @@ def test_play_recording_through_the_skimmer(tmp_path):
 
     import numpy as np
 
-    from ic705suite.apps.cw.synth import cw_signal, noise
+    from ic705suite.synth import cw_signal, noise
 
     fs, seconds = 8000, 40
     n = fs * seconds
@@ -134,7 +134,7 @@ def test_play_recording_through_the_skimmer(tmp_path):
             assert any("end of the recording" in i for i in ui.infos)
             assert sim.frequency == 14_060_000  # the radio was never retuned
         finally:
-            await session.stop()
+            await stop(session)
 
     asyncio.run(scenario())
 
@@ -149,7 +149,7 @@ def test_recording_writes_frequency_sidecar(tmp_path):
         await asyncio.sleep(0.5)
         await session.execute("/f 7.012")
         await asyncio.sleep(0.5)
-        await session.stop()
+        await stop(session)
 
     asyncio.run(scenario())
     timeline = json.loads((tmp_path / "out.json").read_text())["frequency"]

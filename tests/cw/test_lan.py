@@ -10,9 +10,9 @@ import struct
 import numpy as np
 import pytest
 
-from ic705suite.apps.cw import civ
-from ic705suite.apps.cw.transport import TransportError
-from ic705suite.apps.cw.transport.lan import LanTransport, encode_credential
+from ic705suite.rig.icom import civ
+from ic705suite.rig.transport import TransportError
+from ic705suite.rig.icom.lan import LanTransport, encode_credential
 
 SERVER_ID = b"\x11\x22\x33\x44"
 TOKEN = b"\xaa\xbb\xcc\xdd"

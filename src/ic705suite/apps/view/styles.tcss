@@ -1,0 +1,18 @@
+/* Rig view: a large frequency and the meters in one frame. */
+
+#panel {
+    height: 1fr;
+    padding: 1 2;
+    background: $surface;
+}
+
+#frequency {
+    width: auto;
+    color: $warning;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#meters {
+    height: auto;
+}

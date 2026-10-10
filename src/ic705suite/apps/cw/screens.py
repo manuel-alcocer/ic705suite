@@ -5,60 +5,13 @@ from __future__ import annotations
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, DataTable, Input, Label, Static
+from textual.containers import Vertical, VerticalScroll
+from textual.screen import Screen
+from textual.widgets import DataTable, Static
 
-from ic705suite.apps.cw import bands
-from ic705suite.apps.cw.i18n import N_, _
-
-
-class ChoiceScreen(ModalScreen[str]):
-    """A question with a few answers; returns the chosen key ("" on Esc)."""
-
-    BINDINGS = [Binding("escape", "dismiss('')", show=False)]
-
-    def __init__(self, title: str, message: str, options: list[tuple[str, str]]) -> None:
-        super().__init__()
-        self.title_text, self.message, self.options = title, message, options
-
-    def compose(self) -> ComposeResult:
-        with Vertical(classes="modal") as box:
-            box.border_title = self.title_text
-            yield Static(self.message, classes="modal-subtitle")
-            with Horizontal(classes="modal-buttons"):
-                for i, (key, label) in enumerate(self.options):
-                    yield Button(label, id=f"opt-{key}", variant="primary" if i == 0 else "default")
-
-    def on_mount(self) -> None:
-        self.query(Button).first().focus()
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        self.dismiss(event.button.id.removeprefix("opt-"))
-
-
-class NameScreen(ModalScreen[str | None]):
-    """Ask for a name; returns the text (possibly empty) or None on Esc."""
-
-    BINDINGS = [Binding("escape", "dismiss(None)", show=False)]
-
-    def __init__(self, title: str, message: str, placeholder: str = "") -> None:
-        super().__init__()
-        self.title_text, self.message, self.placeholder = title, message, placeholder
-
-    def compose(self) -> ComposeResult:
-        with Vertical(classes="modal") as box:
-            box.border_title = self.title_text
-            yield Static(self.message, classes="modal-subtitle")
-            yield Input(placeholder=self.placeholder, id="name-input")
-            yield Static(_("Enter accepts (empty: automatic name) · Esc skips this channel"),
-                         classes="modal-help")
-
-    def on_mount(self) -> None:
-        self.query_one(Input).focus()
-
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        self.dismiss(event.value)
+from ic705suite.rig import bands
+from ic705suite.i18n import N_, _
+from ic705suite.ui.widgets import ChoiceScreen, NameScreen  # noqa: F401 - re-exported
 
 
 SOURCES = {"tuned": N_("tuned"), "skimmer": N_("skimmer")}

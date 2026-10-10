@@ -25,7 +25,7 @@ from dataclasses import dataclass, replace
 from ic705suite.apps.cw.decoder import HOP_RATE, CwDecoder
 from ic705suite.apps.cw.hamdata import QCODE_BY_NAME
 from ic705suite.apps.cw.interpret import ABBREVIATIONS, CALLSIGN_RE, RST_RE
-from ic705suite.apps.cw.morse import DECODE  # noqa: F401  (CODES below is the allowed subset)
+from ic705suite.morse import DECODE  # noqa: F401  (CODES below is the allowed subset)
 
 BEAM = 48
 PRUNE_MARGIN = 25.0     # drop interpretations this much less likely than the best (log)

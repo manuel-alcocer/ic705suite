@@ -8,11 +8,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ic705suite.apps.cw.i18n import N_
+from ic705suite.i18n import N_
 
 # Prefix -> DXCC entity name. Longest prefix wins.
 PREFIXES: dict[str, str] = {
-    # Added in cwic705: Dutch prefixes heard in contests.
+    # Added for the CW skimmer: Dutch prefixes heard in contests.
     "PB": N_("Netherlands"), "PC": N_("Netherlands"), "PF": N_("Netherlands"),
     "PG": N_("Netherlands"), "PH": N_("Netherlands"),
     "EA": N_("Spain"), "EB": N_("Spain"), "EC": N_("Spain"), "ED": N_("Spain"),

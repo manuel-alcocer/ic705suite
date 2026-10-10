@@ -1,5 +1,8 @@
-from ic705suite.apps.cw import bands, civ, morse
-from ic705suite.apps.cw.radio import filter_index_to_width, filter_width_to_index, smeter_text
+from ic705suite import morse
+from ic705suite.rig import bands
+from ic705suite.rig.icom import civ
+from ic705suite.rig.base import smeter_text
+from ic705suite.rig.icom.rig import filter_index_to_width, filter_width_to_index
 
 
 def test_normalize_prosigns_and_dropped_chars():

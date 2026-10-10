@@ -1,21 +1,15 @@
 """Core over WebSocket with the simulated radio, plus translation catalog checks."""
 
-import ast
 import asyncio
-import re
-from pathlib import Path
 
 import pytest
 
-from ic705suite.apps.cw import i18n
-from ic705suite.apps.cw.config import Config
-from ic705suite.apps.cw.core import Core
-from ic705suite.apps.cw.links import LinkError, RemoteLink
-from ic705suite.apps.cw.server import CoreServer
-from ic705suite.apps.cw.transport.sim import SimStation, SimTransport
-
-SRC = Path(__file__).parents[2] / "src" / "ic705suite" / "apps" / "cw"
-
+from ic705suite import i18n
+from ic705suite.config import Config
+from ic705suite.station.core import Core
+from ic705suite.station.links import LinkError, RemoteLink
+from ic705suite.station.server import CoreServer
+from ic705suite.rig.icom.sim import SimStation, SimTransport
 
 async def start_server(config: Config, sim: SimTransport, token: str = "secret"):
     core = Core(sim, config)
@@ -103,25 +97,6 @@ def test_network_server_requires_token():
     core = Core(SimTransport(stations=[]), Config())
     with pytest.raises(ValueError, match="token"):
         CoreServer(core, "0.0.0.0", 7373, "")
-
-
-def _marked_strings() -> set[str]:
-    found = set()
-    for path in SRC.glob("*.py"):
-        for node in ast.walk(ast.parse(path.read_text())):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
-                    and node.func.id in ("_", "N_") and node.args \
-                    and isinstance(node.args[0], ast.Constant):
-                found.add(node.args[0].value)
-    return found - {"{text}", "{error}"}  # pass-through templates
-
-
-def test_spanish_catalog_is_complete_and_consistent():
-    catalog = i18n.load_catalog("es")
-    missing = sorted(_marked_strings() - set(catalog))
-    assert not missing, f"untranslated strings: {missing}"
-    for msgid, msgstr in catalog.items():
-        assert sorted(re.findall(r"{\w+}", msgid)) == sorted(re.findall(r"{\w+}", msgstr)), msgid
 
 
 def test_render_translates_core_events():
