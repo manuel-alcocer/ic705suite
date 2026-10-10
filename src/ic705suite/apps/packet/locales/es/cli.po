@@ -1,0 +1,39 @@
+# Spanish translations of the command line (hamrpkt.cli and the rest of the package root).
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+#: src/hamrpkt/cli.py:21
+msgid "Keyboard-only packet radio terminal for a remote node (AGWPE or Telnet)."
+msgstr "Terminal de packet radio solo con teclado para un nodo remoto (AGWPE o Telnet)."
+
+#: src/hamrpkt/cli.py:27
+msgid "machine running the node, e.g. wpsd.alcocer.net"
+msgstr "equipo donde corre el nodo, p. ej. wpsd.alcocer.net"
+
+#: src/hamrpkt/cli.py:28
+msgid "TCP port (AGWPE 8000, Telnet 8010)"
+msgstr "puerto TCP (AGWPE 8000, Telnet 8010)"
+
+#: src/hamrpkt/cli.py:29
+msgid "interface of the node to use"
+msgstr "interfaz del nodo que se usa"
+
+#: src/hamrpkt/cli.py:30
+msgid "own callsign, with SSID if any"
+msgstr "indicativo propio, con SSID si lo lleva"
+
+#: src/hamrpkt/cli.py:31
+msgid "radio port of the node, from 1"
+msgstr "puerto de radio del nodo, desde 1"
+
+#: src/hamrpkt/cli.py:32
+msgid "node user"
+msgstr "usuario del nodo"
+
+#: src/hamrpkt/cli.py:33
+msgid "node password"
+msgstr "contraseña del nodo"
+
+#: src/hamrpkt/cli.py:25
+msgid "settings file (default {path})"
+msgstr "archivo de ajustes (por defecto {path})"

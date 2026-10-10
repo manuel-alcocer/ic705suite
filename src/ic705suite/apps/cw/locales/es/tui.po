@@ -1,0 +1,149 @@
+# Spanish translation of the cwic705 user interface.
+msgid ""
+msgstr ""
+"Language: es\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "F1 Help · F2-F9 Macros · F10 Skimmer · Esc Stop · PgUp/PgDn Tune · Ctrl+Q Quit"
+msgstr "F1 Ayuda · F2-F9 Macros · F10 Skimmer · Esc Parar · PgUp/PgDn Sintonía · Ctrl+Q Salir"
+
+msgid "F1 Help · F10 Skimmer · Esc Stop · Ctrl+Q Quit"
+msgstr "F1 Ayuda · F10 Skimmer · Esc Parar · Ctrl+Q Salir"
+
+msgid "Receive"
+msgstr "Recepción"
+
+msgid "Detail"
+msgstr "Detalle"
+
+msgid "QRG"
+msgstr "QRG"
+
+msgid "MODE"
+msgstr "MODO"
+
+msgid "KEY"
+msgstr "MANIP"
+
+msgid "LINK"
+msgstr "ENLACE"
+
+msgid "TONE"
+msgstr "TONO"
+
+msgid "SPEED"
+msgstr "VELOCIDAD"
+
+msgid "SNR"
+msgstr "SNR"
+
+msgid "AFC"
+msgstr "AFC"
+
+msgid "SQUELCH"
+msgstr "SILENCIADOR"
+
+msgid "PgUp/PgDn tune · /scan search · F10 skimmer"
+msgstr "PgUp/PgDn sintonía · /scan buscar · F10 skimmer"
+
+msgid "Call"
+msgstr "Indicativo"
+
+msgid "WPM"
+msgstr "PPM"
+
+msgid "Text"
+msgstr "Texto"
+
+msgid "the link to the core has ended; press Ctrl+Q to leave"
+msgstr "se ha cerrado el enlace con el núcleo; pulsa Ctrl+Q para salir"
+
+msgid "Transmit"
+msgstr "Transmisión"
+
+msgid "Command (receive only)"
+msgstr "Comando (solo recepción)"
+
+msgid "DISCONNECTED"
+msgstr "DESCONECTADO"
+
+msgid "TX"
+msgstr "TX"
+
+msgid "SKIMMER"
+msgstr "SKIMMER"
+
+msgid "PWR"
+msgstr "POT"
+
+msgid "STATIONS"
+msgstr "ESTACIONES"
+
+msgid "SPOTS"
+msgstr "SPOTS"
+
+msgid "RANGE"
+msgstr "RANGO"
+
+msgid "WIDTH"
+msgstr "ANCHO"
+
+msgid "↑↓ select a station · Enter tune it · F10 back to single decoding"
+msgstr "↑↓ elige una estación · Enter la sintoniza · F10 vuelve a un solo canal"
+
+msgid "on"
+msgstr "sí"
+
+msgid "off"
+msgstr "no"
+
+msgid "closed"
+msgstr "cerrado"
+
+msgid "open"
+msgstr "abierto"
+
+msgid "RX chars"
+msgstr "caracteres RX"
+
+msgid "spots"
+msgstr "spots"
+
+msgid "Skimmer"
+msgstr "Skimmer"
+
+msgid "SEND"
+msgstr "ENVIAR"
+
+msgid "COMMAND"
+msgstr "COMANDO"
+
+msgid "RX ONLY"
+msgstr "SOLO RX"
+
+msgid "CALL"
+msgstr "INDICATIVO"
+
+msgid "Looking for CW signals..."
+msgstr "Buscando señales CW..."
+
+msgid "LEVEL"
+msgstr "NIVEL"
+
+msgid "PITCH"
+msgstr "TONO CW"
+
+msgid "press Ctrl+Q to leave"
+msgstr "pulsa Ctrl+Q para salir"
+
+msgid "SCAN"
+msgstr "BUSCANDO"
+
+msgid "type /help for the commands"
+msgstr "escribe /help para ver los comandos"
+
+msgid "cannot connect: {error}"
+msgstr "no se puede conectar: {error}"
+
+msgid "wpm"
+msgstr "ppm"

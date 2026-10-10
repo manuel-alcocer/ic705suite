@@ -1,0 +1,243 @@
+# The Q code (hamrlog.core.qcodes): statements and questions.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "The name of my station is ..."
+msgstr "El nombre de mi estación es ..."
+
+msgid "What is the name of your station?"
+msgstr "¿Cuál es el nombre de su estación?"
+
+msgid "The distance between our stations is ..."
+msgstr "La distancia entre nuestras estaciones es ..."
+
+msgid "How far are you from my station?"
+msgstr "¿A qué distancia está de mi estación?"
+
+msgid "Your exact frequency is ..."
+msgstr "Su frecuencia exacta es ..."
+
+msgid "Will you tell me my exact frequency?"
+msgstr "¿Puede decirme mi frecuencia exacta?"
+
+msgid "Your frequency varies"
+msgstr "Su frecuencia varía"
+
+msgid "Does my frequency vary?"
+msgstr "¿Varía mi frecuencia?"
+
+msgid "The tone of your transmission is ... (1 good, 2 variable, 3 bad)"
+msgstr "El tono de su emisión es ... (1 bueno, 2 variable, 3 malo)"
+
+msgid "How is the tone of my transmission?"
+msgstr "¿Qué tal es el tono de mi emisión?"
+
+msgid "The readability of your signals is ... (1 to 5)"
+msgstr "La inteligibilidad de sus señales es ... (1 a 5)"
+
+msgid "What is the readability of my signals?"
+msgstr "¿Cuál es la inteligibilidad de mis señales?"
+
+msgid "I am busy; please do not interfere"
+msgstr "Estoy ocupado; por favor, no interfiera"
+
+msgid "Are you busy? Is the frequency in use?"
+msgstr "¿Está ocupado? ¿Está en uso la frecuencia?"
+
+msgid "I am being interfered with ... (1 nil to 5 extreme)"
+msgstr "Tengo interferencias ... (1 nulas a 5 extremas)"
+
+msgid "Are you being interfered with?"
+msgstr "¿Tiene interferencias?"
+
+msgid "I am troubled by static ... (1 nil to 5 extreme)"
+msgstr "Me molestan los parásitos atmosféricos ... (1 nulos a 5 extremos)"
+
+msgid "Are you troubled by static?"
+msgstr "¿Le molestan los parásitos atmosféricos?"
+
+msgid "Increase power"
+msgstr "Aumente la potencia"
+
+msgid "Shall I increase power?"
+msgstr "¿Aumento la potencia?"
+
+msgid "Decrease power"
+msgstr "Reduzca la potencia"
+
+msgid "Shall I decrease power?"
+msgstr "¿Reduzco la potencia?"
+
+msgid "Send faster (... words per minute)"
+msgstr "Transmita más deprisa (... palabras por minuto)"
+
+msgid "Shall I send faster?"
+msgstr "¿Transmito más deprisa?"
+
+msgid "Send more slowly (... words per minute)"
+msgstr "Transmita más despacio (... palabras por minuto)"
+
+msgid "Shall I send more slowly?"
+msgstr "¿Transmito más despacio?"
+
+msgid "Stop sending; I am closing the station"
+msgstr "Deje de transmitir; cierro la estación"
+
+msgid "Shall I stop sending?"
+msgstr "¿Dejo de transmitir?"
+
+msgid "I have nothing for you"
+msgstr "No tengo nada para usted"
+
+msgid "Have you anything for me?"
+msgstr "¿Tiene algo para mí?"
+
+msgid "I am ready"
+msgstr "Estoy preparado"
+
+msgid "Are you ready?"
+msgstr "¿Está preparado?"
+
+msgid "Please inform ... that I am calling on ... kHz"
+msgstr "Avise a ... de que le llamo en ... kHz"
+
+msgid "Shall I inform ... that you are calling on ... kHz?"
+msgstr "¿Aviso a ... de que le llama en ... kHz?"
+
+msgid "I will call you again at ... hours on ... kHz; wait"
+msgstr "Le volveré a llamar a las ... horas en ... kHz; espere"
+
+msgid "When will you call me again?"
+msgstr "¿Cuándo me volverá a llamar?"
+
+msgid "You are being called by ... on ... kHz"
+msgstr "Le llama ... en ... kHz"
+
+msgid "Who is calling me?"
+msgstr "¿Quién me llama?"
+
+msgid "The strength of your signals is ... (1 to 5)"
+msgstr "La intensidad de sus señales es ... (1 a 5)"
+
+msgid "What is the strength of my signals?"
+msgstr "¿Cuál es la intensidad de mis señales?"
+
+msgid "Your signals are fading"
+msgstr "Sus señales sufren desvanecimiento"
+
+msgid "Are my signals fading?"
+msgstr "¿Sufren desvanecimiento mis señales?"
+
+msgid "Your keying is defective"
+msgstr "Su manipulación es defectuosa"
+
+msgid "Is my keying defective?"
+msgstr "¿Es defectuosa mi manipulación?"
+
+msgid "I can hear you between my signals; break in"
+msgstr "Le oigo entre mis señales; puede interrumpirme"
+
+msgid "Can you hear me between your signals?"
+msgstr "¿Me oye entre sus señales?"
+
+msgid "I am acknowledging receipt"
+msgstr "Acuso recibo"
+
+msgid "Can you acknowledge receipt?"
+msgstr "¿Puede acusar recibo?"
+
+msgid "Repeat the last message you sent me"
+msgstr "Repita el último mensaje que me envió"
+
+msgid "Shall I repeat the last message I sent you?"
+msgstr "¿Repito el último mensaje que le envié?"
+
+msgid "I heard you on ... kHz"
+msgstr "Le he oído en ... kHz"
+
+msgid "Did you hear me on ... kHz?"
+msgstr "¿Me ha oído en ... kHz?"
+
+msgid "I can communicate with ... direct or by relay"
+msgstr "Puedo comunicar con ... directamente o por retransmisión"
+
+msgid "Can you communicate with ... direct or by relay?"
+msgstr "¿Puede comunicar con ... directamente o por retransmisión?"
+
+msgid "I will relay to ..."
+msgstr "Retransmitiré a ..."
+
+msgid "Will you relay to ...?"
+msgstr "¿Puede retransmitir a ...?"
+
+msgid "Repeat your call on the calling frequency"
+msgstr "Repita su llamada en la frecuencia de llamada"
+
+msgid "Shall I repeat my call on the calling frequency?"
+msgstr "¿Repito mi llamada en la frecuencia de llamada?"
+
+msgid "I will use the working frequency ... kHz"
+msgstr "Usaré la frecuencia de trabajo ... kHz"
+
+msgid "What working frequency will you use?"
+msgstr "¿Qué frecuencia de trabajo usará?"
+
+msgid "Send or reply on this frequency (or on ... kHz)"
+msgstr "Transmita o responda en esta frecuencia (o en ... kHz)"
+
+msgid "Shall I send or reply on this frequency?"
+msgstr "¿Transmito o respondo en esta frecuencia?"
+
+msgid "Send a series of Vs on this frequency"
+msgstr "Transmita una serie de uves en esta frecuencia"
+
+msgid "Shall I send a series of Vs on this frequency?"
+msgstr "¿Transmito una serie de uves en esta frecuencia?"
+
+msgid "I am going to send on this frequency (or on ... kHz)"
+msgstr "Voy a transmitir en esta frecuencia (o en ... kHz)"
+
+msgid "Will you send on this frequency?"
+msgstr "¿Transmitirá en esta frecuencia?"
+
+msgid "I am listening to ... on ... kHz"
+msgstr "Estoy escuchando a ... en ... kHz"
+
+msgid "Will you listen to ... on ... kHz?"
+msgstr "¿Puede escuchar a ... en ... kHz?"
+
+msgid "Change to transmission on another frequency (or on ... kHz)"
+msgstr "Pase a transmitir en otra frecuencia (o en ... kHz)"
+
+msgid "Shall I change to transmission on another frequency?"
+msgstr "¿Paso a transmitir en otra frecuencia?"
+
+msgid "Send each word or group twice (or ... times)"
+msgstr "Transmita cada palabra o grupo dos veces (o ... veces)"
+
+msgid "Shall I send each word or group more than once?"
+msgstr "¿Transmito cada palabra o grupo más de una vez?"
+
+msgid "Cancel message number ..."
+msgstr "Anule el mensaje número ..."
+
+msgid "Shall I cancel message number ...?"
+msgstr "¿Anulo el mensaje número ...?"
+
+msgid "I have ... messages for you"
+msgstr "Tengo ... mensajes para usted"
+
+msgid "How many messages have you to send?"
+msgstr "¿Cuántos mensajes tiene para transmitir?"
+
+msgid "My position is ... (latitude and longitude, or place)"
+msgstr "Mi posición es ... (latitud y longitud, o lugar)"
+
+msgid "What is your position?"
+msgstr "¿Cuál es su posición?"
+
+msgid "The correct time is ... UTC"
+msgstr "La hora exacta es ... UTC"
+
+msgid "What is the correct time?"
+msgstr "¿Cuál es la hora exacta?"

@@ -1,0 +1,176 @@
+# Spanish translation of channels, archive and their dialogs.
+msgid ""
+msgstr ""
+"Language: es\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Channel {n}"
+msgstr "Canal {n}"
+
+msgid "{n} channels of this session are not saved: {names}"
+msgstr "{n} canales de esta sesión no están guardados: {names}"
+
+msgid "Save them? [a]udio and text / [t]ext only / [n]o: "
+msgstr "¿Guardarlos? [a]udio y texto / solo [t]exto / [n]o: "
+
+msgid "Name for channel {label} (empty: {suggestion}): "
+msgstr "Nombre para el canal {label} (vacío: {suggestion}): "
+
+msgid "«{name}» exists. Append to it? [y/n]: "
+msgstr "«{name}» ya existe. ¿Añadir a él? [s/n]: "
+
+msgid "channel saved as «{name}»"
+msgstr "canal guardado como «{name}»"
+
+msgid "earlier on {title}"
+msgstr "antes en {title}"
+
+msgid "tuned"
+msgstr "sintonizado"
+
+msgid "skimmer"
+msgstr "skimmer"
+
+msgid "words"
+msgstr "palabras"
+
+msgid "recognized"
+msgstr "reconocido"
+
+msgid "noise"
+msgstr "ruido"
+
+msgid "fragments"
+msgstr "fragmentos"
+
+msgid "callsigns"
+msgstr "indicativos"
+
+msgid "transmissions"
+msgstr "pasadas"
+
+msgid "Channels"
+msgstr "Canales"
+
+msgid "Transcript"
+msgstr "Transcripción"
+
+msgid "speed"
+msgstr "velocidad"
+
+msgid "Name"
+msgstr "Nombre"
+
+msgid "Source"
+msgstr "Origen"
+
+msgid "Last (UTC)"
+msgstr "Último (UTC)"
+
+msgid "Words"
+msgstr "Palabras"
+
+msgid "OK %"
+msgstr "% OK"
+
+msgid "Noise %"
+msgstr "% ruido"
+
+msgid "Audio"
+msgstr "Audio"
+
+msgid "show"
+msgstr "ver"
+
+msgid "save"
+msgstr "guardar"
+
+msgid "tune"
+msgstr "sintonizar"
+
+msgid "play audio"
+msgstr "reproducir audio"
+
+msgid "reload"
+msgstr "recargar"
+
+msgid "back"
+msgstr "volver"
+
+msgid "archive"
+msgstr "archivo"
+
+msgid "Not found"
+msgstr "No encontrado"
+
+msgid "Enter accepts (empty: automatic name) · Esc skips this channel"
+msgstr "Enter acepta (vacío: nombre automático) · Esc salta este canal"
+
+msgid "{n} in this session, {m} archived"
+msgstr "{n} en esta sesión, {m} archivados"
+
+msgid "archive unavailable: {error}"
+msgstr "archivo no disponible: {error}"
+
+msgid "skimmer resumed with {count} stations"
+msgstr "skimmer reanudado con {count} estaciones"
+
+msgid "archived channels: {names}"
+msgstr "canales archivados: {names}"
+
+msgid "F1 Help · F2-F9 Macros · F10 Skimmer · F11 Channels · Esc Stop · PgUp/PgDn Tune · Ctrl+Q Quit"
+msgstr "F1 Ayuda · F2-F9 Macros · F10 Skimmer · F11 Canales · Esc Parar · PgUp/PgDn Sintonía · Ctrl+Q Salir"
+
+msgid "F1 Help · F10 Skimmer · F11 Channels · Ctrl+Q Quit"
+msgstr "F1 Ayuda · F10 Skimmer · F11 Canales · Ctrl+Q Salir"
+
+msgid "Save with audio"
+msgstr "Guardar con audio"
+
+msgid "Save without audio"
+msgstr "Guardar sin audio"
+
+msgid "Don't save"
+msgstr "No guardar"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Save channels"
+msgstr "Guardar canales"
+
+msgid "Save channel"
+msgstr "Guardar canal"
+
+msgid "Name the channel"
+msgstr "Nombre del canal"
+
+msgid "conversation added to channel «{name}»"
+msgstr "conversación añadida al canal «{name}»"
+
+msgid "Save {label} with its audio?"
+msgstr "¿Guardar {label} con su audio?"
+
+msgid "With audio"
+msgstr "Con audio"
+
+msgid "Text only"
+msgstr "Solo texto"
+
+msgid "Name in use"
+msgstr "Nombre en uso"
+
+msgid "The channel {label} has no callsign. Name for it (empty: {suggestion}):"
+msgstr "El canal {label} no tiene indicativo. Nombre para él (vacío: {suggestion}):"
+
+msgid "A channel named «{name}» already exists. Add this conversation to it?"
+msgstr "Ya existe un canal llamado «{name}». ¿Añadir esta conversación a él?"
+
+msgid "Yes, append"
+msgstr "Sí, añadir"
+
+msgid "No, another name"
+msgstr "No, otro nombre"
+
+msgid "cannot save {label}: {error}"
+msgstr "no se puede guardar {label}: {error}"

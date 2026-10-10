@@ -1,0 +1,211 @@
+/* hamrpkt layout, the same as hamrlog's.
+   Vertical stack: status, main frame (flexible), entry, counters.
+   The frame is the only widget that grows, so the entry line always stays at
+   the same place on screen no matter the terminal size. */
+
+Screen {
+    layout: vertical;
+    background: $surface;
+}
+
+/* Exactly one row: a border here would consume the only line available,
+   so the separation from the frame is done with background colour. */
+#statusline {
+    height: 1;
+    background: $primary-darken-3;
+    color: $text;
+    padding: 0 1;
+}
+
+/* Terminal, monitor and heard list take turns in one framed area. */
+#log-frame {
+    height: 1fr;
+    min-height: 8;
+    border: round $primary-darken-2;
+    border-title-color: $accent;
+    border-title-align: left;
+    padding: 0;
+}
+
+#terminal,
+#monitor {
+    height: 1fr;
+    min-height: 3;
+    border: none;
+    padding: 0 1;
+    background: $surface;
+    overflow-x: hidden;
+    scrollbar-size-vertical: 1;
+    scrollbar-background: $surface;
+    scrollbar-background-hover: $surface;
+    scrollbar-background-active: $surface;
+}
+
+#heard {
+    height: 1fr;
+    min-height: 3;
+    border: none;
+    background: $surface;
+    overflow-x: hidden;
+}
+
+#heard > .datatable--header {
+    background: $panel;
+    color: $text;
+    text-style: bold;
+}
+
+/* The table never holds focus, so its cursor must stay clearly visible
+   anyway: it is what the arrow keys move from the entry line. */
+#heard > .datatable--cursor,
+#heard > .datatable--hover {
+    background: $primary;
+    color: $text;
+    text-style: bold;
+}
+
+#entry {
+    height: auto;
+    border-top: solid $primary-darken-2;
+    background: $boost;
+    padding: 0;
+}
+
+#entry-fields {
+    height: 1;
+    width: 100%;
+}
+
+.entry-label {
+    height: 1;
+    padding: 0 1 0 1;
+    color: $text-muted;
+    text-style: bold;
+}
+
+.entry-field {
+    border: none;
+    height: 1;
+    padding: 0 1;
+    background: $boost;
+}
+
+.entry-field:focus {
+    background: $primary-darken-2;
+    text-style: bold;
+}
+
+#line {
+    width: 1fr;
+}
+
+/* While a session is open the prompt says who receives what is typed. */
+#entry-target.-session {
+    color: $success;
+}
+
+#entry-hint,
+#entry-feedback {
+    height: 1;
+    padding: 0 1;
+}
+
+#stats {
+    height: 1;
+    background: $panel;
+    padding: 0 1;
+}
+
+/* ----------------------------------------------------------- panels ---- */
+
+/* Dialogs are drawn in place of the main frame (see PanelScreen), framed like
+   it, so they read as another view of it rather than a floating box. */
+.modal {
+    width: 84;
+    height: auto;
+    padding: 0 1;
+    background: $surface;
+    border: round $accent;
+    border-title-color: $accent;
+    border-title-style: bold;
+    border-title-align: left;
+}
+
+PanelScreen {
+    align: left top;
+    background: transparent;
+}
+
+.modal-title {
+    width: 100%;
+    text-style: bold;
+    color: $accent;
+    padding-bottom: 1;
+}
+
+.modal-subtitle {
+    width: 100%;
+    color: $text-muted;
+    padding-bottom: 1;
+}
+
+.modal-buttons {
+    height: auto;
+    width: 100%;
+    align-horizontal: right;
+    padding-top: 1;
+}
+
+.modal-buttons Button {
+    margin-left: 2;
+    border: none;
+    height: 1;
+    min-width: 14;
+}
+
+.modal Input {
+    border: none;
+    height: 1;
+    padding: 0 1;
+    background: $boost;
+}
+
+.modal Input:focus {
+    background: $primary-darken-2;
+    text-style: bold;
+}
+
+/* ------------------------------------------------------------ forms ---- */
+
+.form-body {
+    height: 1fr;
+}
+
+.form-row {
+    height: 1;
+    width: 100%;
+    margin-bottom: 1;
+}
+
+.form-label {
+    width: 22;
+    padding: 0 1 0 0;
+    color: $text-muted;
+}
+
+.form-input {
+    width: 1fr;
+}
+
+.form-hint {
+    width: 28;
+    padding: 0 0 0 2;
+    color: $text-muted;
+    text-style: italic;
+}
+
+.form-error {
+    width: 100%;
+    height: auto;
+    color: $error;
+}

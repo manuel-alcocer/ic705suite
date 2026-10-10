@@ -1,0 +1,182 @@
+# Command line, Prometheus exporter and REST API.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+# Arguments (cli.py).
+msgid "Amateur radio logbook for the console (Linux, Windows and macOS)."
+msgstr "Diario de radioaficionado para consola (Linux, Windows y macOS)."
+
+msgid "SQLAlchemy URL of the database (local SQLite by default)."
+msgstr "URL SQLAlchemy de la base de datos (por defecto, SQLite local)."
+
+msgid "Open the text interface (default)."
+msgstr "Abre la interfaz de texto (por defecto)."
+
+msgid "Show paths, database and version."
+msgstr "Muestra rutas, base de datos y versión."
+
+msgid "Export the log without opening the interface."
+msgstr "Exporta el log sin abrir la interfaz."
+
+msgid "Destination file."
+msgstr "Fichero de destino."
+
+msgid "Output format."
+msgstr "Formato de salida."
+
+msgid "Import an ADIF file."
+msgstr "Importa un fichero ADIF."
+
+msgid ".adi file to import."
+msgstr "Fichero .adi a importar."
+
+msgid "Callsign of the target operator."
+msgstr "Indicativo del operador de destino."
+
+msgid "Assign every contact to the given operator, ignoring the one in the file."
+msgstr "Asigna todos los contactos al operador indicado, ignorando el del fichero."
+
+msgid "Start only the Prometheus exporter."
+msgstr "Arranca solo el exportador Prometheus."
+
+msgid "HTTP port."
+msgstr "Puerto HTTP."
+
+msgid "Contact address book."
+msgstr "Agenda de contactos (listín)."
+
+msgid "Import a contact list (CSV or JSON, format detected)."
+msgstr "Importa una lista de contactos (CSV o JSON, formato detectado)."
+
+msgid "File to import."
+msgstr "Fichero a importar."
+
+msgid "Import only the given country, e.g. Spain."
+msgstr "Importar solo el país indicado, p. ej. Spain."
+
+msgid "Leave alone the contacts already in the address book."
+msgstr "No tocar los contactos que ya están en la agenda."
+
+msgid "Export the address book."
+msgstr "Exporta la agenda."
+
+msgid "Search the address book."
+msgstr "Busca en la agenda."
+
+msgid "Text to search for."
+msgstr "Texto a buscar."
+
+msgid "Maximum number of rows."
+msgstr "Máximo de filas."
+
+# Output (cli.py).
+msgid "Database      : {value}"
+msgstr "Base de datos : {value}"
+
+msgid "Data          : {value}"
+msgstr "Datos         : {value}"
+
+msgid "Configuration : {value}"
+msgstr "Configuración : {value}"
+
+msgid "Exports       : {value}"
+msgstr "Exportaciones : {value}"
+
+msgid "Exported {count} contacts to {path}"
+msgstr "{count} contactos exportados a {path}"
+
+msgid "There is no operator {callsign}."
+msgstr "No existe el operador {callsign}."
+
+msgid "Detected format: {name}"
+msgstr "Formato detectado: {name}"
+
+msgid "warning: {warning}"
+msgstr "aviso: {warning}"
+
+msgid "Contacts without a DMR ID are not exported: the radio ignores them."
+msgstr "Los contactos sin ID DMR no se exportan: la radio los ignora."
+
+msgid "No results."
+msgstr "Sin resultados."
+
+msgid "The address book is empty."
+msgstr "La agenda está vacía."
+
+msgid "CALLSIGN"
+msgstr "INDICATIVO"
+
+msgid "NAME"
+msgstr "NOMBRE"
+
+msgid "CITY"
+msgstr "CIUDAD"
+
+msgid "{shown} of {total} contacts."
+msgstr "{shown} de {total} contactos."
+
+# Prometheus exporter (api/metrics.py).
+msgid "Install the metrics extra: pip install hamrlog[metrics]"
+msgstr "Instala el extra de métricas: pip install hamrlog[metrics]"
+
+msgid "Prometheus exporter at http://localhost:{port}/metrics  (Ctrl+C to quit)"
+msgstr "Exportador Prometheus en http://localhost:{port}/metrics  (Ctrl+C para salir)"
+
+# REST API (api/server.py).
+msgid "The API needs the extra: pip install hamrlog[api]"
+msgstr "La API necesita el extra: pip install hamrlog[api]"
+
+msgid "Contact not found"
+msgstr "Contacto no encontrado"
+
+msgid "Open a demo log with invented data. Nothing is saved: every demo starts with the same data."
+msgstr "Abre un diario de demostración con datos inventados. No se guarda nada: cada demo empieza con los mismos datos."
+
+msgid "Language of the interface (English in the demo unless given)."
+msgstr "Idioma de la interfaz (en la demo, inglés si no se indica)."
+
+msgid "Build the demo database again (the installer does it)."
+msgstr "Vuelve a construir la base de datos de la demo (lo hace el instalador)."
+
+msgid "Demo database ready: {path}"
+msgstr "Base de datos de la demo lista: {path}"
+
+msgid "--demo only opens the interface, on its own database."
+msgstr "--demo solo abre la interfaz, con su propia base de datos."
+
+# Updates on start (updater.py).
+msgid "hamrlog {new} is available (you have {current}). Download and install it now? [Y/n/o = omit this version] "
+msgstr "Hay una versión nueva, hamrlog {new} (tienes la {current}). ¿Descargarla e instalarla ahora? [S/n/o = omitir esta versión] "
+
+msgid "hamrlog {new} is available (you have {current}): {url}"
+msgstr "Hay una versión nueva, hamrlog {new} (tienes la {current}): {url}"
+
+msgid "Upgrade it the same way you installed it."
+msgstr "Actualízalo de la misma forma en que lo instalaste."
+
+msgid "Downloading hamrlog {new}..."
+msgstr "Descargando hamrlog {new}..."
+
+msgid "The installer is running; hamrlog will open again when it finishes."
+msgstr "El instalador está en marcha; hamrlog se volverá a abrir cuando termine."
+
+msgid "The installer failed; hamrlog was not upgraded."
+msgstr "El instalador ha fallado; hamrlog no se ha actualizado."
+
+msgid "The release has no {name}."
+msgstr "La versión no incluye {name}."
+
+msgid "{name} does not match its SHA-256 sum."
+msgstr "{name} no coincide con su suma SHA-256."
+
+msgid "Could not download {name}: {error}"
+msgstr "No se pudo descargar {name}: {error}"
+
+msgid "No permission to write to {folder}. Upgrade with: curl -fsSL {url}/latest/download/hamrlog-install.sh | sudo bash -s -- --system --upgrade"
+msgstr "No hay permiso para escribir en {folder}. Actualiza con: curl -fsSL {url}/latest/download/hamrlog-install.sh | sudo bash -s -- --system --upgrade"
+
+msgid "Opening hamrlog {current}."
+msgstr "Se abre hamrlog {current}."
+
+msgid "hamrlog upgraded to {new}."
+msgstr "hamrlog actualizado a la {new}."

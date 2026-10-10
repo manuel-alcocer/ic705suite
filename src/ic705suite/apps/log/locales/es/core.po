@@ -1,0 +1,525 @@
+# Spanish translations of the core and database layers.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+#: src/hamrlog/core/bands.py:51
+msgid "2190 m · 135.7-137.8 kHz"
+msgstr "2190 m · 135,7-137,8 kHz"
+
+#: src/hamrlog/core/bands.py:52
+msgid "630 m · 472-479 kHz"
+msgstr "630 m · 472-479 kHz"
+
+#: src/hamrlog/core/bands.py:53
+msgid "160 m · 1.810-2.000 MHz"
+msgstr "160 m · 1,810-2,000 MHz"
+
+#: src/hamrlog/core/bands.py:54
+msgid "80 m · 3.500-3.800 MHz"
+msgstr "80 m · 3,500-3,800 MHz"
+
+#: src/hamrlog/core/bands.py:55
+msgid "60 m · 5.3515-5.3665 MHz"
+msgstr "60 m · 5,3515-5,3665 MHz"
+
+#: src/hamrlog/core/bands.py:56
+msgid "40 m · 7.000-7.200 MHz"
+msgstr "40 m · 7,000-7,200 MHz"
+
+#: src/hamrlog/core/bands.py:57
+msgid "30 m · 10.100-10.150 MHz"
+msgstr "30 m · 10,100-10,150 MHz"
+
+#: src/hamrlog/core/bands.py:58
+msgid "20 m · 14.000-14.350 MHz"
+msgstr "20 m · 14,000-14,350 MHz"
+
+#: src/hamrlog/core/bands.py:59
+msgid "17 m · 18.068-18.168 MHz"
+msgstr "17 m · 18,068-18,168 MHz"
+
+#: src/hamrlog/core/bands.py:60
+msgid "15 m · 21.000-21.450 MHz"
+msgstr "15 m · 21,000-21,450 MHz"
+
+#: src/hamrlog/core/bands.py:61
+msgid "12 m · 24.890-24.990 MHz"
+msgstr "12 m · 24,890-24,990 MHz"
+
+#: src/hamrlog/core/bands.py:62
+msgid "10 m · 28.000-29.700 MHz"
+msgstr "10 m · 28,000-29,700 MHz"
+
+#: src/hamrlog/core/bands.py:63
+msgid "6 m · 50-52 MHz"
+msgstr "6 m · 50-52 MHz"
+
+#: src/hamrlog/core/bands.py:64
+msgid "4 m · 70-70.5 MHz"
+msgstr "4 m · 70-70,5 MHz"
+
+#: src/hamrlog/core/bands.py:65
+msgid "2 m · 144-146 MHz"
+msgstr "2 m · 144-146 MHz"
+
+#: src/hamrlog/core/bands.py:66
+msgid "1.25 m · 222-225 MHz (R2)"
+msgstr "1,25 m · 222-225 MHz (R2)"
+
+#: src/hamrlog/core/bands.py:67
+msgid "70 cm · 430-440 MHz"
+msgstr "70 cm · 430-440 MHz"
+
+#: src/hamrlog/core/bands.py:68
+msgid "33 cm · 902-928 MHz (R2)"
+msgstr "33 cm · 902-928 MHz (R2)"
+
+#: src/hamrlog/core/bands.py:69
+msgid "23 cm · 1240-1300 MHz"
+msgstr "23 cm · 1240-1300 MHz"
+
+#: src/hamrlog/core/bands.py:70
+msgid "13 cm · 2300-2450 MHz"
+msgstr "13 cm · 2300-2450 MHz"
+
+#: src/hamrlog/core/bands.py:71
+msgid "9 cm · 3300-3500 MHz"
+msgstr "9 cm · 3300-3500 MHz"
+
+#: src/hamrlog/core/bands.py:72
+msgid "6 cm · 5650-5850 MHz"
+msgstr "6 cm · 5650-5850 MHz"
+
+#: src/hamrlog/core/bands.py:73
+msgid "3 cm · 10.0-10.5 GHz"
+msgstr "3 cm · 10,0-10,5 GHz"
+
+#: src/hamrlog/core/bands.py:125
+msgid "Default unit {unit} (example: {example}). You can type another: M, k or Hz."
+msgstr "Unidad por defecto {unit} (ejemplo: {example}). Puedes escribir otra: M, k o Hz."
+
+#: src/hamrlog/core/contacts.py:204
+msgid "The file is empty."
+msgstr "El fichero está vacío."
+
+#: src/hamrlog/core/contacts.py:209
+msgid "CSV with header ({delimiter} as separator)"
+msgstr "CSV con cabecera ({delimiter} como separador)"
+
+#: src/hamrlog/core/contacts.py:214
+msgid "CSV without header, RadioID.net order"
+msgstr "CSV sin cabecera, orden de RadioID.net"
+
+#: src/hamrlog/core/contacts.py:221
+msgid "Unknown format: there are no known headers and the first row does not look like RadioID.net (DMR ID, callsign, name...). Check that the file is a contact list."
+msgstr "No se reconoce el formato: no hay cabeceras conocidas y la primera fila no tiene la forma de RadioID.net (ID DMR, indicativo, nombre...). Comprueba que el fichero sea una lista de contactos."
+
+#: src/hamrlog/core/contacts.py:231
+msgid "No column was recognised. At least a callsign (CALLSIGN) or a DMR ID (RADIO_ID) is expected."
+msgstr "No se ha reconocido ninguna columna. Se esperan al menos un indicativo (CALLSIGN) o un identificador DMR (RADIO_ID)."
+
+#: src/hamrlog/core/contacts.py:277
+msgid "Invalid JSON: {error}"
+msgstr "JSON no válido: {error}"
+
+#: src/hamrlog/core/contacts.py:289
+msgid "No contact list was found in the JSON."
+msgstr "No se ha encontrado ninguna lista de contactos en el JSON."
+
+#: src/hamrlog/core/contacts.py:334
+msgid "hamrlog CSV, with Spanish headers"
+msgstr "CSV de hamrlog, con cabeceras en español"
+
+#: src/hamrlog/core/contacts.py:335
+msgid "RadioID.net / BrandMeister CSV"
+msgstr "CSV de RadioID.net / BrandMeister"
+
+#: src/hamrlog/core/contacts.py:336
+msgid "CSV for the Anytone CPS (D878UV and compatibles)"
+msgstr "CSV para el CPS de Anytone (D878UV y compatibles)"
+
+#: src/hamrlog/core/dto.py:97
+msgid "{created} new, {updated} updated, {skipped} skipped of {total} records."
+msgstr "{created} nuevos, {updated} actualizados, {skipped} omitidos de {total} registros."
+
+#: src/hamrlog/core/entry.py:63
+msgid "call"
+msgstr "indicativo"
+
+#: src/hamrlog/core/entry.py:64
+msgid "name"
+msgstr "nombre"
+
+#: src/hamrlog/core/entry.py:65
+msgid "rst_sent"
+msgstr "rst_env"
+
+#: src/hamrlog/core/entry.py:66
+msgid "rst_rcvd"
+msgstr "rst_rec"
+
+#: src/hamrlog/core/entry.py:69
+msgid "comment"
+msgstr "notas"
+
+#: src/hamrlog/core/entry.py:70
+msgid "band"
+msgstr "banda"
+
+#: src/hamrlog/core/entry.py:71
+msgid "mode"
+msgstr "modo"
+
+#: src/hamrlog/core/entry.py:72
+msgid "freq"
+msgstr "frecuencia"
+
+#: src/hamrlog/core/entry.py:73
+msgid "power"
+msgstr "potencia"
+
+#: src/hamrlog/core/entry.py:151
+msgid "The line is empty."
+msgstr "La línea está vacía."
+
+#: src/hamrlog/core/entry.py:163
+msgid "Unknown field «{field}», ignored."
+msgstr "Campo desconocido «{field}», ignorado."
+
+#: src/hamrlog/core/entry.py:183
+msgid "Extra values, added to the comment: «{extra}»"
+msgstr "Sobran valores, añadidos al comentario: «{extra}»"
+
+#: src/hamrlog/core/entry.py:190
+msgid "The callsign is missing."
+msgstr "Falta el indicativo."
+
+#: src/hamrlog/core/entry.py:238
+msgid "No need to force it: the callsign is valid."
+msgstr "No hacía falta forzar: el indicativo es correcto."
+
+#: src/hamrlog/core/entry.py:289
+msgid "Frequency not recognised: «{value}»"
+msgstr "Frecuencia no reconocida: «{value}»"
+
+#: src/hamrlog/core/entry.py:301
+msgid "Unknown band: «{value}»"
+msgstr "Banda desconocida: «{value}»"
+
+#: src/hamrlog/core/entry.py:310
+msgid "Unknown mode: «{value}»"
+msgstr "Modo desconocido: «{value}»"
+
+#: src/hamrlog/core/entry.py:320
+msgid "Power is not a number: «{value}»"
+msgstr "Potencia no numérica: «{value}»"
+
+#: src/hamrlog/core/modes.py:54
+msgid "Network (Brandmeister, TGIF, DMR+)"
+msgstr "Red (Brandmeister, TGIF, DMR+)"
+
+#: src/hamrlog/core/modes.py:56
+msgid "Repeater / hotspot"
+msgstr "Repetidor / hotspot"
+
+#: src/hamrlog/core/modes.py:59
+msgid "Reflector (e.g. REF001C)"
+msgstr "Reflector (p. ej. REF001C)"
+
+#: src/hamrlog/core/modes.py:60
+msgid "Gateway / repeater"
+msgstr "Gateway / repetidor"
+
+#: src/hamrlog/core/modes.py:69
+msgid "Module"
+msgstr "Módulo"
+
+#: src/hamrlog/core/modes.py:72
+msgid "Network / server"
+msgstr "Red / servidor"
+
+#: src/hamrlog/core/modes.py:73
+msgid "Node"
+msgstr "Nodo"
+
+#: src/hamrlog/core/modes.py:124
+msgid "Network"
+msgstr "Red"
+
+#: src/hamrlog/core/modes.py:126
+msgid "Repeater"
+msgstr "Repetidor"
+
+#: src/hamrlog/core/services.py:93
+msgid "The operator callsign cannot be empty."
+msgstr "El indicativo del operador no puede estar vacío."
+
+#: src/hamrlog/core/services.py:100
+msgid "Operator {call} already exists."
+msgstr "El operador {call} ya existe."
+
+#: src/hamrlog/core/services.py:117
+msgid "Operator not found."
+msgstr "Operador no encontrado."
+
+#: src/hamrlog/core/services.py:174
+msgid "The radio name cannot be empty."
+msgstr "El nombre de la emisora no puede estar vacío."
+
+#: src/hamrlog/core/services.py:178
+msgid "There is already a radio called «{name}»."
+msgstr "Ya existe una emisora llamada «{name}»."
+
+#: src/hamrlog/core/services.py:198
+msgid "Radio not found."
+msgstr "Emisora no encontrada."
+
+#: src/hamrlog/core/services.py:199
+msgid "«{name}» is a catalog radio"
+msgstr "«{name}» es una emisora del catálogo"
+
+#: src/hamrlog/core/services.py:232
+msgid "«{radio}» is the only radio of the set «{equipment}»: add another or delete the set first."
+msgstr "«{radio}» es la única emisora del equipo «{equipment}»: añade otra o borra antes el equipo."
+
+#: src/hamrlog/core/services.py:258
+msgid "Radio or antenna not found."
+msgstr "Emisora o antena no encontradas."
+
+#: src/hamrlog/core/services.py:284
+msgid "{what}: it cannot be changed or deleted. Use it when building a set."
+msgstr "{what}: no se puede modificar ni borrar. Úsala al montar un equipo."
+
+#: src/hamrlog/core/services.py:301
+msgid "One of the equipment types no longer exists."
+msgstr "Alguno de los tipos de equipo ya no existe."
+
+#: src/hamrlog/core/services.py:327
+msgid "The type «{name}» already exists."
+msgstr "Ya existe el tipo «{name}»."
+
+#: src/hamrlog/core/services.py:339
+msgid "Equipment type not found."
+msgstr "Tipo de equipo no encontrado."
+
+#: src/hamrlog/core/services.py:377
+msgid "There is no type «{name}»."
+msgstr "No existe el tipo «{name}»."
+
+#: src/hamrlog/core/services.py:403
+msgid "The antenna «{name}» already exists."
+msgstr "Ya existe la antena «{name}»."
+
+#: src/hamrlog/core/services.py:419
+msgid "Antenna not found."
+msgstr "Antena no encontrada."
+
+#: src/hamrlog/core/services.py:420
+msgid "«{name}» is a catalog antenna"
+msgstr "«{name}» es una antena del catálogo"
+
+#: src/hamrlog/core/services.py:467
+msgid "«{name}» is not a known band (2m, 70cm, 20m...)."
+msgstr "«{name}» no es una banda conocida (2m, 70cm, 20m...)."
+
+#: src/hamrlog/core/services.py:501
+msgid "The power supply «{name}» already exists."
+msgstr "Ya existe la fuente «{name}»."
+
+#: src/hamrlog/core/services.py:528
+msgid "Power supply not found."
+msgstr "Fuente no encontrada."
+
+#: src/hamrlog/core/services.py:529
+msgid "«{name}» is a catalog power supply"
+msgstr "«{name}» es una fuente del catálogo"
+
+#: src/hamrlog/core/services.py:561
+msgid "The power supply name cannot be empty."
+msgstr "El nombre de la fuente no puede estar vacío."
+
+#: src/hamrlog/core/services.py:567
+msgid "The voltage must be positive."
+msgstr "La tensión debe ser positiva."
+
+#: src/hamrlog/core/services.py:569
+msgid "The current must be positive."
+msgstr "La corriente debe ser positiva."
+
+#: src/hamrlog/core/services.py:614
+msgid "The set «{name}» already exists."
+msgstr "Ya existe el equipo «{name}»."
+
+#: src/hamrlog/core/services.py:634
+msgid "Equipment set not found."
+msgstr "Equipo no encontrado."
+
+#: src/hamrlog/core/services.py:657
+msgid "The set name cannot be empty."
+msgstr "El nombre del equipo no puede estar vacío."
+
+#: src/hamrlog/core/services.py:676
+msgid "A set needs at least one radio."
+msgstr "Un equipo lleva al menos una emisora."
+
+#: src/hamrlog/core/services.py:678
+msgid "One of the radios no longer exists."
+msgstr "Alguna de las emisoras ya no existe."
+
+#: src/hamrlog/core/services.py:681
+msgid "One of the antennas no longer exists."
+msgstr "Alguna de las antenas ya no existe."
+
+#: src/hamrlog/core/services.py:684
+msgid "One of the power supplies no longer exists."
+msgstr "Alguna de las fuentes ya no existe."
+
+#: src/hamrlog/core/services.py:701
+msgid "The antenna name cannot be empty."
+msgstr "El nombre de la antena no puede estar vacío."
+
+#: src/hamrlog/core/services.py:714
+msgid "The type name cannot be empty."
+msgstr "El nombre del tipo no puede estar vacío."
+
+#: src/hamrlog/core/services.py:716
+msgid "Both the minimum and the maximum frequency are needed."
+msgstr "Hacen falta la frecuencia mínima y la máxima."
+
+#: src/hamrlog/core/services.py:719
+msgid "The minimum frequency must be positive and lower than the maximum."
+msgstr "La frecuencia mínima debe ser positiva y menor que la máxima."
+
+#: src/hamrlog/core/services.py:786
+msgid "The repeater callsign cannot be empty."
+msgstr "El indicativo del repetidor no puede estar vacío."
+
+#: src/hamrlog/core/services.py:788
+msgid "The repeater output frequency is missing."
+msgstr "Falta la frecuencia de salida del repetidor."
+
+#: src/hamrlog/core/services.py:826
+msgid "Repeater not found."
+msgstr "Repetidor no encontrado."
+
+#: src/hamrlog/core/services.py:974
+msgid "The profile name cannot be empty."
+msgstr "El nombre del perfil no puede estar vacío."
+
+msgid "The key of a profile goes from 0 to 9."
+msgstr "La tecla de un perfil va del 0 al 9."
+
+#: src/hamrlog/core/services.py:979
+msgid "The profile «{name}» already exists."
+msgstr "Ya existe el perfil «{name}»."
+
+#: src/hamrlog/core/services.py:987
+msgid "The antenna «{antenna}» does not work on {band} ({bands})."
+msgstr "La antena «{antenna}» no trabaja en {band} ({bands})."
+
+#: src/hamrlog/core/services.py:1015
+msgid "Profile not found."
+msgstr "Perfil no encontrado."
+
+#: src/hamrlog/core/services.py:1115
+msgid "Rig not found."
+msgstr "Equipo no encontrado."
+
+#: src/hamrlog/core/services.py:1122
+msgid "«{profile}» ({frequency}) is outside the types of «{radio}» ({types})."
+msgstr "«{profile}» ({frequency}) queda fuera de los tipos de «{radio}» ({types})."
+
+#: src/hamrlog/core/services.py:1284
+msgid "No operator is selected."
+msgstr "No hay operador seleccionado."
+
+#: src/hamrlog/core/services.py:1441
+msgid "QSO not found."
+msgstr "QSO no encontrado."
+
+#: src/hamrlog/core/services.py:1461
+msgid "This QSO is automatic: its date and time cannot be changed. Rejected fields: {fields}."
+msgstr "Este QSO es automático: la fecha y la hora no se pueden modificar. Campos rechazados: {fields}."
+
+#: src/hamrlog/core/services.py:1707
+msgid "The callsign cannot be empty."
+msgstr "El indicativo no puede estar vacío."
+
+#: src/hamrlog/core/services.py:1712
+msgid "{call} is already in the address book."
+msgstr "{call} ya está en la agenda."
+
+#: src/hamrlog/core/services.py:1720
+msgid "DMR ID {dmr_id} already belongs to {call}."
+msgstr "El ID DMR {dmr_id} ya es de {call}."
+
+#: src/hamrlog/core/services.py:1747
+msgid "Contact not found in the address book."
+msgstr "Contacto no encontrado en la agenda."
+
+#: src/hamrlog/core/transfer.py:57
+msgid "{imported} imported, {duplicates} duplicates, {invalid} invalid of {total} records."
+msgstr "{imported} importados, {duplicates} duplicados, {invalid} inválidos de {total} registros."
+
+#: src/hamrlog/core/transfer.py:179
+msgid "Target operator not found."
+msgstr "Operador de destino no encontrado."
+
+#: src/hamrlog/core/units.py:72
+msgid "«{text}» is not a frequency unit. Use M, k or Hz."
+msgstr "«{text}» no es una unidad de frecuencia. Usa M, k o Hz."
+
+#: src/hamrlog/core/units.py:82
+msgid "The unit is missing. Use M, k or Hz."
+msgstr "Falta la unidad. Usa M, k o Hz."
+
+#: src/hamrlog/core/units.py:88
+msgid "hide"
+msgstr "ocultar"
+
+#: src/hamrlog/core/units.py:90
+msgid "space"
+msgstr "espacio"
+
+#: src/hamrlog/core/units.py:104
+msgid "The decimal separator cannot be hidden."
+msgstr "El separador decimal no se puede ocultar."
+
+#: src/hamrlog/core/units.py:123
+msgid "«{text}» is not a valid separator. Options:{options}"
+msgstr "«{text}» no vale como separador. Opciones:{options}"
+
+#: src/hamrlog/core/units.py:151
+msgid "Unknown unit: «{unit}»."
+msgstr "Unidad desconocida: «{unit}»."
+
+#: src/hamrlog/core/units.py:156
+msgid "Invalid decimal separator: «{separator}»."
+msgstr "Separador decimal no válido: «{separator}»."
+
+#: src/hamrlog/core/units.py:160
+msgid "Invalid thousands separator: «{separator}»."
+msgstr "Separador de millar no válido: «{separator}»."
+
+#: src/hamrlog/core/units.py:166
+msgid "The thousands and decimal separators cannot be the same («{separator}»)."
+msgstr "El separador de millar y el decimal no pueden ser el mismo («{separator}»)."
+
+#: src/hamrlog/core/units.py:263
+msgid "unit {unit} · decimal «{decimal}» · thousands {thousands}"
+msgstr "unidad {unit} · decimal «{decimal}» · millar {thousands}"
+
+msgid "{call} names {count} repeaters; add the frequency or the mode: {options}"
+msgstr "{call} son {count} repetidores; añade la frecuencia o el modo: {options}"
+
+msgid "{call} comes from the URE list: it cannot be changed or deleted."
+msgstr "{call} viene de la lista de la URE: no se puede modificar ni borrar."
+
+msgid "Repeater {call} already exists on {freq}."
+msgstr "El repetidor {call} ya existe en {freq}."
+
+msgid "No repeater {call} matches «{hint}»"
+msgstr "Ningún repetidor {call} encaja con «{hint}»"
+
+msgid "No repeater registered with the callsign «{call}»"
+msgstr "No hay ningún repetidor dado de alta con el indicativo «{call}»"

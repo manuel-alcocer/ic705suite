@@ -1,0 +1,290 @@
+# Spanish translation of the CW interpreter (abbreviations, summaries).
+msgid ""
+msgstr ""
+"Language: es\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "(perfect, often sent by habit in contests)"
+msgstr "(perfecto; en concursos se envía casi siempre por costumbre)"
+
+msgid "Asks to repeat"
+msgstr "Pide que repitan"
+
+msgid "Asks whether the frequency is in use"
+msgstr "Pregunta si la frecuencia está ocupada"
+
+msgid "Asks who is calling"
+msgstr "Pregunta quién le llama"
+
+msgid "Callsigns heard: {calls}"
+msgstr "Indicativos oídos: {calls}"
+
+msgid "Contest exchange: {number} (serial number or zone)"
+msgstr "Intercambio de concurso: {number} (número de serie o zona)"
+
+msgid "End of the contact"
+msgstr "Fin del contacto"
+
+msgid "Location: {place}"
+msgstr "Ubicación: {place}"
+
+msgid "Operator name: {name}"
+msgstr "Nombre del operador: {name}"
+
+msgid "Over: only the station called may answer"
+msgstr "Cambio: solo debe contestar la estación llamada"
+
+msgid "Over: waiting for an answer"
+msgstr "Cambio: espera respuesta"
+
+msgid "Parks on the Air activation"
+msgstr "activación de Parks on the Air (parques)"
+
+msgid "Says goodbye"
+msgstr "Se despide"
+
+msgid "Someone"
+msgstr "Alguien"
+
+msgid "Summits on the Air activation"
+msgstr "activación de Summits on the Air (cumbres)"
+
+msgid "Thanks the other station"
+msgstr "Da las gracias a la otra estación"
+
+msgid "The meaning of each transmission appears here once it ends."
+msgstr "Aquí aparece el significado de cada pasada cuando termina."
+
+msgid "Translation"
+msgstr "Traducción"
+
+msgid "World Wide Flora and Fauna activation"
+msgstr "activación de World Wide Flora and Fauna (espacios naturales)"
+
+msgid "about"
+msgstr "acerca de / aproximadamente"
+
+msgid "again: please repeat"
+msgstr "otra vez: repite, por favor"
+
+msgid "and"
+msgstr "y"
+
+msgid "antenna"
+msgstr "antena"
+
+msgid "back to you"
+msgstr "te devuelvo el turno"
+
+msgid "barely readable"
+msgstr "apenas legible"
+
+msgid "best regards"
+msgstr "saludos cordiales"
+
+msgid "best regards (low power operators)"
+msgstr "saludos cordiales (entre operadores de baja potencia)"
+
+msgid "break: quick reply without callsigns"
+msgstr "break: respuesta rápida sin dar indicativos"
+
+msgid "callsign"
+msgstr "indicativo"
+
+msgid "callsign, {country}"
+msgstr "indicativo, {country}"
+
+msgid "confirm"
+msgstr "confirmar"
+
+msgid "contest call"
+msgstr "llamada de concurso"
+
+msgid "copy"
+msgstr "copiar / recibir"
+
+msgid "dear"
+msgstr "querido"
+
+msgid "distant station"
+msgstr "estación lejana (DX)"
+
+msgid "dit dit: friendly goodbye"
+msgstr "dit dit: despedida amistosa"
+
+msgid "end of contact"
+msgstr "fin del contacto"
+
+msgid "end of message"
+msgstr "fin del mensaje"
+
+msgid "fine business: excellent"
+msgstr "fine business: estupendo"
+
+msgid "general call: anyone may answer"
+msgstr "llamada general: puede contestar cualquiera"
+
+msgid "good"
+msgstr "bueno"
+
+msgid "good afternoon"
+msgstr "buenas tardes"
+
+msgid "good day"
+msgstr "buen día"
+
+msgid "good evening"
+msgstr "buenas tardes / buenas noches"
+
+msgid "good luck"
+msgstr "buena suerte"
+
+msgid "good morning"
+msgstr "buenos días"
+
+msgid "good night"
+msgstr "buenas noches"
+
+msgid "here"
+msgstr "aquí"
+
+msgid "how do you copy?"
+msgstr "¿cómo me recibes?"
+
+msgid "information"
+msgstr "información"
+
+msgid "love and kisses"
+msgstr "besos y abrazos"
+
+msgid "many"
+msgstr "muchos"
+
+msgid "name (follows)"
+msgstr "nombre (a continuación)"
+
+msgid "nothing copied"
+msgstr "no he recibido nada"
+
+msgid "now"
+msgstr "ahora"
+
+msgid "number"
+msgstr "número"
+
+msgid "okay"
+msgstr "de acuerdo"
+
+msgid "old man: friend (male operator)"
+msgstr "old man: amigo (operador)"
+
+msgid "operator (name follows)"
+msgstr "operador (sigue el nombre)"
+
+msgid "over: only the station called may answer"
+msgstr "cambio: solo debe contestar la estación llamada"
+
+msgid "over: your turn"
+msgstr "cambio: te toca"
+
+msgid "pause / new paragraph"
+msgstr "pausa / nuevo párrafo"
+
+msgid "perfectly readable"
+msgstr "perfectamente legible"
+
+msgid "please"
+msgstr "por favor"
+
+msgid "power"
+msgstr "potencia"
+
+msgid "question: please repeat"
+msgstr "pregunta: repite, por favor"
+
+msgid "radio equipment"
+msgstr "equipo de radio"
+
+msgid "readable"
+msgstr "legible"
+
+msgid "readable with difficulty"
+msgstr "legible con dificultad"
+
+msgid "received: all copied"
+msgstr "recibido: todo copiado"
+
+msgid "see you"
+msgstr "nos vemos"
+
+msgid "see you later"
+msgstr "hasta luego"
+
+msgid "signal report (follows)"
+msgstr "reporte de señal (a continuación)"
+
+msgid "signal report {rst}: {readability}, strength {s} of 9"
+msgstr "reporte de señal {rst}: {readability}, intensidad {s} de 9"
+
+msgid "sorry"
+msgstr "lo siento"
+
+msgid "temperature"
+msgstr "temperatura"
+
+msgid "thank you"
+msgstr "gracias"
+
+msgid "thanks"
+msgstr "gracias"
+
+msgid "this is / from"
+msgstr "aquí / de parte de"
+
+msgid "transceiver"
+msgstr "transceptor"
+
+msgid "unreadable"
+msgstr "ilegible"
+
+msgid "very"
+msgstr "muy"
+
+msgid "watts"
+msgstr "vatios"
+
+msgid "weather"
+msgstr "tiempo (meteorológico)"
+
+msgid "wife"
+msgstr "esposa"
+
+msgid "with"
+msgstr "con"
+
+msgid "young lady: female operator"
+msgstr "young lady: operadora"
+
+msgid "your / you are"
+msgstr "tu / eres"
+
+msgid "{sender} answers {other}"
+msgstr "{sender} contesta a {other}"
+
+msgid "{sender} gives their callsign (calling or answering)"
+msgstr "{sender} da su indicativo (llama o contesta)"
+
+msgid "{sender} identifies"
+msgstr "{sender} se identifica"
+
+msgid "{station} is calling CQ from a park or summit activation"
+msgstr "{station} llama CQ desde una activación de parque o cumbre"
+
+msgid "{station} is calling CQ in a contest: any station may answer with a quick exchange"
+msgstr "{station} llama CQ en un concurso: cualquiera puede contestar con un intercambio rápido"
+
+msgid "{station} is calling CQ looking for distant stations (DX)"
+msgstr "{station} llama CQ buscando estaciones lejanas (DX)"
+
+msgid "{station} is calling CQ: looking for anyone to talk to"
+msgstr "{station} llama CQ: busca a cualquiera para hablar"

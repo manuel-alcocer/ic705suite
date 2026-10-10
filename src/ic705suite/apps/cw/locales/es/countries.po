@@ -1,0 +1,380 @@
+# DXCC entity names: stored in English, shown translated.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Spain"
+msgstr "España"
+
+msgid "Portugal"
+msgstr "Portugal"
+
+msgid "France"
+msgstr "Francia"
+
+msgid "Corsica"
+msgstr "Córcega"
+
+msgid "Italy"
+msgstr "Italia"
+
+msgid "Germany"
+msgstr "Alemania"
+
+msgid "England"
+msgstr "Inglaterra"
+
+msgid "Scotland"
+msgstr "Escocia"
+
+msgid "Wales"
+msgstr "Gales"
+
+msgid "Northern Ireland"
+msgstr "Irlanda del Norte"
+
+msgid "Isle of Man"
+msgstr "Isla de Man"
+
+msgid "Jersey"
+msgstr "Jersey"
+
+msgid "Guernsey"
+msgstr "Guernsey"
+
+msgid "Ireland"
+msgstr "Irlanda"
+
+msgid "Belgium"
+msgstr "Bélgica"
+
+msgid "Netherlands"
+msgstr "Países Bajos"
+
+msgid "Luxembourg"
+msgstr "Luxemburgo"
+
+msgid "Switzerland"
+msgstr "Suiza"
+
+msgid "Liechtenstein"
+msgstr "Liechtenstein"
+
+msgid "Austria"
+msgstr "Austria"
+
+msgid "Poland"
+msgstr "Polonia"
+
+msgid "Czech Republic"
+msgstr "Chequia"
+
+msgid "Slovak Republic"
+msgstr "Eslovaquia"
+
+msgid "Hungary"
+msgstr "Hungría"
+
+msgid "Slovenia"
+msgstr "Eslovenia"
+
+msgid "Croatia"
+msgstr "Croacia"
+
+msgid "Bosnia-Herzegovina"
+msgstr "Bosnia-Herzegovina"
+
+msgid "Serbia"
+msgstr "Serbia"
+
+msgid "North Macedonia"
+msgstr "Macedonia del Norte"
+
+msgid "Albania"
+msgstr "Albania"
+
+msgid "Greece"
+msgstr "Grecia"
+
+msgid "Cyprus"
+msgstr "Chipre"
+
+msgid "Turkey"
+msgstr "Turquía"
+
+msgid "Bulgaria"
+msgstr "Bulgaria"
+
+msgid "Romania"
+msgstr "Rumanía"
+
+msgid "Moldova"
+msgstr "Moldavia"
+
+msgid "Ukraine"
+msgstr "Ucrania"
+
+msgid "Belarus"
+msgstr "Bielorrusia"
+
+msgid "Russia"
+msgstr "Rusia"
+
+msgid "Lithuania"
+msgstr "Lituania"
+
+msgid "Latvia"
+msgstr "Letonia"
+
+msgid "Estonia"
+msgstr "Estonia"
+
+msgid "Finland"
+msgstr "Finlandia"
+
+msgid "Aland Islands"
+msgstr "Islas Aland"
+
+msgid "Sweden"
+msgstr "Suecia"
+
+msgid "Norway"
+msgstr "Noruega"
+
+msgid "Svalbard"
+msgstr "Svalbard"
+
+msgid "Denmark"
+msgstr "Dinamarca"
+
+msgid "Faroe Islands"
+msgstr "Islas Feroe"
+
+msgid "Greenland"
+msgstr "Groenlandia"
+
+msgid "Iceland"
+msgstr "Islandia"
+
+msgid "Malta"
+msgstr "Malta"
+
+msgid "Sovereign Military Order of Malta"
+msgstr "S.M.O.M."
+
+msgid "Vatican City"
+msgstr "Vaticano"
+
+msgid "San Marino"
+msgstr "San Marino"
+
+msgid "Monaco"
+msgstr "Mónaco"
+
+msgid "Andorra"
+msgstr "Andorra"
+
+msgid "Gibraltar"
+msgstr "Gibraltar"
+
+msgid "Morocco"
+msgstr "Marruecos"
+
+msgid "Algeria"
+msgstr "Argelia"
+
+msgid "Tunisia"
+msgstr "Túnez"
+
+msgid "Libya"
+msgstr "Libia"
+
+msgid "Egypt"
+msgstr "Egipto"
+
+msgid "Canary Islands"
+msgstr "Islas Canarias"
+
+msgid "Ceuta & Melilla"
+msgstr "Ceuta y Melilla"
+
+msgid "Balearic Islands"
+msgstr "Islas Baleares"
+
+msgid "Madeira Islands"
+msgstr "Madeira"
+
+msgid "Azores"
+msgstr "Azores"
+
+msgid "United States"
+msgstr "Estados Unidos"
+
+msgid "Hawaii"
+msgstr "Hawái"
+
+msgid "Alaska"
+msgstr "Alaska"
+
+msgid "Puerto Rico"
+msgstr "Puerto Rico"
+
+msgid "Canada"
+msgstr "Canadá"
+
+msgid "Mexico"
+msgstr "México"
+
+msgid "Argentina"
+msgstr "Argentina"
+
+msgid "Brazil"
+msgstr "Brasil"
+
+msgid "Chile"
+msgstr "Chile"
+
+msgid "Uruguay"
+msgstr "Uruguay"
+
+msgid "Bolivia"
+msgstr "Bolivia"
+
+msgid "Peru"
+msgstr "Perú"
+
+msgid "Colombia"
+msgstr "Colombia"
+
+msgid "Venezuela"
+msgstr "Venezuela"
+
+msgid "Ecuador"
+msgstr "Ecuador"
+
+msgid "Paraguay"
+msgstr "Paraguay"
+
+msgid "Cuba"
+msgstr "Cuba"
+
+msgid "Dominican Republic"
+msgstr "República Dominicana"
+
+msgid "Costa Rica"
+msgstr "Costa Rica"
+
+msgid "Japan"
+msgstr "Japón"
+
+msgid "China"
+msgstr "China"
+
+msgid "South Korea"
+msgstr "Corea del Sur"
+
+msgid "Taiwan"
+msgstr "Taiwán"
+
+msgid "Australia"
+msgstr "Australia"
+
+msgid "New Zealand"
+msgstr "Nueva Zelanda"
+
+msgid "Indonesia"
+msgstr "Indonesia"
+
+msgid "Philippines"
+msgstr "Filipinas"
+
+msgid "Malaysia"
+msgstr "Malasia"
+
+msgid "Thailand"
+msgstr "Tailandia"
+
+msgid "Singapore"
+msgstr "Singapur"
+
+msgid "India"
+msgstr "India"
+
+msgid "Israel"
+msgstr "Israel"
+
+msgid "Oman"
+msgstr "Omán"
+
+msgid "United Arab Emirates"
+msgstr "Emiratos Árabes Unidos"
+
+msgid "Qatar"
+msgstr "Catar"
+
+msgid "Bahrain"
+msgstr "Baréin"
+
+msgid "Saudi Arabia"
+msgstr "Arabia Saudí"
+
+msgid "Kuwait"
+msgstr "Kuwait"
+
+msgid "South Africa"
+msgstr "Sudáfrica"
+
+msgid "Kenya"
+msgstr "Kenia"
+
+msgid "Tanzania"
+msgstr "Tanzania"
+
+msgid "Gabon"
+msgstr "Gabón"
+
+msgid "Angola"
+msgstr "Angola"
+
+msgid "Mozambique"
+msgstr "Mozambique"
+
+msgid "Mauritius"
+msgstr "Mauricio"
+
+msgid "Reunion Island"
+msgstr "Reunión"
+
+# Callsign validation (core/callsign.py).
+msgid "The callsign is missing."
+msgstr "Falta el indicativo."
+
+msgid ""
+"«{call}» contains characters that are not allowed ({chars}). A callsign only "
+"has letters, digits and the portable slash."
+msgstr ""
+"«{call}» contiene caracteres no permitidos ({chars}). Un indicativo solo "
+"lleva letras, números y la barra de portable."
+
+msgid "«{call}» does not contain any callsign."
+msgstr "«{call}» no contiene ningún indicativo."
+
+msgid "«{call}» is too short to be a callsign."
+msgstr "«{call}» es demasiado corto para ser un indicativo."
+
+msgid "«{call}» is too long to be a callsign."
+msgstr "«{call}» es demasiado largo para ser un indicativo."
+
+msgid ""
+"«{call}» has no digit. Every callsign has a digit that separates the prefix "
+"from the suffix, as in EA7WM."
+msgstr ""
+"«{call}» no lleva ningún número. Todo indicativo tiene un dígito que separa "
+"el prefijo del sufijo, como en EA7WM."
+
+msgid ""
+"«{call}» does not look like a callsign. Expected a prefix, a digit and a "
+"suffix, such as EA7WM or 9A1AA. Add «{marker}» at the end to log it anyway."
+msgstr ""
+"«{call}» no tiene forma de indicativo. Se espera prefijo, dígito y sufijo, "
+"como EA7WM o 9A1AA. Añade «{marker}» al final para registrarlo de todos "
+"modos."

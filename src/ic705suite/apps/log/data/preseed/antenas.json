@@ -1,0 +1,872 @@
+[
+  {
+    "name": "Butternut HF-9V",
+    "brand": "Butternut",
+    "bands": [
+      "80m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Vertical HF base multibanda",
+    "source": "https://www.proyecto4.com/antenas-hf/946-antena-de-base-hf-butternut-hf-9v.html"
+  },
+  {
+    "name": "Chelegance JPC-12",
+    "brand": "Chelegance",
+    "bands": [
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Vertical portátil con bobina",
+    "source": "https://www.astroradio.com/p/jpc-12-antena-hf-portable/"
+  },
+  {
+    "name": "Chelegance KC4",
+    "brand": "Chelegance",
+    "bands": [
+      "40m",
+      "20m",
+      "15m",
+      "10m"
+    ],
+    "notes": "Vertical HF base, 7,8 m",
+    "source": "https://www.astroradio.com/p/antena-vertical-kc4-4-bandas/"
+  },
+  {
+    "name": "Chelegance M-104",
+    "brand": "Chelegance",
+    "bands": [
+      "40m",
+      "20m",
+      "15m",
+      "10m",
+      "2m",
+      "70cm"
+    ],
+    "notes": "Portátil SOTA, 50 W",
+    "source": "https://www.astroradio.com/p/m-104-antena-sota-4-bandas/"
+  },
+  {
+    "name": "Chelegance MC-599",
+    "brand": "Chelegance",
+    "bands": [
+      "40m",
+      "20m",
+      "15m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Dipolo portátil telescópico",
+    "source": "https://www.astroradio.com/p/antena-dipolo-portable-mc-599/"
+  },
+  {
+    "name": "Chelegance MC-750",
+    "brand": "Chelegance",
+    "bands": [
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Vertical portátil telescópica 7-50 MHz",
+    "source": "https://www.astroradio.com/p/antena-portable-mc-750-gp/"
+  },
+  {
+    "name": "Comet CA-52HB4",
+    "brand": "Comet",
+    "bands": [
+      "6m"
+    ],
+    "notes": "Yagi HB9CV 4 elementos",
+    "source": "https://radiocenter.es/comet-ca-52hb4-antena-beam-50-mhz-4-elementos-hb9cv/"
+  },
+  {
+    "name": "Comet GP3M",
+    "brand": "Comet",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Vertical colineal base, fibra, 1,78 m",
+    "source": "https://www.locuradigital.com/antenas_bibandas/base/gp3m_comet_antena_base_bibanda_144-430_mhz_fibra_de_vidrio.htm"
+  },
+  {
+    "name": "Comet SBB-7",
+    "brand": "Comet",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Móvil bibanda, 1,38 m",
+    "source": "https://www.locuradigital.com/antenas_bibandas/antenas_de_movil/comet-sbb-7-antena-movil-vhf-144-uhf-430-mhz-longitud-1-38-mts-color-negro-y-conector-pl-macho.htm"
+  },
+  {
+    "name": "Cushcraft A17B2",
+    "brand": "Cushcraft",
+    "bands": [
+      "2m"
+    ],
+    "notes": "Yagi 17 elementos, 18 dBi",
+    "source": "https://radiocenter.es/cushcraft-a17b2-antena-yagi-directiva-17-elementos-vhf-144-mhz-18-dbi-1500w/"
+  },
+  {
+    "name": "Cushcraft D-3W",
+    "brand": "Cushcraft",
+    "bands": [
+      "30m",
+      "17m",
+      "10m"
+    ],
+    "notes": "Dipolo rígido bandas WARC",
+    "source": "https://www.locuradigital.com/antenas-dipolos/cushcraft-d-3w-antena-base-dipolo-rigido-10-18-28-mhz-banda-30-17-10-mts.htm"
+  },
+  {
+    "name": "D-Original DX-7500",
+    "brand": "D-Original",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Móvil bibanda abatible, 1,06 m",
+    "source": "https://www.proyecto4.com/antenas-vhf-uhf/4754-antena-movil-vhf-uhf-d-original-dx-7500.html"
+  },
+  {
+    "name": "D-Original DX-ADIP-HF-5B",
+    "brand": "D-Original",
+    "bands": [
+      "40m",
+      "20m",
+      "15m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Dipolo rígido en V, 5 bandas",
+    "source": "https://www.astroradio.com/p/antena-dx-adip-hf-5b/"
+  },
+  {
+    "name": "D-Original OUT-250F",
+    "brand": "D-Original",
+    "bands": [
+      "80m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Vertical HF base sin radiales, 7,16 m",
+    "source": "https://www.proyecto4.com/antenas-hf/4750-antena-base-hf-d-original-out-250f.html"
+  },
+  {
+    "name": "Diamond A1430S8",
+    "brand": "Diamond",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Yagi bibanda 3+5 elementos",
+    "source": "https://radiocenter.es/diamond-a1430s8-antena-direccional-yagi-doble-banda-vhf-uhf/"
+  },
+  {
+    "name": "Diamond CP-6SR",
+    "brand": "Diamond",
+    "bands": [
+      "80m",
+      "40m",
+      "20m",
+      "15m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Vertical HF base con trampas, 4,6 m",
+    "source": "https://radiocenter.es/cp-6sr-diamond-6-bandas-6-10-15-20-40-80-mts/"
+  },
+  {
+    "name": "Diamond CP-ATU",
+    "brand": "Diamond",
+    "bands": [
+      "80m",
+      "60m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Vertical HF base con acoplador, 3,5-50 MHz",
+    "source": "https://www.astroradio.com/p/antena-cpatu-hf-multibanda-35-50-mhz/"
+  },
+  {
+    "name": "Diamond HF40FXW",
+    "brand": "Diamond",
+    "bands": [
+      "40m"
+    ],
+    "notes": "Móvil HF monobanda",
+    "source": "https://radiocenter.es/hf40fxw-diamond-original-fabricada-en-japon/"
+  },
+  {
+    "name": "Diamond SD-330",
+    "brand": "Diamond",
+    "bands": [
+      "80m",
+      "60m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m"
+    ],
+    "notes": "Móvil HF motorizada (screwdriver) 3,5-30 MHz",
+    "source": "https://radiocenter.es/diamond-sd330-antena-movil-hf-3530mhz-telegirada-automatica/"
+  },
+  {
+    "name": "Diamond SG7900",
+    "brand": "Diamond",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Móvil bibanda, 1,58 m, PL-259, 150 W",
+    "source": "https://www.tot-radio.com/diamond-sg7900-antena-movil-bibanda-vhf-uhf-p-18343.html"
+  },
+  {
+    "name": "Diamond V-2000",
+    "brand": "Diamond",
+    "bands": [
+      "6m",
+      "2m",
+      "70cm"
+    ],
+    "notes": "Vertical colineal base tribanda",
+    "source": "https://www.astroradio.com/p/antena_tribanda_v2000/"
+  },
+  {
+    "name": "Diamond W-735",
+    "brand": "Diamond",
+    "bands": [
+      "80m",
+      "40m"
+    ],
+    "notes": "Dipolo de hilo con trampas, 26 m",
+    "source": "https://www.astroradio.com/p/antena_dipolo_diamond_w735_40_y_80/"
+  },
+  {
+    "name": "Diamond W-8010",
+    "brand": "Diamond",
+    "bands": [
+      "80m",
+      "40m",
+      "20m",
+      "15m",
+      "10m"
+    ],
+    "notes": "Dipolo de hilo multibanda, 19,2 m",
+    "source": "https://www.astroradio.com/p/antena_dipolo_diamond_w8010_1080m/"
+  },
+  {
+    "name": "Diamond WD-330S",
+    "brand": "Diamond",
+    "bands": [
+      "80m",
+      "60m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m"
+    ],
+    "notes": "Dipolo de banda ancha 2-28,6 MHz, 10 m",
+    "source": "https://www.proyecto4.com/antenas-hf/3959-antena-dipolo-hf-diamond-wd-330.html"
+  },
+  {
+    "name": "Diamond X-200N",
+    "brand": "Diamond",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Vertical colineal base, 2,5 m",
+    "source": "https://www.astroradio.com/p/antena_bibanda_x200_n/"
+  },
+  {
+    "name": "Diamond X-30",
+    "brand": "Diamond",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Vertical colineal base, 1,3 m",
+    "source": "https://www.astroradio.com/p/antena_bibanda_x30/"
+  },
+  {
+    "name": "Diamond X-300N",
+    "brand": "Diamond",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Vertical colineal base, 3,1 m",
+    "source": "https://www.astroradio.com/p/antena-bibanda-x300/"
+  },
+  {
+    "name": "Diamond X-50",
+    "brand": "Diamond",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Vertical colineal base, 1,7 m",
+    "source": "https://www.astroradio.com/p/antena-bibanda-x-50/"
+  },
+  {
+    "name": "Diamond X-5000",
+    "brand": "Diamond",
+    "bands": [
+      "2m",
+      "70cm",
+      "23cm"
+    ],
+    "notes": "Vertical colineal base tribanda, 1,8 m",
+    "source": "https://www.astroradio.com/p/antena_tribanda_x5000/"
+  },
+  {
+    "name": "Diamond X-510MH",
+    "brand": "Diamond",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Vertical colineal base, 5,2 m",
+    "source": "https://www.astroradio.com/p/antena-bibanda-x510mh/"
+  },
+  {
+    "name": "Diamond X-6000",
+    "brand": "Diamond",
+    "bands": [
+      "2m",
+      "70cm",
+      "23cm"
+    ],
+    "notes": "Vertical colineal base tribanda, 3 m",
+    "source": "https://www.astroradio.com/p/antena_tribanda_x6000/"
+  },
+  {
+    "name": "Dual 5B11HD",
+    "brand": "Dual",
+    "bands": [
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m"
+    ],
+    "notes": "Yagi HF 5 bandas, 11 elementos",
+    "source": "https://radiocenter.es/dual-5b11hd-antena-yagi-hf-5-bandas-warc/"
+  },
+  {
+    "name": "Dxpatrol EZWIRE",
+    "brand": "Dxpatrol",
+    "bands": [
+      "160m",
+      "80m",
+      "60m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m"
+    ],
+    "notes": "Hilo de banda ancha 16 m, con acoplador",
+    "source": "https://www.astroradio.com/p/antena-ezwire/"
+  },
+  {
+    "name": "Grazioli HW10V",
+    "brand": "Grazioli",
+    "bands": [
+      "10m"
+    ],
+    "notes": "Vertical 1/2 onda 26-30 MHz (también CB 27 MHz)",
+    "source": "https://www.astroradio.com/p/antena-hw10v/"
+  },
+  {
+    "name": "Grazioli HW20V",
+    "brand": "Grazioli",
+    "bands": [
+      "20m"
+    ],
+    "notes": "Vertical 1/2 onda base, 10,7 m",
+    "source": "https://www.astroradio.com/p/antena-vertical-20m-hw20v/"
+  },
+  {
+    "name": "Grazioli MV6",
+    "brand": "Grazioli",
+    "bands": [
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Vertical ground plane multibanda",
+    "source": "https://www.astroradio.com/p/antena-vertical-mv6/"
+  },
+  {
+    "name": "Grazioli MV7",
+    "brand": "Grazioli",
+    "bands": [
+      "40m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Vertical ground plane multibanda, 8,97 m",
+    "source": "https://www.astroradio.com/p/antena-vertical-mv7/"
+  },
+  {
+    "name": "I0JXX 6JXX6",
+    "brand": "I0JXX",
+    "bands": [
+      "6m"
+    ],
+    "notes": "Yagi 6 elementos, 10,2 dB",
+    "source": "https://www.proyecto4.com/antenas-base-50-mhz/542-antena-base-50-mhz-6jxx6.html"
+  },
+  {
+    "name": "Icom AH-740",
+    "brand": "Icom",
+    "bands": [
+      "80m",
+      "60m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m"
+    ],
+    "notes": "Móvil HF látigo con acoplador, 2,5-30 MHz",
+    "source": "https://www.proyecto4.com/antenas-hf/4125-antena-base-icom-ah-710.html"
+  },
+  {
+    "name": "Icom AL-705",
+    "brand": "Icom",
+    "bands": [
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m"
+    ],
+    "notes": "Aro magnético portátil, QRP",
+    "source": "https://www.astroradio.com/p/antena-de-aro-al-705/"
+  },
+  {
+    "name": "Komunica FX-800-PWR",
+    "brand": "Komunica",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Móvil bibanda abatible",
+    "source": "https://www.astroradio.com/p/antena-fx-800-pwr/"
+  },
+  {
+    "name": "Komunica HF-Explorer-Mini",
+    "brand": "Komunica",
+    "bands": [
+      "160m",
+      "80m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m",
+      "2m"
+    ],
+    "notes": "Portátil telescópica ultraligera, QRP",
+    "source": "https://www.astroradio.com/p/hf-explorer-mini/"
+  },
+  {
+    "name": "Komunica HF-PRO1",
+    "brand": "Komunica",
+    "bands": [
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m",
+      "2m",
+      "70cm"
+    ],
+    "notes": "Portátil con bobina, 7-430 MHz",
+    "source": "https://www.astroradio.com/p/hfpro1/"
+  },
+  {
+    "name": "Komunica HF-PRO2 PLUS T",
+    "brand": "Komunica",
+    "bands": [
+      "80m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m",
+      "2m"
+    ],
+    "notes": "Portátil telescópica, 80 m con bobina",
+    "source": "https://www.astroradio.com/p/hf-pro2-plus-t/"
+  },
+  {
+    "name": "Komunica X-5000-PWR",
+    "brand": "Komunica",
+    "bands": [
+      "2m",
+      "70cm",
+      "23cm"
+    ],
+    "notes": "Vertical colineal base tribanda",
+    "source": "https://www.astroradio.com/p/antena-x-5000-pwr/"
+  },
+  {
+    "name": "Lemm AT48",
+    "brand": "Lemm",
+    "bands": [
+      "80m",
+      "40m",
+      "20m",
+      "15m",
+      "10m"
+    ],
+    "notes": "Dipolo de hilo multibanda",
+    "source": "https://www.proyecto4.com/antenas-hf/4936-antena-dipolo-hf-lemm-at48-10-15-20-40-80-metros.html"
+  },
+  {
+    "name": "Lemm AT50",
+    "brand": "Lemm",
+    "bands": [
+      "160m",
+      "80m",
+      "40m"
+    ],
+    "notes": "Dipolo de hilo bandas bajas",
+    "source": "https://www.proyecto4.com/antenas-hf/4937-antena-dipolo-hf-lemm-at50-40-80-160-metros.html"
+  },
+  {
+    "name": "Lemm Ringo-50",
+    "brand": "Lemm",
+    "bands": [
+      "6m"
+    ],
+    "notes": "Vertical base 1/2 onda, 3,8 m",
+    "source": "https://www.proyecto4.com/antenas/4719-antena-base-50-mhz-lemm-ringo-50.html"
+  },
+  {
+    "name": "M2 2M9SSB/FM",
+    "brand": "M2",
+    "bands": [
+      "2m"
+    ],
+    "notes": "Yagi 9 elementos, 14,1 dBi",
+    "source": "https://radiocenter.es/2m9ssbfm-marca-m2-americana/"
+  },
+  {
+    "name": "MFJ MFJ-1778",
+    "brand": "MFJ",
+    "bands": [
+      "80m",
+      "60m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m"
+    ],
+    "notes": "Dipolo G5RV 31 m, requiere acoplador",
+    "source": "https://www.astroradio.com/p/mfj1778_anthf/"
+  },
+  {
+    "name": "MFJ MFJ-1982HP",
+    "brand": "MFJ",
+    "bands": [
+      "80m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m"
+    ],
+    "notes": "End-fed de hilo 1/2 onda, 800 W",
+    "source": "https://www.locuradigital.com/antenas-dipolos/mfj1982hp-mfj-antena-de-hilo-end-fed-horizontal-10-80-m.htm"
+  },
+  {
+    "name": "MFJ MFJ-2289",
+    "brand": "MFJ",
+    "bands": [
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Dipolo portátil telescópico 7-55 MHz",
+    "source": "https://www.locuradigital.com/antenas-dipolos/mfj-2289-mfj-dipolo-portable-ajustable-para-cubrir-de-7-0-a-55-mhz.htm"
+  },
+  {
+    "name": "Momobeam EF1040C",
+    "brand": "Momobeam",
+    "bands": [
+      "40m",
+      "20m",
+      "15m",
+      "10m"
+    ],
+    "notes": "End-fed de hilo, 20 m, 300 W",
+    "source": "https://www.astroradio.com/p/antena-endfeed-ef1040-10-15-20-40-300w/"
+  },
+  {
+    "name": "Momobeam EF1080C",
+    "brand": "Momobeam",
+    "bands": [
+      "80m",
+      "40m",
+      "20m",
+      "15m",
+      "10m"
+    ],
+    "notes": "End-fed de hilo, 23 m, 300 W",
+    "source": "https://www.astroradio.com/p/antena-endfeed-ef1080-10-15-20-40-80-300w/"
+  },
+  {
+    "name": "Momobeam Penta 10",
+    "brand": "Momobeam",
+    "bands": [
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m"
+    ],
+    "notes": "Yagi HF 5 bandas",
+    "source": "https://www.astroradio.com/p/antena-yagi-5-bandas-penta-10/"
+  },
+  {
+    "name": "Momobeam TRI7",
+    "brand": "Momobeam",
+    "bands": [
+      "20m",
+      "15m",
+      "10m"
+    ],
+    "notes": "Yagi tribanda HF",
+    "source": "https://www.astroradio.com/p/antena-tribanda-10-15-20-momo-tri7/"
+  },
+  {
+    "name": "Moonraker GPA-80",
+    "brand": "Moonraker",
+    "bands": [
+      "80m",
+      "60m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Vertical HF base 6 m, con acoplador",
+    "source": "https://www.proyecto4.com/antenas-hf/4900-antena-base-hf-moonraker-gpa-80.html"
+  },
+  {
+    "name": "Nagara TV-416J",
+    "brand": "Nagara",
+    "bands": [
+      "40m",
+      "20m",
+      "15m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Dipolo rígido en V",
+    "source": "https://www.locuradigital.com/antenas-dipolos/nagara-tv-416j-antena-dipolo-en-v-para-hf-7-14-21-28-50-mhz.htm"
+  },
+  {
+    "name": "Nagoya NA-771",
+    "brand": "Nagoya",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Látigo de walkie bibanda, SMA hembra, 10 W",
+    "source": "https://www.cegradio.es/antenas-walkie-vhf-uhf/638-nagoya-na-771-antena-walkie-doble-banda-sma-hembra.html"
+  },
+  {
+    "name": "Nagoya NL-R2",
+    "brand": "Nagoya",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Móvil bibanda flexible",
+    "source": "https://radiocenter.es/nl-r2-nagoya-vhf-uhf-goma/"
+  },
+  {
+    "name": "President Himalaya WB",
+    "brand": "President",
+    "bands": [
+      "10m"
+    ],
+    "notes": "Vertical base CB 27 MHz y 10 m, 22-30 MHz",
+    "source": "https://radiocenter.es/president-himalaya-wb-antena-base-cb-hf-1-2-onda-22-30-mhz-fibra-sin-radiales/"
+  },
+  {
+    "name": "Sirio GP-3E",
+    "brand": "Sirio",
+    "bands": [
+      "2m"
+    ],
+    "notes": "Vertical base 5/8 onda VHF",
+    "source": "https://radiocenter.es/gp-3e-sirio/"
+  },
+  {
+    "name": "Sirio Vector 4000",
+    "brand": "Sirio",
+    "bands": [],
+    "notes": "Vertical base CB 27 MHz, 7/8 onda",
+    "source": "https://radiocenter.es/sirio-vector-4000-nueva-version/"
+  },
+  {
+    "name": "Solarcon A99",
+    "brand": "Solarcon",
+    "bands": [],
+    "notes": "Vertical base CB 27 MHz, fibra 1/2 onda",
+    "source": "https://radiocenter.es/a99-solarcom-antena-base-cb27/"
+  },
+  {
+    "name": "VPA Systems Yagi 144/430 5+9",
+    "brand": "VPA Systems",
+    "bands": [
+      "2m",
+      "70cm"
+    ],
+    "notes": "Yagi cruzada bibanda para satélites",
+    "source": "https://www.astroradio.com/p/yagi-144-430-mhz-59/"
+  },
+  {
+    "name": "Watson ATX-MKII",
+    "brand": "Watson",
+    "bands": [
+      "80m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Portátil QRP con bobinas, 25 W",
+    "source": "https://www.proyecto4.com/antenas-portables/4712-antena-portable-multibanda-hf-watson-atx-mkii.html"
+  },
+  {
+    "name": "Xiegu VG4",
+    "brand": "Xiegu",
+    "bands": [
+      "40m",
+      "20m",
+      "15m",
+      "10m"
+    ],
+    "notes": "Vertical ground plane HF, 7,8 m",
+    "source": "https://radiocenter.es/antena-vertical-hf-vg4-xiegu/"
+  },
+  {
+    "name": "Xiegu VM01",
+    "brand": "Xiegu",
+    "bands": [
+      "60m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m"
+    ],
+    "notes": "Vertical portátil con bobina, 5-50 MHz",
+    "source": "https://www.astroradio.com/p/antena-portable-vm01-10-40m/"
+  },
+  {
+    "name": "Yaesu ATAS-120",
+    "brand": "Yaesu",
+    "bands": [
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m",
+      "2m",
+      "70cm"
+    ],
+    "notes": "Móvil HF/VHF/UHF autosintonizable",
+    "source": "https://www.proyecto4.com/antenas-hf/642-yaesu-atas-120.html"
+  }
+]

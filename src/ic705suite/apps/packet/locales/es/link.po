@@ -1,0 +1,23 @@
+# Spanish translations of the node links (hamrpkt.link).
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+#: src/hamrpkt/link/agw.py:112
+msgid "Logging in as {user}"
+msgstr "Entrando como {user}"
+
+#: src/hamrpkt/link/agw.py:151
+msgid "Callsign {call} registered"
+msgstr "Indicativo {call} registrado"
+
+#: src/hamrpkt/link/agw.py:152
+msgid "The node refused to register {call}"
+msgstr "El nodo no acepta registrar {call}"
+
+#: src/hamrpkt/link/agw.py:158
+msgid "Radio ports: {ports}"
+msgstr "Puertos de radio: {ports}"
+
+#: src/hamrpkt/link/agw.py:162
+msgid "AGWPE server version {version}"
+msgstr "Servidor AGWPE versión {version}"

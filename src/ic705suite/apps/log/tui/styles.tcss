@@ -1,0 +1,274 @@
+/* hamrlog layout.
+   Vertical stack: top line, main window (flexible), detail window, entry
+   window, status line. Each window has its own frame. The main window is
+   the only one that grows, so the entry always stays at the same place on
+   screen no matter the terminal size. */
+
+Screen {
+    layout: vertical;
+    background: $surface;
+}
+
+/* Exactly one row: a border here would consume the only line available,
+   so the separation from the history panel is done with background colour. */
+#statusline {
+    height: 1;
+    background: $primary-darken-3;
+    color: $text;
+    padding: 0 1;
+}
+
+/* The three windows share one frame style; only the main one grows. */
+#log-frame,
+#detail,
+#entry {
+    border: round $primary-darken-2;
+    border-title-color: $accent;
+    border-title-align: left;
+}
+
+/* The entry's messages go on its bottom edge, so they never take a row. */
+#entry {
+    border-subtitle-align: left;
+}
+
+#log-frame {
+    height: 1fr;
+    min-height: 8;
+    padding: 0;
+}
+
+/* No horizontal scrollbar on the lists: the arrows belong to the entry
+   line, so it could never be used, and the last column just gets shorter. */
+#history,
+#inventory-table {
+    overflow-x: hidden;
+}
+
+#history {
+    height: 1fr;
+    min-height: 3;
+    border: none;
+    background: $surface;
+}
+
+/* Fixed height: three lines of detail inside the frame. Padding only on
+   the sides, or the third line would fall outside. */
+#detail {
+    height: 5;
+    padding: 0 1;
+    /* A long line (a path, a URL) is cut, never pushes the others out. */
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+    background: $surface;
+}
+
+/* The Equipos view takes the log's place in the same frame. */
+#equipment {
+    height: 1fr;
+    min-height: 3;
+}
+
+/* Two rows: the tab names and, under them, the same rule that separates the
+   list from the detail pane. */
+#inventory-tabs {
+    height: 2;
+    padding: 0 1;
+    /* Same background as the list: only the active tab is highlighted. */
+    background: $surface;
+    border-bottom: solid $primary-darken-2;
+}
+
+#inventory-table {
+    height: 1fr;
+    border: none;
+    background: $surface;
+}
+
+#inventory-table > .datatable--header,
+#history > .datatable--header {
+    background: $panel;
+    color: $text;
+    text-style: bold;
+}
+
+/* The history never holds focus, so its cursor must stay clearly visible
+   anyway: it is what the arrow keys move from the entry line. */
+#inventory-table > .datatable--cursor,
+#inventory-table > .datatable--hover,
+#history > .datatable--cursor,
+#history > .datatable--hover {
+    background: $primary;
+    color: $text;
+    text-style: bold;
+}
+
+#entry {
+    height: auto;
+    background: $boost;
+    padding: 0;
+}
+
+/* One row of boxes, each labelled. The free-text field takes what is left,
+   so the form fills the width without wrapping. */
+#entry-fields {
+    height: 1;
+    width: 100%;
+}
+
+/* Frequency and mode, shown only while editing a logged QSO. */
+#entry-second,
+#entry-extra {
+    height: 1;
+    width: 100%;
+}
+
+.entry-label {
+    height: 1;
+    padding: 0 1 0 1;
+    color: $text-muted;
+    text-style: bold;
+}
+
+.entry-field {
+    border: none;
+    height: 1;
+    padding: 0 1;
+    background: $boost;
+}
+
+.entry-field:focus {
+    background: $primary-darken-2;
+    text-style: bold;
+}
+
+/* Browsing: a bar of actions on the last row of the main window, which has
+   to look unmistakably different from a field waiting for a callsign. */
+#entry-browse {
+    height: 1;
+    background: $warning-darken-3;
+    color: $text;
+}
+
+#stats {
+    height: 1;
+    background: $panel;
+    padding: 0 1;
+}
+
+/* ----------------------------------------------------------- panels ---- */
+
+/* Dialogs are drawn in place of the log (see PanelScreen), framed like it, so
+   they read as another view of the main panel rather than a floating box.
+   Size and position are set in code; the widths below only matter until
+   then. */
+.modal {
+    width: 84;
+    height: auto;
+    padding: 0 1;
+    background: $surface;
+    border: round $accent;
+    border-title-color: $accent;
+    border-title-style: bold;
+    border-title-align: left;
+}
+
+/* The card of a QSO (V) floats in the middle of the log, which stays in view
+   around it; its lines scroll when the log is not tall enough. */
+.qso-card {
+    padding: 0 1;
+}
+
+.qso-card-body {
+    height: 1fr;
+    scrollbar-size-vertical: 1;
+}
+
+/* Transparent: everything around the panel stays in view, undimmed. */
+PanelScreen {
+    align: left top;
+    background: transparent;
+}
+
+.modal-title {
+    width: 100%;
+    text-style: bold;
+    color: $accent;
+    padding-bottom: 1;
+}
+
+.modal-subtitle {
+    width: 100%;
+    color: $text-muted;
+    padding-bottom: 1;
+}
+
+.modal-help {
+    width: 100%;
+    color: $text-muted;
+    text-style: italic;
+    padding-top: 1;
+}
+
+.modal-buttons {
+    height: auto;
+    width: 100%;
+    align-horizontal: right;
+    padding-top: 1;
+}
+
+/* Flat, one line high: the panel is one frame, with no boxes inside it. */
+.modal-buttons Button {
+    margin-left: 2;
+    border: none;
+    height: 1;
+    min-width: 14;
+}
+
+/* Text boxes look like the entry line's: one row, told apart by colour. */
+.modal Input {
+    border: none;
+    height: 1;
+    padding: 0 1;
+    background: $boost;
+}
+
+.modal Input:focus {
+    background: $primary-darken-2;
+    text-style: bold;
+}
+
+/* ------------------------------------------------------------ forms ---- */
+
+/* Takes what the panel has left and scrolls, so the buttons below it are
+   never pushed out of view. */
+.form-body {
+    height: 1fr;
+}
+
+.form-row {
+    height: 1;
+    width: 100%;
+    margin-bottom: 1;
+}
+
+.form-label {
+    width: 22;
+    padding: 0 1 0 0;
+    color: $text-muted;
+}
+
+.form-input {
+    width: 1fr;
+}
+
+.form-readonly {
+    padding: 0 1;
+    color: $text-muted;
+}
+
+.form-error {
+    width: 100%;
+    height: auto;
+    color: $error;
+}

@@ -1,0 +1,994 @@
+[
+  {
+    "name": "Albrecht AE 5900",
+    "brand": "Albrecht",
+    "rig": "AE 5900",
+    "power_w": 12,
+    "types": [
+      "CB"
+    ],
+    "notes": "Móvil CB AM/FM/SSB (12 W PEP SSB)",
+    "source": "https://radiocenter.es/albrecht-ae5900-emisora-cb-ssb-am-fm-usb-lsb-12w-tft/"
+  },
+  {
+    "name": "Albrecht AE 6390",
+    "brand": "Albrecht",
+    "rig": "AE 6390",
+    "power_w": 4,
+    "types": [
+      "CB"
+    ],
+    "notes": "Móvil CB AM/FM 12/24 V",
+    "source": "https://www.locuradigital.com/emisoras-cb-27-mhz/albrecht-ae-6390-cb-emisora-cb-27-mhz-am-fm-12-24-volts-altavoz-frontal.htm"
+  },
+  {
+    "name": "Alinco DJ-MD5",
+    "brand": "Alinco",
+    "rig": "DJ-MD5",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda, DMR, GPS",
+    "source": "https://www.proyecto4.com/walkie-talkies-dmr/4284-walkie-talkie-dmr-alinco-dj-md5.html"
+  },
+  {
+    "name": "Alinco DJ-W70HE",
+    "brand": "Alinco",
+    "rig": "DJ-W70HE",
+    "power_w": 8,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda FM",
+    "source": "https://www.proyecto4.com/walkie-talkies-vhfuhf/5025-walkie-vhfuhf-bibanda-alinco-dj-w70he.html"
+  },
+  {
+    "name": "Alinco DR-638HE",
+    "brand": "Alinco",
+    "rig": "DR-638HE",
+    "power_w": 50,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda FM",
+    "source": "https://www.proyecto4.com/emisoras-bibanda-vhfuhf/3948-transceptor-movil-vhfuhf-alinco-dr-638he.html"
+  },
+  {
+    "name": "Alinco DR-MD520E",
+    "brand": "Alinco",
+    "rig": "DR-MD520E",
+    "power_w": 55,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda, DMR, GPS, APRS",
+    "source": "https://www.locuradigital.com/emisoras-digitales/alinco/alinco-dr-md520e-emisora-analogica-y-digital-dmr-bibanda-144-430-mhz.htm"
+  },
+  {
+    "name": "Alinco DX-10",
+    "brand": "Alinco",
+    "rig": "DX-10",
+    "power_w": 25,
+    "types": [
+      "HF"
+    ],
+    "notes": "Móvil 10 m todo modo",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/4905-emisora-transceptor-alinco-dx-10.html"
+  },
+  {
+    "name": "Anytone AT-3208UV II",
+    "brand": "Anytone",
+    "rig": "AT-3208UV II",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda FM",
+    "source": "https://www.astroradio.com/p/anytone-at-3208uv-ii/"
+  },
+  {
+    "name": "Anytone AT-5555N II",
+    "brand": "Anytone",
+    "rig": "AT-5555N II",
+    "power_w": 60,
+    "types": [
+      "HF"
+    ],
+    "notes": "Móvil 10 m todo modo",
+    "source": "https://www.astroradio.com/p/at-5555n-ii-transceptor-10m-60w/"
+  },
+  {
+    "name": "Anytone AT-5888VU",
+    "brand": "Anytone",
+    "rig": "AT-5888VU",
+    "power_w": 50,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda FM",
+    "source": "https://www.proyecto4.com/emisoras-bibanda-vhfuhf/3082-transceptor-movil-bibanda-at-5888vu.html"
+  },
+  {
+    "name": "Anytone AT-6666PRO",
+    "brand": "Anytone",
+    "rig": "AT-6666PRO",
+    "power_w": 80,
+    "types": [
+      "HF"
+    ],
+    "notes": "Móvil 10 m todo modo",
+    "source": "https://www.astroradio.com/p/at-6666pro-transceptor-10m-80w/"
+  },
+  {
+    "name": "Anytone AT-778UV",
+    "brand": "Anytone",
+    "rig": "AT-778UV",
+    "power_w": 25,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda FM compacto",
+    "source": "https://www.proyecto4.com/emisoras-bibanda-vhfuhf/4247-emisora-vhfuhf-bibanda-anytone-at-778uv.html"
+  },
+  {
+    "name": "Anytone AT-779UV",
+    "brand": "Anytone",
+    "rig": "AT-779UV",
+    "power_w": 25,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda FM compacto",
+    "source": "https://www.proyecto4.com/emisoras-bibanda-vhfuhf/4808-transceptor-movil-vhfuhf-anytone-at-779uv.html"
+  },
+  {
+    "name": "Anytone AT-D168UV",
+    "brand": "Anytone",
+    "rig": "AT-D168UV",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda, DMR",
+    "source": "https://www.astroradio.com/p/at-d168uv-dmr-bibanda-v-uhf/"
+  },
+  {
+    "name": "Anytone AT-D578UV PRO",
+    "brand": "Anytone",
+    "rig": "AT-D578UV PRO",
+    "power_w": 60,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda, DMR, GPS, APRS",
+    "source": "https://www.proyecto4.com/emisoras-bibanda-vhfuhf/4687-transceptor-movil-vhfuhf-dmr-anytone-at-d578uv-pro.html"
+  },
+  {
+    "name": "Anytone AT-D878UV",
+    "brand": "Anytone",
+    "rig": "AT-D878UV",
+    "power_w": 7,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda, DMR, GPS, APRS (6 W en UHF)",
+    "source": "https://www.locuradigital.com/walkies_digitales/walkies-anytone/anytone-at-d878uv-walkie-dmr-radioaficion-144-430-mhz.htm"
+  },
+  {
+    "name": "Anytone AT-D878UV II Plus",
+    "brand": "Anytone",
+    "rig": "AT-D878UV II Plus",
+    "power_w": 7,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda, DMR, GPS, Bluetooth",
+    "source": "https://www.proyecto4.com/walkie-talkies-vhfuhf/4810-walkie-bibanda-anytone-at-d878uv-ii-plus-con-bluetooth.html"
+  },
+  {
+    "name": "Anytone AT-D890UV",
+    "brand": "Anytone",
+    "rig": "AT-D890UV",
+    "power_w": 7,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda, DMR, GPS, Bluetooth",
+    "source": "https://www.astroradio.com/p/at-d890uv-bibanda-y-uhf-dmr/"
+  },
+  {
+    "name": "Anytone CB Smart II",
+    "brand": "Anytone",
+    "rig": "CB Smart II",
+    "power_w": 4,
+    "types": [
+      "CB"
+    ],
+    "notes": "Móvil CB AM/FM compacto",
+    "source": "https://www.proyecto4.com/emisoras-cb-27-mhz/4943-transceptor-movil-anytone-cb-smart-ii-amfm.html"
+  },
+  {
+    "name": "Anytone Metis",
+    "brand": "Anytone",
+    "rig": "Metis",
+    "power_w": 4,
+    "types": [
+      "CB"
+    ],
+    "notes": "Móvil CB AM/FM 12/24 V",
+    "source": "https://radiocenter.es/anytone-metis-cb27-mhz-40c-am-fm/"
+  },
+  {
+    "name": "Baofeng UV-3R",
+    "brand": "Baofeng",
+    "rig": "UV-3R",
+    "power_w": 2,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil mini bibanda FM",
+    "source": "https://radiocenter.es/baofeng-uv-3r-vhf-uhf-micro-auricular-de-regalo/"
+  },
+  {
+    "name": "CRT SS-8900",
+    "brand": "CRT",
+    "rig": "SS-8900",
+    "power_w": 60,
+    "types": [
+      "HF"
+    ],
+    "notes": "Móvil 10 m todo modo",
+    "source": "https://radiocenter.es/crt-ss-8900-emisora-de-hf-con-recepcion-en-vhf-portes-gratis/"
+  },
+  {
+    "name": "FlexRadio Aurora AU-510",
+    "brand": "FlexRadio",
+    "rig": "Aurora AU-510",
+    "power_w": 500,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, SDR, 500 W, ATU",
+    "source": "https://www.astroradio.com/p/flexradio-aurora-au-510/"
+  },
+  {
+    "name": "FlexRadio Aurora AU-520",
+    "brand": "FlexRadio",
+    "rig": "Aurora AU-520",
+    "power_w": 500,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, SDR, 500 W, 4 receptores",
+    "source": "https://www.astroradio.com/p/flexradio-aurora-au-520/"
+  },
+  {
+    "name": "FlexRadio FLEX-8400",
+    "brand": "FlexRadio",
+    "rig": "FLEX-8400",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, SDR",
+    "source": "https://www.astroradio.com/p/flexradio-8400/"
+  },
+  {
+    "name": "FlexRadio FLEX-8600",
+    "brand": "FlexRadio",
+    "rig": "FLEX-8600",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, SDR, 4 receptores",
+    "source": "https://www.astroradio.com/p/flexradio-8600/"
+  },
+  {
+    "name": "Icom IC-2730E",
+    "brand": "Icom",
+    "rig": "IC-2730E",
+    "power_w": 50,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda 2m/70cm, FM",
+    "source": "https://www.astroradio.com/p/ic-2730e-transceptor-bibanda-black/"
+  },
+  {
+    "name": "Icom IC-705",
+    "brand": "Icom",
+    "rig": "IC-705",
+    "power_w": 10,
+    "types": [
+      "HF",
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil HF a 70cm, SDR, D-STAR, QRP",
+    "source": "https://www.astroradio.com/p/ic-705-transceptor-sdr-portable-multibanda/"
+  },
+  {
+    "name": "Icom IC-7100",
+    "brand": "Icom",
+    "rig": "IC-7100",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil HF a 70cm, D-STAR",
+    "source": "https://www.astroradio.com/p/ic7100_transceptor_hf_6m_4m_vhf_uhf/"
+  },
+  {
+    "name": "Icom IC-718",
+    "brand": "Icom",
+    "rig": "IC-718",
+    "power_w": 100,
+    "types": [
+      "HF"
+    ],
+    "notes": "Base HF 160-10m",
+    "source": "https://www.astroradio.com/p/transceptor-hf-100w-ic-718/"
+  },
+  {
+    "name": "Icom IC-7300MK2",
+    "brand": "Icom",
+    "rig": "IC-7300MK2",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m+4m, SDR",
+    "source": "https://www.astroradio.com/p/transceptor-ic-7300-mk2/"
+  },
+  {
+    "name": "Icom IC-7610",
+    "brand": "Icom",
+    "rig": "IC-7610",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, SDR, doble receptor",
+    "source": "https://www.astroradio.com/p/ic7610_transceptor_sdr/"
+  },
+  {
+    "name": "Icom IC-7760",
+    "brand": "Icom",
+    "rig": "IC-7760",
+    "power_w": 200,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, SDR, 200 W",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/4998-emisora-transceptor-hf50mhz-icom-ic-7760.html"
+  },
+  {
+    "name": "Icom IC-905",
+    "brand": "Icom",
+    "rig": "IC-905",
+    "power_w": 10,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Base V/U/SHF hasta 5,6 GHz, D-STAR, ATV",
+    "source": "https://www.astroradio.com/p/ic-905/"
+  },
+  {
+    "name": "Icom IC-9700",
+    "brand": "Icom",
+    "rig": "IC-9700",
+    "power_w": 100,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Base 2m/70cm/23cm, SDR, D-STAR",
+    "source": "https://www.astroradio.com/p/transceptor_sdr_ic9700_1444301200_mhz/"
+  },
+  {
+    "name": "Icom IC-T10",
+    "brand": "Icom",
+    "rig": "IC-T10",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda FM, robusto",
+    "source": "https://www.astroradio.com/p/ic-t10-144-430-mhz-5w/"
+  },
+  {
+    "name": "Icom ID-50E",
+    "brand": "Icom",
+    "rig": "ID-50E",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda, D-STAR",
+    "source": "https://www.proyecto4.com/walkie-talkies-vhfuhf/4949-walkie-vhfuhf-bibanda-icom-id-50e-d-star.html"
+  },
+  {
+    "name": "Icom ID-5100E",
+    "brand": "Icom",
+    "rig": "ID-5100E",
+    "power_w": 50,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda, D-STAR, GPS",
+    "source": "https://www.locuradigital.com/emisoras-vhf-uhf/icom/id-5100e-dstar-digital-bibanda.htm"
+  },
+  {
+    "name": "Icom ID-5200E",
+    "brand": "Icom",
+    "rig": "ID-5200E",
+    "power_w": 50,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda, D-STAR, GPS",
+    "source": "https://www.astroradio.com/p/id-5200e-transceptor-bi-banda-d-star/"
+  },
+  {
+    "name": "Icom ID-52E Plus",
+    "brand": "Icom",
+    "rig": "ID-52E Plus",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda, D-STAR",
+    "source": "https://www.astroradio.com/p/id-52e-plus/"
+  },
+  {
+    "name": "K-PO DX-5000 Plus",
+    "brand": "K-PO",
+    "rig": "DX-5000 Plus",
+    "power_w": 20,
+    "types": [
+      "HF"
+    ],
+    "notes": "Móvil 10 m todo modo",
+    "source": "https://www.locuradigital.com/emisoras-hf/kpo/dx-5000-plus-ncr-emisora-kpo.htm"
+  },
+  {
+    "name": "Kenwood TH-D75E",
+    "brand": "Kenwood",
+    "rig": "TH-D75E",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda, D-STAR, APRS",
+    "source": "https://www.proyecto4.com/walkie-talkies-vhfuhf/4980-walkie-vhfuhf-bibanda-kenwood-th-d75e.html"
+  },
+  {
+    "name": "Kenwood TM-241E",
+    "brand": "Kenwood",
+    "rig": "TM-241E",
+    "power_w": 50,
+    "types": [
+      "VHF"
+    ],
+    "notes": "Móvil FM 2 m, 50/10/5 W, descatalogado",
+    "source": "https://www.museo-cb.com/emisora/kenwood-tm-241-e/"
+  },
+  {
+    "name": "Kenwood TM-D750E",
+    "brand": "Kenwood",
+    "rig": "TM-D750E",
+    "power_w": 50,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda, D-STAR, APRS",
+    "source": "https://www.locuradigital.com/emisoras-vhf-uhf/kenwood/tm-d750e-kenwood-emisora-bibanda-vhf-uhf.htm"
+  },
+  {
+    "name": "Kenwood TS-590SG",
+    "brand": "Kenwood",
+    "rig": "TS-590SG",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, ATU",
+    "source": "https://www.locuradigital.com/emisoras-hf/kenwood/ts-590sg-decametrica-50mhz.htm"
+  },
+  {
+    "name": "Kenwood TS-890S",
+    "brand": "Kenwood",
+    "rig": "TS-890S",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/4277-emisora-transceptor-hf50-kenwood-ts-890-se.html"
+  },
+  {
+    "name": "Kenwood TS-990S",
+    "brand": "Kenwood",
+    "rig": "TS-990S",
+    "power_w": 200,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, 200 W",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/3395-emisora-transceptor-hf50-kenwood-ts-990s.html"
+  },
+  {
+    "name": "Kydera CDR-500UV",
+    "brand": "Kydera",
+    "rig": "CDR-500UV",
+    "power_w": 30,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda, DMR, GPS, IP67",
+    "source": "https://www.proyecto4.com/emisoras-bibanda-vhfuhf/5041-emisora-vhfuhf-bibanda-dmr-kydera-cdr-500uv.html"
+  },
+  {
+    "name": "Maldol DBD-25-UV-M",
+    "brand": "Maldol",
+    "rig": "DBD-25-UV-M",
+    "power_w": 20,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil mini bibanda, DMR, GPS",
+    "source": "https://www.astroradio.com/p/dbd-25-uv-m-transceptor-bibanda-v-uhf-dmr-con-gps/"
+  },
+  {
+    "name": "Midland 38",
+    "brand": "Midland",
+    "rig": "38",
+    "power_w": 4,
+    "types": [
+      "CB"
+    ],
+    "notes": "Móvil CB AM/FM 12/24 V",
+    "source": "https://www.locuradigital.com/emisoras-cb-27-mhz/midland-38-emisora-movil-cb-27-mhz-am-fm-12-24-volts.htm"
+  },
+  {
+    "name": "Midland Alan 42 DS",
+    "brand": "Midland",
+    "rig": "Alan 42 DS",
+    "power_w": 4,
+    "types": [
+      "CB"
+    ],
+    "notes": "Portátil CB AM/FM",
+    "source": "https://radiocenter.es/alan-42-ds-midland-walkie-cb/"
+  },
+  {
+    "name": "Midland M-5",
+    "brand": "Midland",
+    "rig": "M-5",
+    "power_w": 4,
+    "types": [
+      "CB"
+    ],
+    "notes": "Móvil CB AM/FM, mandos en el micro",
+    "source": "https://radiocenter.es/midland-m5-emisora-cb-compacta/"
+  },
+  {
+    "name": "President Jimmy II ASC",
+    "brand": "President",
+    "rig": "Jimmy II ASC",
+    "power_w": 4,
+    "types": [
+      "CB"
+    ],
+    "notes": "Móvil CB AM compacto",
+    "source": "https://radiocenter.es/emisora-cb-compacta-president-jimmy-ii-asc/"
+  },
+  {
+    "name": "President Lincoln II Plus",
+    "brand": "President",
+    "rig": "Lincoln II Plus",
+    "power_w": 30,
+    "types": [
+      "HF"
+    ],
+    "notes": "Móvil 10/12 m todo modo",
+    "source": "https://radiocenter.es/emisora-president-lincoln-ii-plus-10-metros/"
+  },
+  {
+    "name": "President Taylor IV",
+    "brand": "President",
+    "rig": "Taylor IV",
+    "power_w": 4,
+    "types": [
+      "CB"
+    ],
+    "notes": "Móvil CB AM/FM",
+    "source": "https://www.proyecto4.com/emisoras-cb-27-mhz/4844-emisora-cb-president-taylor-iv.html"
+  },
+  {
+    "name": "President Washington 100W",
+    "brand": "President",
+    "rig": "Washington 100W",
+    "power_w": 100,
+    "types": [
+      "HF"
+    ],
+    "notes": "Base 10/12 m AM/FM/SSB",
+    "source": "https://radiocenter.es/president-washington-100w/"
+  },
+  {
+    "name": "Super Star 3900",
+    "brand": "Super Star",
+    "rig": "3900",
+    "power_w": 12,
+    "types": [
+      "CB"
+    ],
+    "notes": "Móvil CB AM/FM/SSB (12 W SSB)",
+    "source": "https://radiocenter.es/super-star-3900-edicion-2023-emisora-movil-de-cb-27-mhz-am-fm-usb-lsb/"
+  },
+  {
+    "name": "TYT MD-9600",
+    "brand": "TYT",
+    "rig": "MD-9600",
+    "power_w": 50,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda, DMR",
+    "source": "https://www.proyecto4.com/emisoras-bibanda-vhfuhf/4278-emisora-vhfuhf-doble-banda-dmr-digital-tyt-md-9600.html"
+  },
+  {
+    "name": "TYT MD-UV380",
+    "brand": "TYT",
+    "rig": "MD-UV380",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda, DMR, GPS",
+    "source": "https://www.proyecto4.com/walkie-talkies-dmr/4272-walkie-talkie-dmr-digital-tyt-md-uv380gps.html"
+  },
+  {
+    "name": "TYT TH-8600",
+    "brand": "TYT",
+    "rig": "TH-8600",
+    "power_w": 25,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda FM compacto",
+    "source": "https://www.proyecto4.com/emisoras-bibanda-vhfuhf/4077-emisora-vhfuhf-bibanda-tyt-th-8600.html"
+  },
+  {
+    "name": "Wouxun KG-UV980P",
+    "brand": "Wouxun",
+    "rig": "KG-UV980P",
+    "power_w": 50,
+    "types": [
+      "HF",
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil 10m/6m/2m/70cm FM",
+    "source": "https://www.proyecto4.com/emisoras-bibanda-vhfuhf/4978-walkie-vhfuhf-bibanda-wouxun-kg-uv980p.html"
+  },
+  {
+    "name": "Wouxun KG-UV9D Plus",
+    "brand": "Wouxun",
+    "rig": "KG-UV9D Plus",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda FM",
+    "source": "https://www.proyecto4.com/walkie-talkies-vhfuhf/4697-walkie-vhfuhf-bibanda-wouxun-kg-uv9p-3200mah.html"
+  },
+  {
+    "name": "Xiegu G106",
+    "brand": "Xiegu",
+    "rig": "G106",
+    "power_w": 5,
+    "types": [
+      "HF"
+    ],
+    "notes": "Portátil HF QRP",
+    "source": "https://www.astroradio.com/p/g-106-transceptor-qrp-hf-5w/"
+  },
+  {
+    "name": "Xiegu G7250",
+    "brand": "Xiegu",
+    "rig": "G7250",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, SDR, ATU",
+    "source": "https://www.astroradio.com/p/transceptor-sdr-hf-6m-100w-atu-g7250/"
+  },
+  {
+    "name": "Xiegu G90",
+    "brand": "Xiegu",
+    "rig": "G90",
+    "power_w": 20,
+    "types": [
+      "HF"
+    ],
+    "notes": "Portátil HF, SDR, ATU",
+    "source": "https://www.astroradio.com/p/transceptor-g90-hf/"
+  },
+  {
+    "name": "Xiegu X6100",
+    "brand": "Xiegu",
+    "rig": "X6100",
+    "power_w": 10,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Portátil HF+6m, SDR, ATU",
+    "source": "https://www.astroradio.com/p/xiegu-x6100-transceptor-sdr-hf6m/"
+  },
+  {
+    "name": "Xiegu X6200",
+    "brand": "Xiegu",
+    "rig": "X6200",
+    "power_w": 8,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Portátil HF+6m, SDR",
+    "source": "https://www.astroradio.com/p/x-6200-transceptor-sdw-hf-50mhz-8w/"
+  },
+  {
+    "name": "Yaesu FT-3185E",
+    "brand": "Yaesu",
+    "rig": "FT-3185E",
+    "power_w": 85,
+    "types": [
+      "VHF"
+    ],
+    "notes": "Móvil monobanda 2m FM",
+    "source": "https://www.locuradigital.com/emisoras-vhf-uhf/yaesu/ft3185e-emisora-vhf.htm"
+  },
+  {
+    "name": "Yaesu FT-4XE",
+    "brand": "Yaesu",
+    "rig": "FT-4XE",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda FM compacto",
+    "source": "https://www.proyecto4.com/walkie-talkies-vhfuhf/4246-walkie-vhfuhf-bibanda-yaesu-ft-4xe.html"
+  },
+  {
+    "name": "Yaesu FT-65E",
+    "brand": "Yaesu",
+    "rig": "FT-65E",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda FM, IP54",
+    "source": "https://www.proyecto4.com/walkie-talkies-vhfuhf/4022-walkie-vhfuhf-bibanda-yaesu-ft-65e.html"
+  },
+  {
+    "name": "Yaesu FT-70DE",
+    "brand": "Yaesu",
+    "rig": "FT-70DE",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda, C4FM",
+    "source": "https://www.proyecto4.com/walkie-talkies-vhfuhf/4037-walkie-vhfuhf-bibanda-yaesu-ft-70de.html"
+  },
+  {
+    "name": "Yaesu FT-710 AESS",
+    "brand": "Yaesu",
+    "rig": "FT-710 AESS",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, SDR",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/4929-emisora-transceptor-hf-yaesu-ft-710.html"
+  },
+  {
+    "name": "Yaesu FT-710 Field",
+    "brand": "Yaesu",
+    "rig": "FT-710 Field",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, SDR, versión Field",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/4967-emisora-transceptor-hf-yaesu-ft-710-field.html"
+  },
+  {
+    "name": "Yaesu FT-891",
+    "brand": "Yaesu",
+    "rig": "FT-891",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Móvil HF+6m compacto",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/3808-emisora-transceptor-hf50-mhz-yaesu-ft-891.html"
+  },
+  {
+    "name": "Yaesu FT-991A",
+    "brand": "Yaesu",
+    "rig": "FT-991A",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Base HF a 70cm, C4FM",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/4000-emisora-transceptor-hf-yaesu-ft-991a.html"
+  },
+  {
+    "name": "Yaesu FT-DX10",
+    "brand": "Yaesu",
+    "rig": "FT-DX10",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, SDR",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/4737-emisora-transceptor-hf-yaesu-ft-dx10.html"
+  },
+  {
+    "name": "Yaesu FT-DX101D",
+    "brand": "Yaesu",
+    "rig": "FT-DX101D",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, SDR",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/4282-emisora-transceptor-hf-yaesu-ft-dx101d.html"
+  },
+  {
+    "name": "Yaesu FT-DX101MP",
+    "brand": "Yaesu",
+    "rig": "FT-DX101MP",
+    "power_w": 200,
+    "types": [
+      "HF",
+      "VHF"
+    ],
+    "notes": "Base HF+6m, SDR, 200 W",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/4281-transceptor-de-alta-velocidad-hf-50mhz-yaesu-ft-dx101mp.html"
+  },
+  {
+    "name": "Yaesu FT5DE",
+    "brand": "Yaesu",
+    "rig": "FT5DE",
+    "power_w": 5,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil bibanda, C4FM",
+    "source": "https://www.proyecto4.com/walkie-talkies-vhfuhf/4833-walkie-vhfuhf-bibanda-yaesu-ft-5-de.html"
+  },
+  {
+    "name": "Yaesu FTM-150DE ASP",
+    "brand": "Yaesu",
+    "rig": "FTM-150DE ASP",
+    "power_w": 55,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda FM",
+    "source": "https://www.proyecto4.com/emisoras-bibanda-vhfuhf/4992-yaesu-ftm-150de-asp-transceptor-movil-de-doble-banda-.html"
+  },
+  {
+    "name": "Yaesu FTM-310DE ASP",
+    "brand": "Yaesu",
+    "rig": "FTM-310DE ASP",
+    "power_w": 55,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda, C4FM",
+    "source": "https://www.proyecto4.com/emisoras-bibanda-vhfuhf/5034-yaesu-ftm-310de-asp-transceptor-movil-de-doble-banda.html"
+  },
+  {
+    "name": "Yaesu FTM-510DE ASP",
+    "brand": "Yaesu",
+    "rig": "FTM-510DE ASP",
+    "power_w": 55,
+    "types": [
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Móvil bibanda, C4FM",
+    "source": "https://www.proyecto4.com/emisoras-bibanda-vhfuhf/5002-yaesu-ftm-510de-asp-transceptor-movil-de-doble-banda.html"
+  },
+  {
+    "name": "Yaesu FTX-1 Field",
+    "brand": "Yaesu",
+    "rig": "FTX-1 Field",
+    "power_w": 10,
+    "types": [
+      "HF",
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Portátil HF a 70cm, SDR, C4FM, QRP",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/5016-emisora-transceptor-hfvhfuhf-yaesu-ftx-1-field.html"
+  },
+  {
+    "name": "Yaesu FTX-1 Optima",
+    "brand": "Yaesu",
+    "rig": "FTX-1 Optima",
+    "power_w": 100,
+    "types": [
+      "HF",
+      "VHF",
+      "UHF"
+    ],
+    "notes": "Base HF a 70cm, SDR, C4FM (50 W V/UHF)",
+    "source": "https://www.proyecto4.com/emisoras-hf-y-multibanda/5017-emisora-transceptor-hfvhfuhf-yaesu-ftx-1-optima.html"
+  }
+]

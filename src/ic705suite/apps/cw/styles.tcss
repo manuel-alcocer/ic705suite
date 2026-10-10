@@ -1,0 +1,229 @@
+/* cwic705 layout, after HAMRLOG's.
+   Vertical stack: status line, main window (flexible), detail window, entry
+   window, footer. Each window has its own frame; only the main one grows, so
+   the entry stays at the same place whatever the terminal size. */
+
+Screen {
+    layout: vertical;
+    background: $surface;
+}
+
+/* Exactly one row, separated by background colour rather than a border. */
+#statusline {
+    height: 1;
+    background: $primary-darken-3;
+    color: $text;
+    padding: 0 1;
+}
+
+#main-frame,
+#detail,
+#entry {
+    border: round $primary-darken-2;
+    border-title-color: $accent;
+    border-title-align: left;
+}
+
+/* Messages go on the entry's bottom edge, so they never take a row. */
+#entry {
+    border-subtitle-align: left;
+    height: auto;
+    background: $boost;
+    padding: 0;
+}
+
+#main-frame {
+    height: 1fr;
+    min-height: 8;
+    padding: 0;
+}
+
+#rx {
+    height: 1fr;
+    padding: 0 1;
+    background: $surface;
+}
+
+/* The skimmer takes the receive pane's place in the same frame. */
+#skim {
+    height: 1fr;
+    border: none;
+    background: $surface;
+    overflow-x: hidden;
+}
+
+#skim > .datatable--header {
+    background: $panel;
+    color: $text;
+    text-style: bold;
+}
+
+#skim > .datatable--cursor,
+#skim > .datatable--hover {
+    background: $primary;
+    color: $text;
+    text-style: bold;
+}
+
+/* Plain-language meaning of the decoded text, under the receive window. */
+#meaning-frame {
+    height: 9;
+    border: round $primary-darken-2;
+    border-title-color: $accent;
+    border-title-align: left;
+}
+
+#meaning {
+    height: 1fr;
+    padding: 0 1;
+    background: $surface;
+}
+
+/* Three lines of detail inside the frame. */
+#detail {
+    height: 5;
+    padding: 0 1;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+    background: $surface;
+}
+
+#entry-row {
+    height: 1;
+    width: 100%;
+}
+
+#entry-label {
+    height: 1;
+    padding: 0 1;
+    color: $text-muted;
+    text-style: bold;
+}
+
+#entry-input {
+    border: none;
+    height: 1;
+    width: 1fr;
+    padding: 0 1;
+    background: $boost;
+}
+
+#entry-input:focus {
+    background: $primary-darken-2;
+    text-style: bold;
+}
+
+#stats {
+    height: 1;
+    background: $panel;
+    padding: 0 1;
+}
+
+/* ----------------------------------------------------------- panels ---- */
+
+/* Dialogs, framed like the windows (as in HAMRLOG). */
+ModalScreen {
+    align: center middle;
+    background: $background 60%;
+}
+
+.modal {
+    width: 84;
+    height: auto;
+    padding: 0 1;
+    background: $surface;
+    border: round $accent;
+    border-title-color: $accent;
+    border-title-style: bold;
+    border-title-align: left;
+}
+
+.modal-subtitle {
+    width: 100%;
+    color: $text;
+    padding: 1 0;
+}
+
+.modal-help {
+    width: 100%;
+    color: $text-muted;
+    text-style: italic;
+    padding-top: 1;
+}
+
+.modal-buttons {
+    height: auto;
+    width: 100%;
+    align-horizontal: right;
+    padding-top: 1;
+}
+
+.modal-buttons Button {
+    margin-left: 2;
+    border: none;
+    height: 1;
+    min-width: 14;
+}
+
+.modal Input {
+    border: none;
+    height: 1;
+    padding: 0 1;
+    background: $boost;
+}
+
+.modal Input:focus {
+    background: $primary-darken-2;
+    text-style: bold;
+}
+
+/* ------------------------------------------------------ channels view ---- */
+
+ChannelsScreen {
+    layout: vertical;
+    background: $surface;
+}
+
+#chan-title {
+    height: 1;
+    background: $primary-darken-3;
+    padding: 0 1;
+}
+
+#chan-frame,
+#chan-detail {
+    border: round $primary-darken-2;
+    border-title-color: $accent;
+    border-title-align: left;
+}
+
+#chan-frame {
+    height: 1fr;
+    min-height: 6;
+}
+
+#chan-table {
+    height: 1fr;
+    border: none;
+    background: $surface;
+}
+
+#chan-table > .datatable--header {
+    background: $panel;
+    text-style: bold;
+}
+
+#chan-table > .datatable--cursor {
+    background: $primary;
+    text-style: bold;
+}
+
+#chan-detail {
+    height: 2fr;
+    padding: 0 1;
+}
+
+#chan-hint {
+    height: 1;
+    background: $panel;
+}

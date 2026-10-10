@@ -1,0 +1,1194 @@
+# Spanish translations of the terminal interface (hamrlog.tui).
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+#: src/hamrlog/tui/app.py:70
+msgid "Commands: /band /freq /mode /profile /repeater /direct /undo /quit"
+msgstr "Comandos: /banda /frec /modo /perfil /repetidor /directo /deshacer /salir"
+
+#: src/hamrlog/tui/app.py:73
+msgid "Inventory: /brand NAME filters the list · /brand alone clears the filter"
+msgstr "Inventario: /marca NOMBRE filtra la lista · /marca sola quita el filtro"
+
+#: src/hamrlog/tui/app.py:82
+msgid "D delete · E edit · ↓ back to typing"
+msgstr "D suprimir · E editar · ↓ volver a escribir"
+
+#: src/hamrlog/tui/app.py:86
+msgid "Usage: /band 40m"
+msgstr "Uso: /banda 40m"
+
+#: src/hamrlog/tui/app.py:87
+msgid "Usage: /freq 7.100"
+msgstr "Uso: /frec 7.100"
+
+#: src/hamrlog/tui/app.py:88
+msgid "Usage: /mode SSB"
+msgstr "Uso: /modo SSB"
+
+#: src/hamrlog/tui/app.py:90
+msgid "Usage: /repeater CALLSIGN · /direct to go back to simplex"
+msgstr "Uso: /repetidor INDICATIVO · /directo para volver a simplex"
+
+#: src/hamrlog/tui/app.py:104
+msgid "amateur radio logbook"
+msgstr "diario de radioaficionado"
+
+#: src/hamrlog/tui/app.py:164 src/hamrlog/tui/app.py:1009
+msgid "Log"
+msgstr "Registro"
+
+#: src/hamrlog/tui/app.py:108 src/hamrlog/tui/app.py:1009
+msgid "Inventory"
+msgstr "Inventario"
+
+#: src/hamrlog/tui/app.py:109
+msgid "Function key"
+msgstr "Tecla de función"
+
+msgid "Previous page"
+msgstr "Página anterior"
+
+msgid "Next page"
+msgstr "Página siguiente"
+
+#: src/hamrlog/tui/app.py:110
+
+#: src/hamrlog/tui/app.py:111
+msgid "Previous brand"
+msgstr "Marca anterior"
+
+#: src/hamrlog/tui/app.py:112
+msgid "Next brand"
+msgstr "Marca siguiente"
+
+#: src/hamrlog/tui/app.py:113
+msgid "Delete QSO"
+msgstr "Borrar QSO"
+
+#: src/hamrlog/tui/app.py:114
+msgid "Back to typing"
+msgstr "Volver a escribir"
+
+#: src/hamrlog/tui/app.py:115
+msgid "Quit"
+msgstr "Salir"
+
+#: src/hamrlog/tui/app.py:522
+msgid " · new in the address book"
+msgstr " · nuevo en la agenda"
+
+#: src/hamrlog/tui/app.py:777
+msgid "You are on a logged QSO: D delete · E edit · R repeat · ↓ to «<Insert new>» to type"
+msgstr "Estás sobre un QSO del histórico: D suprimir · E editar · R repetir · ↓ hasta «<Insertar nuevo>» para escribir"
+
+#: src/hamrlog/tui/app.py:211
+msgid "Could not start the metrics exporter. Check the port or install hamrlog[metrics]."
+msgstr "No se pudo arrancar el exportador de métricas. Comprueba el puerto o instala hamrlog[metrics]."
+
+#: src/hamrlog/tui/app.py:222
+msgid "Welcome to hamrlog"
+msgstr "Bienvenido a hamrlog"
+
+#: src/hamrlog/tui/app.py:237
+msgid "Without an operator no contacts can be logged."
+msgstr "Sin operador no se pueden registrar contactos."
+
+#: src/hamrlog/tui/app.py:516
+msgid "✓ {call} logged at {time} UTC"
+msgstr "✓ {call} guardado a las {time} UTC"
+
+#: src/hamrlog/tui/app.py:689
+msgid "You were already working direct."
+msgstr "Ya estabas trabajando en directo."
+
+#: src/hamrlog/tui/app.py:739
+msgid "Edit cancelled."
+msgstr "Edición cancelada."
+
+#: src/hamrlog/tui/app.py:817 src/hamrlog/tui/app.py:946
+msgid "That QSO no longer exists."
+msgstr "Ese QSO ya no existe."
+
+#: src/hamrlog/tui/app.py:876
+msgid "No changes."
+msgstr "Sin cambios."
+
+#: src/hamrlog/tui/app.py:889
+msgid "✓ {call} updated"
+msgstr "✓ {call} modificado"
+
+#: src/hamrlog/tui/app.py:968
+msgid "QSO deleted."
+msgstr "QSO borrado."
+
+#: src/hamrlog/tui/app.py:1133
+msgid "The brand filter is for Radios, Antennas and Supplies (F2)."
+msgstr "El filtro de marca es para Emisoras, Antenas y Fuentes (F2)."
+
+#: src/hamrlog/tui/app.py:1140
+msgid "All brands."
+msgstr "Todas las marcas."
+
+#: src/hamrlog/tui/app.py:228
+msgid "I need an operator to start logging contacts."
+msgstr "Necesito un operador para empezar a registrar contactos."
+
+#: src/hamrlog/tui/app.py:229
+msgid "Start"
+msgstr "Empezar"
+
+#: src/hamrlog/tui/app.py:250
+msgid "Operator {call} ready. Good luck with the DX."
+msgstr "Operador {call} listo. Buena suerte con el DX."
+
+#: src/hamrlog/tui/app.py:422
+msgid " DUPLICATE  already worked {count}× on {band}/{mode} · last {when} UTC"
+msgstr " DUPLICADO  ya trabajado {count}× en {band}/{mode} · último {when} UTC"
+
+#: src/hamrlog/tui/app.py:437
+msgid "Known: {count} previous QSO · last on {band}/{mode}"
+msgstr "Conocido: {count} QSO previos · último en {band}/{mode}"
+
+#: src/hamrlog/tui/app.py:494 src/hamrlog/tui/app.py:826
+msgid "Invalid entry."
+msgstr "Entrada no válida."
+
+#: src/hamrlog/tui/app.py:596
+msgid "Band {band} · {freq}"
+msgstr "Banda {band} · {freq}"
+
+#: src/hamrlog/tui/app.py:643
+msgid "They apply to every contact until you change them. They are exported as APP_HAMRLOG_* fields in ADIF."
+msgstr "Se aplican a todos los contactos hasta que los cambies. Se exportan como campos APP_HAMRLOG_* en ADIF."
+
+#: src/hamrlog/tui/app.py:647
+msgid "Apply"
+msgstr "Aplicar"
+
+#: src/hamrlog/tui/app.py:657
+msgid "Mode {mode} set up"
+msgstr "Modo {mode} configurado"
+
+#: src/hamrlog/tui/app.py:671
+msgid "listen {rx} · transmit {tx}"
+msgstr "escucha {rx} · transmite {tx}"
+
+#: src/hamrlog/tui/app.py:696
+msgid "Direct on {freq} (simplex)"
+msgstr "Directo en {freq} (simplex)"
+
+#: src/hamrlog/tui/app.py:727
+msgid "There is no profile «{name}»"
+msgstr "No existe el perfil «{name}»"
+
+#: src/hamrlog/tui/app.py:801
+msgid "Editing the QSO with {call} at {time} UTC"
+msgstr "Editando el QSO con {call} de las {time} UTC"
+
+#: src/hamrlog/tui/app.py:854
+msgid "Frequency outside the amateur radio bands."
+msgstr "Frecuencia fuera de las bandas de radioaficionado."
+
+#: src/hamrlog/tui/app.py:891
+msgid " · band {band}"
+msgstr " · banda {band}"
+
+#: src/hamrlog/tui/app.py:933
+msgid "No QSO to delete."
+msgstr "No hay QSO que borrar."
+
+#: src/hamrlog/tui/app.py:1156
+msgid "Brand {brand}."
+msgstr "Marca {brand}."
+
+#: src/hamrlog/tui/app.py:206
+msgid "Prometheus metrics on port {port}."
+msgstr "Métricas Prometheus en el puerto {port}."
+
+#: src/hamrlog/tui/app.py:224
+msgid "Your callsign"
+msgstr "Tu indicativo"
+
+#: src/hamrlog/tui/app.py:225
+msgid "Name"
+msgstr "Nombre"
+
+#: src/hamrlog/tui/app.py:226
+msgid "Locator"
+msgstr "Locator"
+
+#: src/hamrlog/tui/app.py:535
+msgid "Unknown command: «/{command}». Type /help to see the list."
+msgstr "Comando desconocido: «/{command}». Escribe /ayuda para ver la lista."
+
+#: src/hamrlog/tui/app.py:590
+msgid "Unknown band: «{band}»"
+msgstr "Banda desconocida: «{band}»"
+
+#: src/hamrlog/tui/app.py:611
+msgid "Frequency {freq} · band {band}"
+msgstr "Frecuencia {freq} · banda {band}"
+
+#: src/hamrlog/tui/app.py:615
+msgid "Frequency {freq} · out of band"
+msgstr "Frecuencia {freq} · fuera de banda"
+
+#: src/hamrlog/tui/app.py:622
+msgid "Unknown mode: «{mode}»"
+msgstr "Modo desconocido: «{mode}»"
+
+#: src/hamrlog/tui/app.py:630
+msgid "Mode {mode}"
+msgstr "Modo {mode}"
+
+#: src/hamrlog/tui/app.py:641
+msgid "{mode} settings"
+msgstr "Datos de {mode}"
+
+#: src/hamrlog/tui/app.py:676
+msgid " · tone {tone}"
+msgstr " · subtono {tone}"
+
+#: src/hamrlog/tui/app.py:678
+msgid "Via repeater {call} · {detail}"
+msgstr "Por el repetidor {call} · {detail}"
+
+#: src/hamrlog/tui/app.py:772
+msgid "You are on an item of the list: {keys}"
+msgstr "Estás sobre un elemento de la lista: {keys}"
+
+#: src/hamrlog/tui/app.py:950
+msgid "Delete the QSO with {call}?"
+msgstr "¿Borrar el QSO con {call}?"
+
+#: src/hamrlog/tui/app.py:1065
+msgid "Nothing to repeat here: {keys}"
+msgstr "Aquí no hay repetir: {keys}"
+
+#: src/hamrlog/tui/app.py:1070
+msgid "«{name}» is from the catalog: it is neither changed nor deleted. Use it when putting a setup together."
+msgstr "«{name}» es del catálogo: no se modifica ni se borra. Úsalo al montar un equipo."
+
+#: src/hamrlog/tui/app.py:1081
+msgid "Editing «{name}»"
+msgstr "Editando «{name}»"
+
+#: src/hamrlog/tui/app.py:1105
+msgid "«{name}» deleted."
+msgstr "«{name}» borrado."
+
+#: src/hamrlog/tui/app.py:1119
+msgid "✓ «{name}» updated"
+msgstr "✓ «{name}» modificado"
+
+#: src/hamrlog/tui/app.py:1123
+msgid "✓ «{name}» added"
+msgstr "✓ «{name}» dado de alta"
+
+#: src/hamrlog/tui/app.py:1148
+msgid "No {items} of the brand «{brand}»."
+msgstr "No hay {items} de la marca «{brand}»."
+
+#: src/hamrlog/tui/app.py:294
+msgid "{count} QSO today"
+msgstr "{count} QSO hoy"
+
+#: src/hamrlog/tui/app.py:443
+msgid "Address book: {who}"
+msgstr "Agenda: {who}"
+
+#: src/hamrlog/tui/app.py:562
+msgid "Frequency not recognised: «{text}»"
+msgstr "Frecuencia no reconocida: «{text}»"
+
+#: src/hamrlog/tui/app.py:1085
+msgid "Delete «{name}»?"
+msgstr "¿Borrar «{name}»?"
+
+#: src/hamrlog/tui/app.py:1086
+msgid "{kind}: only this item is deleted."
+msgstr "{kind}: se borra solo este elemento."
+
+#: src/hamrlog/tui/inventory.py:108
+msgid "from the catalog: only used in setups, never changed or deleted"
+msgstr "del catálogo: solo se usa en los equipos, no se modifica ni se borra"
+
+#: src/hamrlog/tui/inventory.py:162
+msgid "Setups"
+msgstr "Equipos"
+
+#: src/hamrlog/tui/inventory.py:163
+msgid "<New setup>"
+msgstr "<Nuevo equipo>"
+
+#: src/hamrlog/tui/inventory.py:253
+msgid "Radios"
+msgstr "Emisoras"
+
+#: src/hamrlog/tui/inventory.py:254
+msgid "<New radio>"
+msgstr "<Nueva emisora>"
+
+#: src/hamrlog/tui/inventory.py:338
+msgid "Antennas"
+msgstr "Antenas"
+
+#: src/hamrlog/tui/inventory.py:339
+msgid "<New antenna>"
+msgstr "<Nueva antena>"
+
+#: src/hamrlog/tui/inventory.py:394
+msgid "Supplies"
+msgstr "Fuentes"
+
+#: src/hamrlog/tui/inventory.py:395
+msgid "<New supply>"
+msgstr "<Nueva fuente>"
+
+#: src/hamrlog/tui/inventory.py:165
+msgid "NEW SETUP   a set of at least one radio, with its antennas and supplies"
+msgstr "NUEVO EQUIPO   un conjunto de al menos una emisora, con sus antenas y fuentes"
+
+#: src/hamrlog/tui/inventory.py:166
+msgid "RADIOS, ANTENNAS, SUPPLIES: IDs (E0001, A0001, S0001) or names, comma separated"
+msgstr "EMISORAS, ANTENAS y FUENTES: ID (E0001, A0001, S0001) o nombres, separados por comas"
+
+#: src/hamrlog/tui/inventory.py:167
+msgid "→ at the end of a box completes the suggested name"
+msgstr "→ al final de una casilla completa el nombre sugerido"
+
+#: src/hamrlog/tui/inventory.py:256
+msgid "NEW RADIO   brand and model; without a name it is called «brand model»"
+msgstr "NUEVA EMISORA   marca y modelo; sin nombre se llamará «marca modelo»"
+
+#: src/hamrlog/tui/inventory.py:257
+msgid "PWR: watts · TYPES: ranges it covers, separated by commas (HF, VHF, UHF, CB)"
+msgstr "POT: vatios · TIPOS: rangos que cubre, separados por comas (HF, VHF, UHF, CB)"
+
+#: src/hamrlog/tui/inventory.py:258 src/hamrlog/tui/inventory.py:343 src/hamrlog/tui/inventory.py:399
+msgid "→ at the end of a box completes the suggestion"
+msgstr "→ al final de una casilla completa lo sugerido"
+
+#: src/hamrlog/tui/inventory.py:341
+msgid "NEW ANTENNA   brand and name (with the model)"
+msgstr "NUEVA ANTENA   marca y nombre (con el modelo)"
+
+#: src/hamrlog/tui/inventory.py:342
+msgid "BANDS: amateur radio bands separated by commas (40m, 2m, 70cm...)"
+msgstr "BANDAS: bandas de radioaficionado separadas por comas (40m, 2m, 70cm...)"
+
+#: src/hamrlog/tui/inventory.py:397
+msgid "NEW SUPPLY   power supply, battery...: brand and name (with the model)"
+msgstr "NUEVA FUENTE   de alimentación, batería...: marca y nombre (con el modelo)"
+
+#: src/hamrlog/tui/inventory.py:398
+msgid "VOLTAGE in volts and maximum CURRENT in amperes; a decimal comma is fine"
+msgstr "TENSIÓN en voltios y CORRIENTE máxima en amperios; admiten coma decimal"
+
+#: src/hamrlog/tui/inventory.py:171 src/hamrlog/tui/inventory.py:264 src/hamrlog/tui/inventory.py:346 src/hamrlog/tui/inventory.py:404 src/hamrlog/tui/widgets/entry.py:49 src/hamrlog/tui/widgets/history.py:40
+msgid "NAME"
+msgstr "NOMBRE"
+
+#: src/hamrlog/tui/inventory.py:172 src/hamrlog/tui/widgets/entry.py:70
+msgid "RADIOS"
+msgstr "EMISORAS"
+
+#: src/hamrlog/tui/inventory.py:173 src/hamrlog/tui/widgets/entry.py:71
+msgid "ANTENNAS"
+msgstr "ANTENAS"
+
+#: src/hamrlog/tui/inventory.py:174 src/hamrlog/tui/widgets/entry.py:72
+msgid "SUPPLIES"
+msgstr "FUENTES"
+
+#: src/hamrlog/tui/inventory.py:175 src/hamrlog/tui/inventory.py:267 src/hamrlog/tui/inventory.py:346 src/hamrlog/tui/inventory.py:407 src/hamrlog/tui/widgets/entry.py:54 src/hamrlog/tui/widgets/entry.py:73 src/hamrlog/tui/widgets/history.py:46
+msgid "NOTES"
+msgstr "NOTAS"
+
+#: src/hamrlog/tui/inventory.py:262 src/hamrlog/tui/inventory.py:346 src/hamrlog/tui/inventory.py:403 src/hamrlog/tui/inventory.py:477 src/hamrlog/tui/widgets/entry.py:64
+msgid "BRAND"
+msgstr "MARCA"
+
+#: src/hamrlog/tui/inventory.py:263 src/hamrlog/tui/widgets/entry.py:65
+msgid "MODEL"
+msgstr "MODELO"
+
+#: src/hamrlog/tui/inventory.py:265
+msgid "POWER"
+msgstr "POTENCIA"
+
+#: src/hamrlog/tui/inventory.py:266 src/hamrlog/tui/widgets/entry.py:66
+msgid "TYPES"
+msgstr "TIPOS"
+
+#: src/hamrlog/tui/inventory.py:311
+msgid "Power"
+msgstr "Potencia"
+
+#: src/hamrlog/tui/inventory.py:346 src/hamrlog/tui/widgets/entry.py:67
+msgid "BANDS"
+msgstr "BANDAS"
+
+#: src/hamrlog/tui/inventory.py:405 src/hamrlog/tui/widgets/entry.py:68
+msgid "VOLTAGE"
+msgstr "TENSIÓN"
+
+#: src/hamrlog/tui/inventory.py:406 src/hamrlog/tui/widgets/entry.py:69
+msgid "CURRENT"
+msgstr "CORRIENTE"
+
+#: src/hamrlog/tui/inventory.py:216
+msgid "A setup has at least one radio: add one first."
+msgstr "Un equipo lleva al menos una emisora: da de alta antes una."
+
+#: src/hamrlog/tui/inventory.py:478
+msgid "all"
+msgstr "todas"
+
+#: src/hamrlog/tui/inventory.py:222
+msgid "There is no radio «{name}»."
+msgstr "No existe la emisora «{name}»."
+
+#: src/hamrlog/tui/inventory.py:227
+msgid "There is no antenna «{name}»."
+msgstr "No existe la antena «{name}»."
+
+#: src/hamrlog/tui/inventory.py:232
+msgid "There is no supply «{name}»."
+msgstr "No existe la fuente «{name}»."
+
+#: src/hamrlog/tui/inventory.py:447
+msgid "Voltage"
+msgstr "Tensión"
+
+#: src/hamrlog/tui/inventory.py:448
+msgid "Current"
+msgstr "Corriente"
+
+#: src/hamrlog/tui/inventory.py:124
+msgid "{what} is not a number: «{text}»"
+msgstr "{what} no numérica: «{text}»"
+
+#: src/hamrlog/tui/inventory.py:192
+msgid "Radios: {names}"
+msgstr "Emisoras: {names}"
+
+#: src/hamrlog/tui/inventory.py:193
+msgid "Antennas: {antennas} · Supplies: {supplies}"
+msgstr "Antenas: {antennas} · Fuentes: {supplies}"
+
+#: src/hamrlog/tui/inventory.py:356
+msgid "Bands: {bands}"
+msgstr "Bandas: {bands}"
+
+#: src/hamrlog/tui/screens/base.py:112 src/hamrlog/tui/screens/base.py:115 src/hamrlog/tui/screens/base.py:119 src/hamrlog/tui/screens/base.py:121
+msgid "No"
+msgstr "No"
+
+#: src/hamrlog/tui/screens/base.py:113 src/hamrlog/tui/screens/base.py:114 src/hamrlog/tui/screens/base.py:118 src/hamrlog/tui/screens/base.py:120
+msgid "Yes"
+msgstr "Sí"
+
+#: src/hamrlog/tui/screens/base.py:193 src/hamrlog/tui/screens/base.py:198
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: src/hamrlog/tui/screens/base.py:194 src/hamrlog/tui/screens/base.py:197 src/hamrlog/tui/screens/base.py:213
+msgid "Save"
+msgstr "Guardar"
+
+#: src/hamrlog/tui/screens/base.py:141
+msgid "←→ choose · Enter confirms · Y yes · N or Esc no"
+msgstr "←→ elegir · Enter confirma · S sí · N o Esc no"
+
+#: src/hamrlog/tui/screens/base.py:137
+msgid "Yes (Y)"
+msgstr "Sí (S)"
+
+#: src/hamrlog/tui/screens/base.py:139
+msgid "No (Esc)"
+msgstr "No (Esc)"
+
+#: src/hamrlog/tui/screens/base.py:240
+msgid "Cancel (Esc)"
+msgstr "Cancelar (Esc)"
+
+#: src/hamrlog/tui/widgets/detail.py:76
+msgid "NEW CONTACT"
+msgstr "NUEVO CONTACTO"
+
+#: src/hamrlog/tui/widgets/detail.py:79
+msgid "the UTC date and time are set when you press Enter"
+msgstr "la fecha y la hora UTC se ponen al pulsar Enter"
+
+#: src/hamrlog/tui/widgets/detail.py:84 src/hamrlog/tui/widgets/statusline.py:37
+msgid "no operator"
+msgstr "sin operador"
+
+#: src/hamrlog/tui/widgets/detail.py:85
+msgid "no band"
+msgstr "sin banda"
+
+#: src/hamrlog/tui/widgets/detail.py:91
+msgid "no mode"
+msgstr "sin modo"
+
+#: src/hamrlog/tui/widgets/detail.py:107
+msgid "name and QTH are filled in from the address book"
+msgstr "nombre y QTH se rellenan desde la agenda"
+
+#: src/hamrlog/tui/widgets/detail.py:103
+msgid "default report {rst}"
+msgstr "informe por defecto {rst}"
+
+#: src/hamrlog/tui/widgets/detail.py:45 src/hamrlog/tui/widgets/detail.py:88 src/hamrlog/tui/widgets/history.py:223
+msgid "via {call}"
+msgstr "vía {call}"
+
+#: src/hamrlog/tui/widgets/entry.py:76
+msgid "FIELD"
+msgstr "CAMPO"
+
+#: src/hamrlog/tui/widgets/entry.py:48
+msgid "CALL"
+msgstr "IND"
+
+#: src/hamrlog/tui/widgets/entry.py:50
+msgid "SENT"
+msgstr "ENV"
+
+#: src/hamrlog/tui/widgets/entry.py:51
+msgid "RCVD"
+msgstr "REC"
+
+#: src/hamrlog/tui/widgets/entry.py:53
+msgid "GRID"
+msgstr "LOC"
+
+#: src/hamrlog/tui/widgets/entry.py:55 src/hamrlog/tui/widgets/history.py:41 src/hamrlog/tui/widgets/statusline.py:38
+msgid "BAND"
+msgstr "BANDA"
+
+#: src/hamrlog/tui/widgets/entry.py:56 src/hamrlog/tui/widgets/history.py:43 src/hamrlog/tui/widgets/statusline.py:46
+msgid "MODE"
+msgstr "MODO"
+
+#: src/hamrlog/tui/widgets/entry.py:57
+msgid "FREQ"
+msgstr "FREC"
+
+#: src/hamrlog/tui/widgets/entry.py:58
+msgid "PWR"
+msgstr "POT"
+
+#: src/hamrlog/tui/widgets/entry.py:62
+msgid "NET"
+msgstr "RED"
+
+#: src/hamrlog/tui/widgets/entry.py:87
+msgid "Up the log"
+msgstr "Subir en el histórico"
+
+#: src/hamrlog/tui/widgets/entry.py:88
+msgid "Down the log"
+msgstr "Bajar en el histórico"
+
+#: src/hamrlog/tui/widgets/entry.py:89 src/hamrlog/tui/widgets/entry.py:124
+msgid "Up 10"
+msgstr "Subir 10"
+
+#: src/hamrlog/tui/widgets/entry.py:90 src/hamrlog/tui/widgets/entry.py:125
+msgid "Down 10"
+msgstr "Bajar 10"
+
+#: src/hamrlog/tui/widgets/entry.py:91
+msgid "Previous entry"
+msgstr "Entrada anterior"
+
+#: src/hamrlog/tui/widgets/entry.py:92
+msgid "Next entry"
+msgstr "Entrada siguiente"
+
+#: src/hamrlog/tui/widgets/entry.py:122
+msgid "Up"
+msgstr "Subir"
+
+#: src/hamrlog/tui/widgets/entry.py:123
+msgid "Down"
+msgstr "Bajar"
+
+#: src/hamrlog/tui/widgets/entry.py:127
+msgid "Delete"
+msgstr "Suprimir"
+
+#: src/hamrlog/tui/widgets/footer.py:16
+msgid "F1 Log · F2 Inventory · Ctrl+Q Quit"
+msgstr "F1 Registro · F2 Inventario · Ctrl+Q Salir"
+
+#: src/hamrlog/tui/widgets/footer.py:45
+msgid "today"
+msgstr "hoy"
+
+#: src/hamrlog/tui/widgets/footer.py:46
+msgid "unique"
+msgstr "únicos"
+
+#: src/hamrlog/tui/widgets/footer.py:47
+msgid "countries"
+msgstr "países"
+
+#: src/hamrlog/tui/widgets/history.py:29
+msgid "<Insert new>"
+msgstr "<Insertar nuevo>"
+
+#: src/hamrlog/tui/widgets/history.py:38
+msgid "DATE TIME"
+msgstr "FECHA HORA"
+
+#: src/hamrlog/tui/widgets/history.py:39
+msgid "CALLSIGN"
+msgstr "INDICATIVO"
+
+#: src/hamrlog/tui/widgets/history.py:42
+msgid "FREQUENCY"
+msgstr "FRECUENCIA"
+
+#: src/hamrlog/tui/widgets/history.py:44
+msgid "RST"
+msgstr "E/R"
+
+#: src/hamrlog/tui/widgets/history.py:45
+msgid "COUNTRY"
+msgstr "PAÍS"
+
+#: src/hamrlog/tui/widgets/history.py:83
+msgid "FREQ ({unit})"
+msgstr "FREC ({unit})"
+
+#: src/hamrlog/tui/widgets/statusline.py:42
+msgid "VIA"
+msgstr "VÍA"
+
+#: src/hamrlog/tui/widgets/statusline.py:48
+msgid "RIG"
+msgstr "EQUIPO"
+
+msgid "ID"
+msgstr "ID"
+
+msgid "Previous tab"
+msgstr "Pestaña anterior"
+
+msgid "Next tab"
+msgstr "Pestaña siguiente"
+
+msgid "QTH"
+msgstr "QTH"
+
+msgid "SETUP"
+msgstr "EQUIPO"
+
+msgid "Setup {name}"
+msgstr "Equipo {name}"
+
+msgid "E: the frequency does not fit this setup"
+msgstr "E: la frecuencia no corresponde a este equipo"
+
+msgid "There is no setup «{name}»."
+msgstr "No existe el equipo «{name}»."
+
+msgid "The frequency does not fit the setup «{name}»; the QSO is marked E."
+msgstr "La frecuencia no corresponde al equipo «{name}»; el QSO queda marcado con E."
+
+msgid "Select all"
+msgstr "Seleccionar todo"
+
+msgid "{count} QSOs selected · E edits frequency, mode and setup of all of them"
+msgstr "{count} QSO seleccionados · E edita la frecuencia, el modo y el equipo de todos"
+
+msgid "{count} QSO selected"
+msgstr "{count} QSO seleccionado"
+
+msgid "Editing {count} QSOs: only frequency, mode and setup; an empty box leaves them as they are"
+msgstr "Editando {count} QSO: solo frecuencia, modo y equipo; una casilla vacía los deja como están"
+
+msgid "✓ {count} QSOs updated"
+msgstr "✓ {count} QSO modificados"
+
+msgid "{count} marked E: the setup does not fit their frequency"
+msgstr "{count} marcados con E: el equipo no corresponde a su frecuencia"
+
+msgid "Nothing to select here: {keys}"
+msgstr "Aquí no se selecciona nada: {keys}"
+
+msgid "INFO"
+msgstr "INFO"
+
+msgid "%y/%m/%d %H:%M"
+msgstr "%d/%m/%y %H:%M"
+
+# Address book view (F3).
+msgid "Address book"
+msgstr "Agenda"
+
+msgid "<New contact>"
+msgstr "<Nuevo contacto>"
+
+msgid "NEW CONTACT   callsign, name and whatever else you know of the station"
+msgstr "NUEVO CONTACTO   indicativo, nombre y lo que sepas de la estación"
+
+msgid "DMR ID: number · GRID: locator · COUNTRY in your language, stored in English"
+msgstr "ID DMR: número · LOC: locator · PAÍS en tu idioma, se guarda en inglés"
+
+msgid "/search TEXT looks up callsign, name, city, province, country or DMR ID"
+msgstr "/buscar TEXTO busca en indicativo, nombre, ciudad, provincia, país o ID DMR"
+
+msgid "DMR ID"
+msgstr "ID DMR"
+
+msgid "PROVINCE"
+msgstr "PROVINCIA"
+
+msgid "QSO"
+msgstr "QSO"
+
+msgid "SURNAME"
+msgstr "APELLIDOS"
+
+msgid "CITY"
+msgstr "CIUDAD"
+
+msgid "EMAIL"
+msgstr "CORREO"
+
+msgid "The DMR ID"
+msgstr "El ID DMR"
+
+msgid "{what} must be a number: «{text}»"
+msgstr "{what} debe ser un número: «{text}»"
+
+msgid "no QSO in the log"
+msgstr "ningún QSO en el registro"
+
+msgid "{count} QSO in the log"
+msgstr "{count} QSO en el registro"
+
+msgid "Address book: /search TEXT looks up callsign, name, city, province, country or DMR ID · /search alone shows everything"
+msgstr "Agenda: /buscar TEXTO busca en indicativo, nombre, ciudad, provincia, país o ID DMR · /buscar solo lo muestra todo"
+
+msgid "/search is for the address book (F3) and the repeaters (F5)."
+msgstr "/buscar es para la agenda (F3) y los repetidores (F5)."
+
+msgid "Showing everything."
+msgstr "Se muestra todo."
+
+msgid "{count} found for «{text}»."
+msgstr "{count} encontrados para «{text}»."
+
+msgid "SEARCH"
+msgstr "BUSCAR"
+
+msgid "{shown} of {total} · narrow it with /search"
+msgstr "{shown} de {total} · acota con /buscar"
+
+msgid "{total} contacts"
+msgstr "{total} contactos"
+
+msgid "d: the address book says «{name}»"
+msgstr "d: en la agenda es «{name}»"
+
+msgid "PROFILE"
+msgstr "PERFIL"
+
+msgid "(none)"
+msgstr "(ninguno)"
+
+msgid "Profiles"
+msgstr "Perfiles"
+
+msgid "Profiles: Enter on one activates it · * makes it the default, activated on start · Ctrl+0…9 activate the main ones from anywhere · /profile NAME or KEY"
+msgstr "Perfiles: Enter activa el elegido · * lo hace predeterminado, se activa al arrancar · Ctrl+0…9 activan los principales · /perfil NOMBRE o TECLA"
+
+msgid "Enter activate · * default · E edit · D delete · ↓ back to typing"
+msgstr "Enter activar · * predeterminado · E editar · D borrar · ↓ volver a escribir"
+
+msgid "Usage: /profile NAME, or /profile 3 for the one on Ctrl+3"
+msgstr "Uso: /perfil NOMBRE, o /perfil 3 para el de Ctrl+3"
+
+msgid "Activate profile"
+msgstr "Activar perfil"
+
+msgid "Activate"
+msgstr "Activar"
+
+msgid "No profile is activated on start now."
+msgstr "Ya no se activa ningún perfil al arrancar."
+
+msgid "«{name}» is activated on start."
+msgstr "«{name}» se activa al arrancar."
+
+msgid "Profile «{name}» active: new QSOs are logged with it"
+msgstr "Perfil «{name}» activo: los QSO nuevos se registran con él"
+
+msgid "No profile has the key Ctrl+{key}; give it one in Profiles (F4)."
+msgstr "Ningún perfil tiene la tecla Ctrl+{key}; asígnasela en Perfiles (F4)."
+
+msgid "<New profile>"
+msgstr "<Nuevo perfil>"
+
+msgid "NEW PROFILE   what every QSO inherits while it is active"
+msgstr "NUEVO PERFIL   lo que hereda cada QSO mientras está activo"
+
+msgid "CTRL: 0-9, activated with Ctrl+digit · OPERATOR: callsign · SETUP from F2"
+msgstr "CTRL: 0-9, se activa con Ctrl+número · OPERADOR: indicativo · EQUIPO de F2"
+
+msgid "REPEATER: callsign · PWR: watts · DIGITAL: TG=214, CC=1"
+msgstr "REPETIDOR: indicativo · POT: vatios · DIGITAL: TG=214, CC=1"
+
+msgid "activate the main ones"
+msgstr "activan los principales"
+
+msgid "OPERATOR"
+msgstr "OPERADOR"
+
+msgid "REPEATER"
+msgstr "REPETIDOR"
+
+msgid "DIGITAL"
+msgstr "DIGITAL"
+
+msgid "Enter activates · * default · E edit · D delete"
+msgstr "Enter lo activa · * predeterminado · E editar · D borrar"
+
+msgid "active"
+msgstr "activo"
+
+msgid "activated on start"
+msgstr "se activa al arrancar"
+
+msgid "Ctrl+{key} activates it"
+msgstr "Ctrl+{key} lo activa"
+
+msgid "⚠ the setup «{name}» does not cover this frequency"
+msgstr "⚠ el equipo «{name}» no cubre esta frecuencia"
+
+msgid "current operator"
+msgstr "operador actual"
+
+msgid "no setup"
+msgstr "sin equipo"
+
+msgid "Write the digital values as NAME=VALUE: «{text}»"
+msgstr "Escribe los valores digitales como NOMBRE=VALOR: «{text}»"
+
+msgid "{mode} does not use «{name}»; it uses: {fields}"
+msgstr "{mode} no usa «{name}»; usa: {fields}"
+
+msgid "The power is a whole number of watts: «{text}»"
+msgstr "La potencia es un número entero de vatios: «{text}»"
+
+# Repeaters view (F5).
+msgid "Repeaters: Enter on one tunes it · /search TEXT looks up callsign, URE number, channel, club, place, locator or mode · /search alone shows everything"
+msgstr "Repetidores: Enter sobre uno lo sintoniza · /buscar TEXTO busca en indicativo, número URE, canal, club, lugar, locator o modo · /buscar solo lo muestra todo"
+
+msgid "Enter tune · E edit · D delete · ↓ back to typing"
+msgstr "Enter sintonizar · E editar · D borrar · ↓ volver a escribir"
+
+msgid "Repeaters"
+msgstr "Repetidores"
+
+msgid "{total} items"
+msgstr "{total} elementos"
+
+msgid "from the URE list: Enter tunes it; it cannot be changed or deleted"
+msgstr "de la lista de la URE: Enter lo sintoniza; no se puede modificar ni borrar"
+
+msgid "<New repeater>"
+msgstr "<Nuevo repetidor>"
+
+msgid "{total} repeaters"
+msgstr "{total} repetidores"
+
+msgid "Input"
+msgstr "Entrada"
+
+msgid "Output"
+msgstr "Salida"
+
+msgid "NEW REPEATER   callsign and output; the input defaults to the band's shift"
+msgstr "NUEVO REPETIDOR   indicativo y salida; sin entrada se usa el desplazamiento de la banda"
+
+msgid "INPUT: frequency, or shift (-600, -7.6 MHz) · TONE: CTCSS in Hz · URE: R5, R73"
+msgstr "ENTRADA: frecuencia, o desplazamiento (-600, -7.6 MHz) · TONO: CTCSS en Hz · URE: R5, R73"
+
+msgid "/search TEXT looks up callsign, URE number, channel, club, place, locator or mode"
+msgstr "/buscar TEXTO busca en indicativo, número URE, canal, club, lugar, locator o modo"
+
+msgid "OUTPUT"
+msgstr "SALIDA"
+
+msgid "INPUT"
+msgstr "ENTRADA"
+
+msgid "TONE"
+msgstr "TONO"
+
+msgid "CHANNEL"
+msgstr "CANAL"
+
+msgid "OWNER"
+msgstr "TITULAR"
+
+msgid "{what}: frequency not recognised: «{text}»"
+msgstr "{what}: frecuencia no reconocida: «{text}»"
+
+msgid "Shift not recognised: «{text}»"
+msgstr "Desplazamiento no reconocido: «{text}»"
+
+msgid "Enter tunes it"
+msgstr "Enter lo sintoniza"
+
+msgid "tone {tone} Hz"
+msgstr "tono {tone} Hz"
+
+msgid "{name} is from the URE list: it is neither changed nor deleted. Enter tunes it."
+msgstr "{name} es de la lista de la URE: no se modifica ni se borra. Enter lo sintoniza."
+
+msgid "Detail"
+msgstr "Detalle"
+
+msgid "Entry"
+msgstr "Entrada"
+
+msgid "Tools: type in the box to narrow the list · ↑↓ move through it"
+msgstr "Herramientas: escribe en la casilla para acotar la lista · ↑↓ para recorrerla"
+
+msgid "Settings: Enter or E changes the one under the cursor, Enter saves it, Esc cancels"
+msgstr "Configuración: Enter o E cambia la del cursor, Enter la guarda, Esc cancela"
+
+msgid "Enter or E change"
+msgstr "Enter o E cambiar"
+
+msgid "Tools"
+msgstr "Herramientas"
+
+msgid "Settings"
+msgstr "Configuración"
+
+msgid "Settings are changed, not deleted."
+msgstr "La configuración se cambia, no se borra."
+
+msgid "{shown} of {total}"
+msgstr "{shown} de {total}"
+
+msgid "takes effect the next time hamrlog starts"
+msgstr "se aplica la próxima vez que arranque hamrlog"
+
+msgid "takes effect at once"
+msgstr "se aplica al momento"
+
+msgid "English"
+msgstr "inglés"
+
+msgid "Spanish"
+msgstr "español"
+
+msgid "on"
+msgstr "sí"
+
+msgid "off"
+msgstr "no"
+
+msgid "SETTING"
+msgstr "AJUSTE"
+
+msgid "VALUE"
+msgstr "VALOR"
+
+msgid "APPLIES"
+msgstr "SE APLICA"
+
+msgid "Database"
+msgstr "Base de datos"
+
+msgid "automatic ({language})"
+msgstr "automático ({language})"
+
+msgid "Language"
+msgstr "Idioma"
+
+msgid "Time zone"
+msgstr "Zona horaria"
+
+msgid "Day separator"
+msgstr "Separador de días"
+
+msgid "SQLite file of the log; empty uses the default one"
+msgstr "Fichero SQLite del diario; vacío usa el predeterminado"
+
+msgid "A path such as ~/radio/hamrlog.sqlite3, or a full database URL"
+msgstr "Una ruta como ~/radio/hamrlog.sqlite3, o una URL de base de datos completa"
+
+msgid "Language of the interface: en, es, or empty to follow the system"
+msgstr "Idioma de la interfaz: en, es, o vacío para seguir al sistema"
+
+msgid "The HAMRLOG_LANG variable, when set, takes precedence"
+msgstr "La variable HAMRLOG_LANG, si está definida, tiene prioridad"
+
+msgid "UTC only"
+msgstr "solo UTC"
+
+msgid "Local time shown on the status line next to UTC"
+msgstr "Hora local que muestra la línea de estado junto a la UTC"
+
+msgid "A zone such as Europe/Madrid or Atlantic/Canary; empty shows UTC only"
+msgstr "Una zona como Europe/Madrid o Atlantic/Canary; vacío muestra solo UTC"
+
+msgid "A dashed grey line in the log between the QSOs of different days (UTC)"
+msgstr "Una línea discontinua gris en el diario entre los QSO de días distintos (UTC)"
+
+msgid "on or off"
+msgstr "sí o no"
+
+msgid "default: {path}"
+msgstr "predeterminada: {path}"
+
+msgid "Settings are changed, not added."
+msgstr "La configuración se cambia, no se añade."
+
+msgid "Unknown language: «{text}». Use en, es, or leave it empty."
+msgstr "Idioma desconocido: «{text}». Usa en, es, o déjalo vacío."
+
+msgid "Type on or off."
+msgstr "Escribe sí o no."
+
+msgid "Unknown time zone: «{text}». Use a name such as Europe/Madrid."
+msgstr "Zona horaria desconocida: «{text}». Usa un nombre como Europe/Madrid."
+
+msgid "Q code"
+msgstr "Código Q"
+
+msgid "{total} codes"
+msgstr "{total} códigos"
+
+msgid "Q CODE   a statement; followed by «?», the question"
+msgstr "CÓDIGO Q   una afirmación; seguido de «?», la pregunta"
+
+msgid "Type in the box to narrow the list: the letters or any word of the meaning"
+msgstr "Escribe en la casilla para acotar la lista: las letras o cualquier palabra del significado"
+
+msgid "↑↓ move through the list"
+msgstr "↑↓ recorren la lista"
+
+msgid "CODE"
+msgstr "CÓDIGO"
+
+msgid "MEANING"
+msgstr "SIGNIFICADO"
+
+msgid "QUESTION"
+msgstr "PREGUNTA"
+
+msgid "FILTER"
+msgstr "FILTRO"
+
+msgid "F1 Log · F2 Inventory · F3 Address book · F4 Profiles · F5 Repeaters · F8 Tools · F9 Settings · Ctrl+Q Quit"
+msgstr "F1 Registro · F2 Inventario · F3 Agenda · F4 Perfiles · F5 Repetidores · F8 Herramientas · F9 Configuración · Ctrl+Q Salir"
+
+msgid "F1 Log · F2 Inventory · F3 Address book · F4 Profiles · F5 Repeaters · F8 Tools · F9 Settings"
+msgstr "F1 Registro · F2 Inventario · F3 Agenda · F4 Perfiles · F5 Repetidores · F8 Herramientas · F9 Configuración"
+
+msgid "F1 Log F2 Inv F3 Book F4 Prof F5 Rptr F8 Tools F9 Set"
+msgstr "F1 Reg F2 Inv F3 Agen F4 Perf F5 Rep F8 Herr F9 Conf"
+
+msgid "V opens the card of a QSO, in the log: {keys}"
+msgstr "V abre la ficha de un QSO, en el registro: {keys}"
+
+msgid "CONTACT"
+msgstr "CONTACTO"
+
+msgid "Callsign"
+msgstr "Indicativo"
+
+msgid "Country"
+msgstr "País"
+
+msgid "manual"
+msgstr "manual"
+
+msgid "automatic"
+msgstr "automático"
+
+msgid "Date"
+msgstr "Fecha"
+
+msgid "Frequency"
+msgstr "Frecuencia"
+
+msgid "Mode"
+msgstr "Modo"
+
+msgid "Reports"
+msgstr "Informes"
+
+msgid "Digital"
+msgstr "Digital"
+
+msgid "Notes"
+msgstr "Notas"
+
+msgid "MY STATION"
+msgstr "MI ESTACIÓN"
+
+msgid "Operator"
+msgstr "Operador"
+
+msgid "Location"
+msgstr "Ubicación"
+
+msgid "Close"
+msgstr "Cerrar"
+
+msgid "Email"
+msgstr "Correo"
+
+msgid "Book notes"
+msgstr "Notas agenda"
+
+msgid "RADIO"
+msgstr "EMISORA"
+
+msgid "Radio"
+msgstr "Emisora"
+
+msgid "Antenna"
+msgstr "Antena"
+
+msgid "This QSO has no setup."
+msgstr "Este QSO no tiene equipo."
+
+msgid "SETUP «{name}»"
+msgstr "EQUIPO «{name}»"
+
+msgid "sent {rst}"
+msgstr "enviado {rst}"
+
+msgid "received {rst}"
+msgstr "recibido {rst}"
+
+msgid "V view · D delete · E edit · R repeat · Space mark · Ctrl+A all · ↓ back to typing"
+msgstr "V ver · D suprimir · E editar · R repetir · Espacio marca · Ctrl+A todos · ↓ volver a escribir"
+
+msgid "DEMO"
+msgstr "DEMO"
+
+# Settings: updates (settings.py).
+msgid "Updates"
+msgstr "Actualizaciones"
+
+msgid "On start, look for a newer version and offer to install it"
+msgstr "Al arrancar, busca una versión más nueva y ofrece instalarla"
+
+msgid "on or off; the HAMRLOG_NO_UPDATE_CHECK variable turns it off as well"
+msgstr "sí o no; la variable HAMRLOG_NO_UPDATE_CHECK también lo desactiva"

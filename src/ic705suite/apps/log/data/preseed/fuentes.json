@@ -1,0 +1,186 @@
+[
+  {
+    "name": "Alinco DM-30E",
+    "brand": "Alinco",
+    "voltage_v": 13.8,
+    "current_a": 20,
+    "notes": "Conmutada, regulable 9-15 V; 20 A cont. / 30 A máx.",
+    "source": "https://www.proyecto4.com/fuentes-de-alimentacion/4026-fuente-de-alimentacion-alinco-dm-30e.html"
+  },
+  {
+    "name": "Alinco DM-530E",
+    "brand": "Alinco",
+    "voltage_v": 13.8,
+    "current_a": 30,
+    "notes": "Conmutada, regulable 5-15 V; hasta 30 A",
+    "source": "https://radiocenter.es/alinco-dm-530e-fuente-de-alimentacion-conmutada-30-a/"
+  },
+  {
+    "name": "Diamond GSV-1200",
+    "brand": "Diamond",
+    "voltage_v": 13.8,
+    "current_a": 12,
+    "notes": "Conmutada, regulable 1-15 V; 12 A cont. / 15 A pico",
+    "source": "https://www.proyecto4.com/fuentes-de-alimentacion/3971-fuente-de-alimentacion-diamond-gsv-1200.html"
+  },
+  {
+    "name": "Diamond GSV-3000",
+    "brand": "Diamond",
+    "voltage_v": 13.8,
+    "current_a": 25,
+    "notes": "Lineal (analógica), regulable 1-15 V; 25 A cont. / 30 A pico",
+    "source": "https://www.astroradio.com/p/gsv3000_fuente_alimentacin_analgica_30_a/"
+  },
+  {
+    "name": "Diamond GZV2500",
+    "brand": "Diamond",
+    "voltage_v": 13.8,
+    "current_a": 25,
+    "notes": "Conmutada, regulable 5-15 V; 25 A cont.",
+    "source": "https://radiocenter.es/diamond-gzv2500-fuente-de-alimentacion-conmutada-25a-regulable/"
+  },
+  {
+    "name": "Diamond GZV4000",
+    "brand": "Diamond",
+    "voltage_v": 13.8,
+    "current_a": 40,
+    "notes": "Conmutada bajo ruido; 40 A cont.",
+    "source": "https://radiocenter.es/gzv4000-diamond-40amp-alimentacion/"
+  },
+  {
+    "name": "Icom BP-272",
+    "brand": "Icom",
+    "voltage_v": 7.4,
+    "current_a": null,
+    "notes": "Batería Li-ion 1880 mAh para ID-51/IC-705",
+    "source": "https://www.proyecto4.com/baterias/4165-bateria-icom-bp-272.html"
+  },
+  {
+    "name": "Jetfon PC-30 SWD",
+    "brand": "Jetfon",
+    "voltage_v": 13.8,
+    "current_a": 20,
+    "notes": "Conmutada, regulable 9-15 V; 20 A cont. / 30 A pico",
+    "source": "https://radiocenter.es/jetfon-pc-30-swd-fuente-de-alimentacion-estabilizada-30-amperios/"
+  },
+  {
+    "name": "Jetfon PC-55",
+    "brand": "Jetfon",
+    "voltage_v": 13.8,
+    "current_a": 50,
+    "notes": "Conmutada, regulable 8-15 V; 50 A cont.",
+    "source": "https://radiocenter.es/pc-55-jetfon-fuente-de-alimentacion-conmutada-50-amperios/"
+  },
+  {
+    "name": "Komunica AV-5035-NF",
+    "brand": "Komunica",
+    "voltage_v": 13.8,
+    "current_a": 30,
+    "notes": "Conmutada, regulable 4-16 V; 30 A cont. / 35 A pico",
+    "source": "https://www.astroradio.com/p/_fa_av5035nf/"
+  },
+  {
+    "name": "Komunica AV-5045-NF",
+    "brand": "Komunica",
+    "voltage_v": 13.8,
+    "current_a": 40,
+    "notes": "Conmutada, regulable 4-16 V; 40 A cont. / 45 A pico",
+    "source": "https://www.astroradio.com/p/_fa_av5045nf/"
+  },
+  {
+    "name": "Komunica AV-825-NF",
+    "brand": "Komunica",
+    "voltage_v": 13.8,
+    "current_a": 22,
+    "notes": "Conmutada, regulable 8-15 V; 22 A cont. / 25 A pico",
+    "source": "https://www.astroradio.com/p/_fa_av825nf/"
+  },
+  {
+    "name": "Komunica AV-830-NF",
+    "brand": "Komunica",
+    "voltage_v": 13.8,
+    "current_a": 25,
+    "notes": "Conmutada, regulable 8-15 V; 25 A cont. / 30 A pico",
+    "source": "https://www.astroradio.com/p/_fa_av830nf/"
+  },
+  {
+    "name": "MFJ PC-305",
+    "brand": "MFJ",
+    "voltage_v": 13.8,
+    "current_a": 30,
+    "notes": "Regulable con display digital; 30 A",
+    "source": "https://radiocenter.es/mfj-pc-305-fuente-de-alimentacion-regulable-30a-con-display-digital/"
+  },
+  {
+    "name": "Sadelta SPS-3035",
+    "brand": "Sadelta",
+    "voltage_v": 13.8,
+    "current_a": 30,
+    "notes": "Conmutada, regulable 10-16 V; 30 A cont. / 35 A máx.",
+    "source": "https://www.proyecto4.com/fuentes-de-alimentacion/4349-fuente-de-alimentacion-sadelta-sps-3035.html"
+  },
+  {
+    "name": "Sadelta SPS-5055",
+    "brand": "Sadelta",
+    "voltage_v": 13.8,
+    "current_a": 50,
+    "notes": "Conmutada, regulable 10-15 V; 50 A cont. / 55 A máx.",
+    "source": "https://www.proyecto4.com/fuentes-de-alimentacion/4350-fuente-de-alimentacion-sadelta-sps-5055.html"
+  },
+  {
+    "name": "Samlex SEC-1235G",
+    "brand": "Samlex",
+    "voltage_v": 13.8,
+    "current_a": 30,
+    "notes": "Conmutada extraplana; 30 A cont. / 35 A máx.",
+    "source": "https://www.astroradio.com/p/fuente-alimentacion-conmutada-35-a/"
+  },
+  {
+    "name": "Samlex SEC-1235P-M",
+    "brand": "Samlex",
+    "voltage_v": 13.8,
+    "current_a": 30,
+    "notes": "Conmutada con medidores analógicos; 30 A",
+    "source": "https://www.astroradio.com/p/sec-1235p-m-fuente-alimentacion-30-amp/"
+  },
+  {
+    "name": "ShackMaster Power 600",
+    "brand": "ShackMaster",
+    "voltage_v": 13.8,
+    "current_a": 40,
+    "notes": "Conmutada, regulable 12-15 V; 40 A cont.",
+    "source": "https://www.astroradio.com/p/shackmaster-power-600/"
+  },
+  {
+    "name": "Telecom FPS-30-WVD",
+    "brand": "Telecom",
+    "voltage_v": 13.8,
+    "current_a": 25,
+    "notes": "Conmutada, regulable 9-15 V; 25 A cont. / 30 A máx.",
+    "source": "https://www.astroradio.com/p/fa_fps30wvd/"
+  },
+  {
+    "name": "Telecom RPS-1230-SWD",
+    "brand": "Telecom",
+    "voltage_v": 13.8,
+    "current_a": 20,
+    "notes": "Conmutada, regulable 9-15 V; 20 A cont. / 30 A máx.",
+    "source": "https://www.astroradio.com/p/fa_rps1230swd/"
+  },
+  {
+    "name": "Telecom RPS-1250-SW",
+    "brand": "Telecom",
+    "voltage_v": 13.8,
+    "current_a": 50,
+    "notes": "Conmutada, regulable 9-15 V; 50 A (máx.)",
+    "source": "https://www.astroradio.com/p/f-a-rps-1250-sw-9-15v-50-amp/"
+  },
+  {
+    "name": "Yaesu SBR-52LI",
+    "brand": "Yaesu",
+    "voltage_v": 10.8,
+    "current_a": null,
+    "notes": "Batería Li-ion 6400 mAh para FTX-1 Field",
+    "source": "https://www.tutiendaderadio.com/es/home/5934-bateria-yaesu-sbr-52li-de-6400-mah-para-ftx-1f-field-reserva.html"
+  }
+]

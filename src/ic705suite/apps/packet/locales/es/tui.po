@@ -1,0 +1,351 @@
+# Spanish translations of the terminal interface (hamrpkt.tui).
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+#: src/hamrpkt/tui/app.py:58
+msgid ""
+"/c [port] CALL [v DIGI …]    connect (also F4)\n"
+"/c bpq:CALL                  enter a station of LinBPQ (bpq:EA7KLX-1 BBS…)\n"
+"/d                           disconnect (also F5)\n"
+"/ui DEST text                send an unconnected UI frame\n"
+"/port N                      default radio port\n"
+"/mon                         monitor on/off (also F10)\n"
+"/clear                       clear the view (also Ctrl+L)\n"
+"/reconnect                   redo the link with the node (also F6)\n"
+"/quit                        quit (also Ctrl+Q)\n"
+"//text                       send a line starting with /"
+msgstr ""
+"/c [puerto] IND [v DIGI …]   conectar (también F4)\n"
+"/c bpq:IND                   entrar en una estación de LinBPQ (bpq:EA7KLX-1 BBS…)\n"
+"/d                           desconectar (también F5)\n"
+"/ui DEST texto               enviar una trama UI sin conexión\n"
+"/port N                      puerto de radio por defecto\n"
+"/mon                         monitor sí/no (también F10)\n"
+"/clear                       limpiar la vista (también Ctrl+L)\n"
+"/reconnect                   rehacer el enlace con el nodo (también F6)\n"
+"/quit                        salir (también Ctrl+Q)\n"
+"//texto                      enviar una línea que empieza por /"
+
+#: src/hamrpkt/tui/app.py:43
+msgid "Terminal"
+msgstr "Terminal"
+
+#: src/hamrpkt/tui/app.py:44
+msgid "Enter sends · /c CALL connects · /d disconnects · ↑↓ history · F4 connect · F5 disconnect · F9 setup · /help"
+msgstr "Enter envía · /c IND conecta · /d desconecta · ↑↓ histórico · F4 conectar · F5 desconectar · F9 ajustes · /help"
+
+#: src/hamrpkt/tui/app.py:48
+msgid "Monitor"
+msgstr "Monitor"
+
+#: src/hamrpkt/tui/app.py:49
+msgid "PgUp/PgDn scroll · Ctrl+L clear · F10 monitor on/off · F1 back to the terminal"
+msgstr "RePág/AvPág desplaza · Ctrl+L limpia · F10 monitor sí/no · F1 vuelve al terminal"
+
+#: src/hamrpkt/tui/app.py:52
+msgid "Heard stations"
+msgstr "Estaciones oídas"
+
+#: src/hamrpkt/tui/app.py:53
+msgid "↑↓ choose station · Enter connects · F1 back to the terminal"
+msgstr "↑↓ elige estación · Enter conecta · F1 vuelve al terminal"
+
+#: src/hamrpkt/tui/app.py:164
+msgid "Set your callsign and the node address with F9"
+msgstr "Configura tu indicativo y la dirección del nodo con F9"
+
+#: src/hamrpkt/tui/app.py:396
+msgid "No link. F6 or /reconnect"
+msgstr "No hay enlace. F6 o /reconnect"
+
+#: src/hamrpkt/tui/app.py:400
+msgid "Not connected. Use /c CALL to connect, or /ui DEST text for an unproto frame."
+msgstr "No hay conexión. Usa /c IND para conectar, o /ui DEST texto para una trama sin conexión."
+
+#: src/hamrpkt/tui/app.py:483
+msgid "Set the LinBPQ user and password with F9"
+msgstr "Pon el usuario y la contraseña de LinBPQ en F9"
+
+#: src/hamrpkt/tui/app.py:497
+msgid "No station selected"
+msgstr "No hay estación seleccionada"
+
+#: src/hamrpkt/tui/app.py:509
+msgid "The monitor needs an AGWPE link"
+msgstr "El monitor necesita un enlace AGWPE"
+
+#: src/hamrpkt/tui/app.py:574
+msgid "Callsign"
+msgstr "Indicativo"
+
+#: src/hamrpkt/tui/app.py:575
+msgid "Via (digipeaters)"
+msgstr "Vía (digipetidores)"
+
+#: src/hamrpkt/tui/app.py:576
+msgid "Radio port"
+msgstr "Puerto de radio"
+
+#: src/hamrpkt/tui/app.py:581
+msgid "The callsign is required"
+msgstr "Falta el indicativo"
+
+#: src/hamrpkt/tui/app.py:583
+msgid "The radio port must be a number from 1"
+msgstr "El puerto de radio debe ser un número desde 1"
+
+#: src/hamrpkt/tui/app.py:591
+msgid "Connect"
+msgstr "Conectar"
+
+#: src/hamrpkt/tui/app.py:599
+msgid "Nothing to disconnect"
+msgstr "No hay nada que desconectar"
+
+#: src/hamrpkt/tui/app.py:616
+msgid "Monitor on"
+msgstr "Monitor activado"
+
+#: src/hamrpkt/tui/app.py:616
+msgid "Monitor off"
+msgstr "Monitor desactivado"
+
+#: src/hamrpkt/tui/app.py:622
+msgid "My callsign"
+msgstr "Mi indicativo"
+
+#: src/hamrpkt/tui/app.py:623
+msgid "Link type"
+msgstr "Tipo de enlace"
+
+#: src/hamrpkt/tui/app.py:623
+msgid "agw or telnet"
+msgstr "agw o telnet"
+
+#: src/hamrpkt/tui/app.py:624
+msgid "Node host"
+msgstr "Equipo del nodo"
+
+#: src/hamrpkt/tui/app.py:625
+msgid "TCP port"
+msgstr "Puerto TCP"
+
+#: src/hamrpkt/tui/app.py:625
+msgid "AGWPE 8000 · Telnet 8010"
+msgstr "AGWPE 8000 · Telnet 8010"
+
+#: src/hamrpkt/tui/app.py:626
+msgid "User"
+msgstr "Usuario"
+
+#: src/hamrpkt/tui/app.py:626
+msgid "Only if the node asks for it"
+msgstr "Solo si el nodo lo pide"
+
+#: src/hamrpkt/tui/app.py:627
+msgid "Password"
+msgstr "Contraseña"
+
+#: src/hamrpkt/tui/app.py:629
+msgid "Monitor at start"
+msgstr "Monitor al arrancar"
+
+#: src/hamrpkt/tui/app.py:630
+msgid "yes or no"
+msgstr "sí o no"
+
+#: src/hamrpkt/tui/app.py:631
+msgid "LinBPQ Telnet port"
+msgstr "Puerto Telnet LinBPQ"
+
+#: src/hamrpkt/tui/app.py:632
+msgid "for /c bpq:CALL"
+msgstr "para /c bpq:IND"
+
+#: src/hamrpkt/tui/app.py:633
+msgid "LinBPQ user"
+msgstr "Usuario LinBPQ"
+
+#: src/hamrpkt/tui/app.py:634
+msgid "LinBPQ password"
+msgstr "Contraseña LinBPQ"
+
+#: src/hamrpkt/tui/app.py:641
+msgid "The link type must be agw or telnet"
+msgstr "El tipo de enlace debe ser agw o telnet"
+
+#: src/hamrpkt/tui/app.py:643
+msgid "The TCP port must be a number"
+msgstr "El puerto TCP debe ser un número"
+
+#: src/hamrpkt/tui/app.py:666
+msgid "Settings saved"
+msgstr "Ajustes guardados"
+
+#: src/hamrpkt/tui/app.py:669
+msgid "Setup"
+msgstr "Ajustes"
+
+#: src/hamrpkt/tui/app.py:242
+msgid "Connecting to {host}:{port} ({kind})…"
+msgstr "Conectando con {host}:{port} ({kind})…"
+
+#: src/hamrpkt/tui/app.py:257
+msgid "Link up with {host}:{port}"
+msgstr "Enlace establecido con {host}:{port}"
+
+#: src/hamrpkt/tui/app.py:275
+msgid "Link closed"
+msgstr "Enlace cerrado"
+
+#: src/hamrpkt/tui/app.py:286
+msgid "F6 or /reconnect to try again"
+msgstr "F6 o /reconnect para reintentar"
+
+#: src/hamrpkt/tui/app.py:298
+msgid "Connected to {call}"
+msgstr "Conectado con {call}"
+
+#: src/hamrpkt/tui/app.py:308
+msgid "Disconnected from {call}"
+msgstr "Desconectado de {call}"
+
+#: src/hamrpkt/tui/app.py:469
+msgid "Calling {call}…"
+msgstr "Llamando a {call}…"
+
+#: src/hamrpkt/tui/app.py:629
+msgid "yes"
+msgstr "sí"
+
+#: src/hamrpkt/tui/app.py:629
+msgid "no"
+msgstr "no"
+
+#: src/hamrpkt/tui/app.py:270
+msgid "Cannot reach {host}:{port}: {error}"
+msgstr "No puedo llegar a {host}:{port}: {error}"
+
+#: src/hamrpkt/tui/app.py:357
+msgid "Session log: {path}"
+msgstr "Registro de la sesión: {path}"
+
+#: src/hamrpkt/tui/app.py:459
+msgid "Already connected to {call}: /d first"
+msgstr "Ya hay conexión con {call}: primero /d"
+
+#: src/hamrpkt/tui/app.py:506
+msgid "Usage: {usage}"
+msgstr "Uso: {usage}"
+
+#: src/hamrpkt/tui/app.py:683
+msgid "Still connected to {call}. Disconnect and quit?"
+msgstr "Sigues conectado con {call}. ¿Desconectar y salir?"
+
+#: src/hamrpkt/tui/app.py:273
+msgid "Link lost: {error}"
+msgstr "Enlace perdido: {error}"
+
+#: src/hamrpkt/tui/app.py:430
+msgid "Port set to {port}"
+msgstr "Puerto fijado en {port}"
+
+#: src/hamrpkt/tui/app.py:439
+msgid "Commands"
+msgstr "Órdenes"
+
+#: src/hamrpkt/tui/app.py:447
+msgid "Unknown command: {cmd}. /help lists them"
+msgstr "Orden desconocida: {cmd}. /help las enumera"
+
+#: src/hamrpkt/tui/screens.py:77
+msgid "←→ choose · Enter confirms · Y yes · N or Esc no"
+msgstr "←→ elige · Enter confirma · S sí · N o Esc no"
+
+#: src/hamrpkt/tui/screens.py:138
+msgid "Tab next field · Enter or Ctrl+S save · Esc cancel"
+msgstr "Tab campo siguiente · Enter o Ctrl+S guarda · Esc cancela"
+
+#: src/hamrpkt/tui/screens.py:153
+msgid "Save"
+msgstr "Guardar"
+
+#: src/hamrpkt/tui/screens.py:98
+msgid "Yes (Y)"
+msgstr "Sí (S)"
+
+#: src/hamrpkt/tui/screens.py:100
+msgid "No (Esc)"
+msgstr "No (Esc)"
+
+#: src/hamrpkt/tui/screens.py:172
+msgid "Cancel (Esc)"
+msgstr "Cancelar (Esc)"
+
+#: src/hamrpkt/tui/widgets.py:65
+msgid "F1 Terminal · F2 Monitor · F3 Heard · Ctrl+Q Quit"
+msgstr "F1 Terminal · F2 Monitor · F3 Oídas · Ctrl+Q Salir"
+
+#: src/hamrpkt/tui/widgets.py:68
+msgid "F1 Terminal · F2 Monitor · F3 Heard"
+msgstr "F1 Terminal · F2 Monitor · F3 Oídas"
+
+#: src/hamrpkt/tui/widgets.py:198
+msgid "CALL"
+msgstr "INDICATIVO"
+
+#: src/hamrpkt/tui/widgets.py:198
+msgid "LAST HEARD"
+msgstr "ÚLTIMA VEZ"
+
+#: src/hamrpkt/tui/widgets.py:198
+msgid "FRAMES"
+msgstr "TRAMAS"
+
+#: src/hamrpkt/tui/widgets.py:198
+msgid "PORT"
+msgstr "PUERTO"
+
+#: src/hamrpkt/tui/widgets.py:199
+msgid "TO"
+msgstr "A"
+
+#: src/hamrpkt/tui/widgets.py:199
+msgid "VIA"
+msgstr "VÍA"
+
+#: src/hamrpkt/tui/widgets.py:49
+msgid "offline"
+msgstr "sin enlace"
+
+#: src/hamrpkt/tui/widgets.py:51
+msgid "LINK"
+msgstr "ENLACE"
+
+#: src/hamrpkt/tui/widgets.py:110
+msgid "frames"
+msgstr "tramas"
+
+#: src/hamrpkt/tui/widgets.py:111
+msgid "heard"
+msgstr "oídas"
+
+#: src/hamrpkt/tui/widgets.py:44
+msgid "no callsign"
+msgstr "sin indicativo"
+
+#: src/hamrpkt/tui/widgets.py:56
+msgid "SESSION"
+msgstr "SESIÓN"
+
+#: src/hamrpkt/tui/widgets.py:58
+msgid "idle"
+msgstr "en espera"
+
+#: src/hamrpkt/tui/widgets.py:272
+msgid "CMD"
+msgstr "CMD"
+
+#: src/hamrpkt/tui/widgets.py:48
+msgid "connecting"
+msgstr "conectando"
