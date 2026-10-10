@@ -117,9 +117,12 @@ notches, Twin PBT, filter shape), Transmit (power, mic, compressor, VOX, monitor
 pitch, break-in), VFO (split, RIT, ΔTX, tuning step, data mode, lock) and Scope (mode, span,
 reference, speed, hold, VBW).
 
-Keys (no mouse): PgUp/PgDn tune by the step, F2 step, F3 mode, F4/F5 band, F6 filter, F7/F8
-previous/next signal; ↑↓ (or Tab) choose a control, ←→ (or `-` `+`) turn it, Shift+←→ (or `<`
-`>`) ten steps, Space or Enter toggles, Ctrl+←→ (or F9/F10) change group; `/` opens the command
+Keys (no mouse). The front panel has two modes. **Moving**: the cursor keys go from option
+to option (↑↓ in a column, ←→ between columns). **Editing**: Space or Enter on an option; the
+cursor keys change it at once (→↑ up, ←↓ down, Shift ten steps) or type the value (`40`,
+`-120`, `slow`, `on`); Enter confirms and goes back to moving, Esc cancels and puts the old
+value back. In both modes: PgUp/PgDn tune by the step, F2 step, F3 mode, F4/F5 band, F6
+filter, F7/F8 previous/next signal on the scope, `[` `]` waterfall contrast, `/` the command
 line (`/f 7.030`, `/b 40`, `/mode USB`, `/set agc slow`, `/set rit_offset -120`).
 The scope streams only while a view is open. In receive-only mode VOX and break-in cannot be
 switched on (they would let the radio transmit by itself) and the tuner's TUNE is refused.

@@ -366,12 +366,6 @@ msgstr "F2-F9 Banda · N Barrido de ruido (RX) · S Barrido ROE (TX) · C Posici
 msgid "F2-F9 Band · N Noise · S SWR · Esc Back"
 msgstr "F2-F9 Banda · N Ruido · S ROE · Esc Volver"
 
-msgid "PgUp/PgDn Tune · F7-F8 Signal · ↑↓ ←→ Controls · F9-F10 Group · F2 Step · F3 Mode · F4-F5 Band · F6 Filter · [ ] Contrast · / Command · Esc Back"
-msgstr "PgUp/PgDn Sintonizar · F7-F8 Señal · ↑↓ ←→ Controles · F9-F10 Grupo · F2 Paso · F3 Modo · F4-F5 Banda · F6 Filtro · [ ] Contraste · / Orden · Esc Volver"
-
-msgid "PgUp/PgDn Tune · ↑↓ ←→ Controls · Esc Back"
-msgstr "PgUp/PgDn Sintonizar · ↑↓ ←→ Controles · Esc Volver"
-
 msgid "Tab select a station · Enter tune it (or /go N) · F10 back to single decoding"
 msgstr "Tab elige una estación · Enter la sintoniza (o /go N) · F10 vuelve a un solo canal"
 
@@ -383,3 +377,18 @@ msgstr "no hay más señales en esa dirección"
 
 msgid "no signals on the scope"
 msgstr "no hay señales en el espectro"
+
+msgid "PgUp/PgDn Tune · F7-F8 Signal · ↑↓ ←→ Move · Enter Edit · F2 Step · F3 Mode · F4-F5 Band · F6 Filter · [ ] Contrast · / Command · Esc Back"
+msgstr "PgUp/PgDn Sintonizar · F7-F8 Señal · ↑↓ ←→ Moverse · Enter Editar · F2 Paso · F3 Modo · F4-F5 Banda · F6 Filtro · [ ] Contraste · / Orden · Esc Volver"
+
+msgid "PgUp/PgDn Tune · ↑↓ ←→ Move · Enter Edit · Esc Back"
+msgstr "PgUp/PgDn Sintonizar · ↑↓ ←→ Moverse · Enter Editar · Esc Volver"
+
+msgid "editing {option}: ←→ ↑↓ change it or type the value · Enter done · Esc cancel"
+msgstr "editando {option}: ←→ ↑↓ para cambiarlo o escribe el valor · Enter listo · Esc cancelar"
+
+msgid "«{text}» is not a value for {option}"
+msgstr "«{text}» no es un valor válido para {option}"
+
+msgid "edit cancelled"
+msgstr "edición cancelada"

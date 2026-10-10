@@ -126,43 +126,73 @@ def test_rig_view_from_the_keyboard(tmp_path):
     from ic705suite.ui.controlpanel import ControlPanel
     from ic705suite.ui.waterfall import Waterfall
 
+    def typed(text):
+        return ["space" if c == " " else "minus" if c == "-" else c for c in text]
+
     async def run():
         link = sim_link(tmp_path)
         await link.connect()
+        controls = link.core.station.state.controls
         app = ViewApp(link)
         try:
             async with app.run_test(size=(140, 46)) as pilot:
                 await pilot.pause(1.0)
                 panel = app.query_one(ControlPanel)
-                assert panel.selected == panel.controls[0]["id"] == "af"
-                before = link.core.station.state.controls["af"]
-                await pilot.press("plus", "plus")
+                assert panel.selected == "af" and not panel.editing
+                # Navigation: the cursor keys only move.
+                af = controls["af"]
+                await pilot.press("down", "right", "left")
+                assert panel.selected == "rf" and controls["af"] == af
+                await pilot.press("up")
+                # Editing with the cursor keys: each press reaches the radio at once.
+                await pilot.press("enter", "right", "right", "up")
                 await pilot.pause(0.3)
-                assert link.core.station.state.controls["af"] == before + 2
-                await pilot.press("tab")               # RF
-                await pilot.press("less_than_sign")    # ten steps down
+                assert panel.editing and controls["af"] == af + 3
+                await pilot.press("shift+down")         # ten steps down
                 await pilot.pause(0.3)
-                assert link.core.station.state.controls["rf"] == 40
-                await pilot.press("f10")               # next group: DSP, first control NB
+                assert controls["af"] == af - 7
+                await pilot.press("enter")              # back to moving
+                assert not panel.editing
+                await pilot.press("right")              # DSP column, same height: NB
                 assert panel.selected == "nb"
-                await pilot.press("space")
+                # Editing by typing the value.
+                await pilot.press("down", "space", *typed("80"), "enter")
                 await pilot.pause(0.3)
-                assert link.core.station.state.controls["nb"] is True
+                assert panel.selected == "nb_level" and controls["nb_level"] == 80
+                # Esc puts the old value back.
+                await pilot.press("enter", "right", "right")
+                await pilot.pause(0.3)
+                assert controls["nb_level"] == 82
+                await pilot.press("escape")
+                await pilot.pause(0.3)
+                assert controls["nb_level"] == 80 and not panel.editing and app.is_running
+                # A choice typed by its name, and a signed value.
+                await pilot.press("left", "down", "down", "down", "down")   # RF, then down to AGC
+                assert panel.selected == "agc"
+                await pilot.press("enter", *typed("slow"), "enter")
+                await pilot.pause(0.3)
+                assert controls["agc"] == "slow"
+                await pilot.press("enter", *typed("nonsense"), "enter")
+                assert panel.editing                    # not a value: keep editing
+                await pilot.press("escape")
+                for _ in range(4):
+                    await pilot.press("right")          # to the VFO column
+                await pilot.press("up")                 # from ΔTX (row of DELAY in CW) to RIT Hz
+                assert panel.selected == "rit_offset"
+                await pilot.press("enter", *typed("-120"), "enter")
+                await pilot.pause(0.3)
+                assert controls["rit_offset"] == -120
+                # Function keys work too.
                 assert app.query_one(Waterfall)._raw   # scope frames arrived
                 await pilot.press("f7")                # previous signal on the scope
                 await pilot.pause(0.5)
                 tuned = link.core.station.state.frequency
                 assert tuned < 7_030_000
                 assert min(abs(tuned - st.freq) for st in DEFAULT_STATIONS) <= 300
-                await pilot.press("ctrl+left")         # cursor keys too: back to Receive (AF)
-                await pilot.press(*["down"] * 7, "right")   # down to the filter width, wider
-                await pilot.pause(0.3)
-                assert panel.selected == "filter_width"
-                assert link.core.station.state.controls["filter_width"] > 500
                 await pilot.press("slash")             # the command line
-                await pilot.press(*["space" if c == " " else c for c in "set agc fast"], "enter")
+                await pilot.press(*typed("set agc fast"), "enter")
                 await pilot.pause(0.3)
-                assert link.core.station.state.controls["agc"] == "fast"
+                assert controls["agc"] == "fast"
         finally:
             await link.close()
 

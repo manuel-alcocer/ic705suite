@@ -29,9 +29,9 @@ from ic705suite.ui.widgets import clock_footer, css
 STEPS = (10, 100, 1_000, 10_000, 100_000)
 CYCLE_MODES = ("CW", "USB", "LSB", "FM", "AM", "DV")
 SCOPE_KEEPALIVE = 5.0
-HINT = N_("PgUp/PgDn Tune · F7-F8 Signal · ↑↓ ←→ Controls · F9-F10 Group · F2 Step · F3 Mode · "
+HINT = N_("PgUp/PgDn Tune · F7-F8 Signal · ↑↓ ←→ Move · Enter Edit · F2 Step · F3 Mode · "
           "F4-F5 Band · F6 Filter · [ ] Contrast · / Command · Esc Back")
-SHORT_HINT = N_("PgUp/PgDn Tune · ↑↓ ←→ Controls · Esc Back")
+SHORT_HINT = N_("PgUp/PgDn Tune · ↑↓ ←→ Move · Enter Edit · Esc Back")
 METER_CELLS = 16
 
 
@@ -141,9 +141,10 @@ class ViewApp(App[int]):
     TITLE = "ic705suite View"
     ENABLE_COMMAND_PALETTE = False
 
-    # Keyboard only. Cursor keys move around the front panel (↑↓ choose, ←→ turn, with Shift
-    # ten steps, Ctrl+←→ change group); Tab, - + < > and the function keys do the same, and
-    # "/" opens the command line.
+    # Keyboard only. On the front panel the cursor keys move between the options; Space or
+    # Enter edits one (cursor keys change it, or type the value), Enter again goes back to
+    # moving, Esc cancels the edit. Function keys work in both modes; "/" opens the
+    # command line.
     BINDINGS = [
         Binding("pageup", "tune(1)", show=False, priority=True),
         Binding("pagedown", "tune(-1)", show=False, priority=True),
@@ -158,20 +159,20 @@ class ViewApp(App[int]):
         Binding("f10", "group(1)", show=False, priority=True),
         Binding("tab", "control(1)", show=False, priority=True),
         Binding("shift+tab", "control(-1)", show=False, priority=True),
-        Binding("up", "control(-1)", show=False),
-        Binding("down", "control(1)", show=False),
-        Binding("left", "adjust(-1)", show=False),
-        Binding("right", "adjust(1)", show=False),
-        Binding("shift+left", "adjust(-1, True)", show=False),
-        Binding("shift+right", "adjust(1, True)", show=False),
-        Binding("ctrl+left", "group(-1)", show=False),
-        Binding("ctrl+right", "group(1)", show=False),
+        Binding("up", "arrow(0, -1)", show=False),
+        Binding("down", "arrow(0, 1)", show=False),
+        Binding("left", "arrow(-1, 0)", show=False),
+        Binding("right", "arrow(1, 0)", show=False),
+        Binding("shift+up", "arrow(0, -1, True)", show=False),
+        Binding("shift+down", "arrow(0, 1, True)", show=False),
+        Binding("shift+left", "arrow(-1, 0, True)", show=False),
+        Binding("shift+right", "arrow(1, 0, True)", show=False),
         Binding("minus", "adjust(-1)", show=False),
         Binding("plus", "adjust(1)", show=False),
         Binding("less_than_sign", "adjust(-1, True)", show=False),
         Binding("greater_than_sign", "adjust(1, True)", show=False),
-        Binding("enter", "adjust(1)", show=False),
-        Binding("space", "adjust(1)", show=False),
+        Binding("enter", "enter", show=False),
+        Binding("space", "enter", show=False),
         Binding("left_square_bracket", "contrast(-1)", show=False),
         Binding("right_square_bracket", "contrast(1)", show=False),
         Binding("slash", "command_line", show=False),
@@ -385,15 +386,64 @@ class ViewApp(App[int]):
             new = keys[(keys.index(current) + 1) % len(keys)] if current in keys else keys[0]
             await self._set(control_id, new)
 
-    def action_control(self, step: int) -> None:
+    def _panel(self) -> ControlPanel:
+        return self.query_one("#panel", ControlPanel)
+
+    async def action_arrow(self, dx: int, dy: int, big: bool = False) -> None:
+        """Navigation: move between the options. Editing: change the value
+        (→ and ↑ up, ← and ↓ down)."""
         if self._entry_focused():
+            return
+        panel = self._panel()
+        if panel.editing:
+            await self.action_adjust(1 if dx > 0 or dy < 0 else -1, big)
+            return
+        if dy:
+            panel.move_vertical(dy)
+        else:
+            panel.move_horizontal(dx)
+        self._message("info", panel.help_line())
+
+    async def action_enter(self) -> None:
+        if self._entry_focused():
+            return
+        panel = self._panel()
+        if not panel.editing:
+            panel.start_edit()
+            self._message("info", _("editing {option}: ←→ ↑↓ change it or type the value · "
+                                    "Enter done · Esc cancel").format(
+                option=_(panel.control(panel.selected)["label"])))
+            return
+        if panel.buffer.strip():
+            try:
+                value = panel.typed_value()
+            except ValueError:
+                self._message("error", _("«{text}» is not a value for {option}").format(
+                    text=panel.buffer, option=_(panel.control(panel.selected)["label"])))
+                panel.buffer = ""
+                panel.refresh()
+                return
+            await self._set(panel.selected, value)
+        panel.end_edit()
+
+    async def _cancel_edit(self) -> None:
+        panel = self._panel()
+        control_id, original = panel.selected, panel.original
+        changed = panel.values.get(control_id) != original
+        panel.end_edit()
+        if changed and original is not None:
+            await self._set(control_id, original)
+        self._message("info", _("edit cancelled"))
+
+    def action_control(self, step: int) -> None:
+        if self._entry_focused() or self._panel().editing:
             return
         panel = self.query_one("#panel", ControlPanel)
         panel.move(step)
         self._message("info", panel.help_line())
 
     def action_group(self, step: int) -> None:
-        if self._entry_focused():
+        if self._entry_focused() or self._panel().editing:
             return
         panel = self.query_one("#panel", ControlPanel)
         panel.move_group(step)
@@ -418,10 +468,13 @@ class ViewApp(App[int]):
             field.value = "/"
             field.cursor_position = 1
 
-    def action_escape(self) -> None:
+    async def action_escape(self) -> None:
         if self._entry_focused():
             self.query_one("#entry-input", Input).value = ""
-            self.query_one("#panel", ControlPanel).focus()
+            self._panel().focus()
+            return
+        if self._panel().editing:
+            await self._cancel_edit()
             return
         self.action_leave()
 
