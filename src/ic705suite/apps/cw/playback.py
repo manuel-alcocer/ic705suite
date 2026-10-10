@@ -50,9 +50,9 @@ def load_sidecar(wav: str | Path) -> list[tuple[float, int]]:
     """[(seconds, dial_hz), ...]: from a FLAC's metadata or the .json next to a WAV."""
     if str(wav).lower().endswith(".flac"):
         try:
-            from mutagen.flac import FLAC
+            from ic705suite.apps.cw.flactags import read_tags
 
-            tags = FLAC(str(wav)).tags or {}
+            tags = read_tags(wav)
             # Files archived by cwic705, before the suite, carry the same tags under its name.
             for prefix in ("ic705suite", "cwic705"):
                 if f"{prefix}_frequency_timeline" in tags:

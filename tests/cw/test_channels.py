@@ -10,6 +10,7 @@ from ic705suite.apps.cw.playback import load_sidecar, load_wav
 from tests.cw.helpers import make_session, start, stop
 from ic705suite.synth import cw_signal, noise
 from ic705suite.rig.icom.sim import SimTransport
+from ic705suite.apps.cw.flactags import read_tags
 
 
 def make_store(tmp_path) -> ChannelStore:
@@ -32,7 +33,7 @@ def test_callsign_channels_append_and_statistics_are_not_counted_twice(tmp_path)
         saved = store.transcript(archive_id)
         assert saved["stats"]["words"] == 6 + 4
         assert [e["kind"] for e in saved["entries"]].count("rx") == 2
-        tags = __import__("mutagen.flac", fromlist=["FLAC"]).FLAC(saved["audio"][0]["path"]).tags
+        tags = read_tags(saved["audio"][0]["path"])
         assert tags["ic705suite_callsign"] == ["SP3BZU"] and tags["ic705suite_frequency"] == ["7007240"]
         assert load_sidecar(saved["audio"][0]["path"]) == [(0.0, 7_007_240)]
         samples, rate = load_wav(saved["audio"][0]["path"])
@@ -129,3 +130,20 @@ def test_station_picked_before_validation_gets_its_callsign_later():
     station.callsign = "EA1AAA"
     assert book.skimmer_validated(station, 7_010_000) is record
     assert record.callsign == "EA1AAA" and len(book.records) == 1
+
+
+def test_flac_tags_round_trip(tmp_path):
+    """Tags written by the suite read back, also by mutagen-style keys; audio untouched."""
+    import numpy as np
+    import soundfile
+
+    from ic705suite.apps.cw.flactags import write_tags
+
+    path = tmp_path / "x.flac"
+    samples = (np.sin(np.arange(8000) / 5) * 8000).astype(np.int16)
+    soundfile.write(str(path), samples, 8000, subtype="PCM_16", format="FLAC")
+    write_tags(path, {"IC705SUITE_callsign": "EA7XYZ", "title": "Canal ñ", "skip": None})
+    write_tags(path, {"ic705suite_callsign": "EA7KLX", "title": "otra vez"})   # replaces
+    assert read_tags(path) == {"ic705suite_callsign": ["EA7KLX"], "title": ["otra vez"]}
+    back, rate = soundfile.read(str(path), dtype="int16")
+    assert rate == 8000 and (back == samples).all()

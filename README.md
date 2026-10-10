@@ -193,5 +193,12 @@ src/ic705suite/
 
 ## Licence
 
-GPL-3.0-or-later (see `LICENSE`). It brings together cwic705, hamrlog and hamrpkt (MIT) and,
-soon, QDStar (GPL-3.0), all by the same author.
+[PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0),
+with additional terms from the author (see `LICENSE`). It may be used, studied, changed and
+shared for any noncommercial purpose (personal use, hobby, amateur radio, education...).
+Selling it, copies of it or works based on it, and any other commercial use, needs the
+author's written permission; whoever sells it without permission may be claimed up to the
+whole of the profits obtained.
+
+Versions published before this licence (up to commit 9760095) were GPL-3.0-or-later. The
+suite brings together cwic705, hamrlog and hamrpkt and, soon, QDStar, all by the same author.

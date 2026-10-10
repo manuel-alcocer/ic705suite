@@ -355,15 +355,12 @@ class AudioSpool:
 def write_flac(path: Path, samples: np.ndarray, sample_rate: int, tags: dict[str, str]) -> None:
     """Lossless FLAC with Vorbis comment metadata."""
     import soundfile
-    from mutagen.flac import FLAC
+
+    from ic705suite.apps.cw.flactags import write_tags
 
     path.parent.mkdir(parents=True, exist_ok=True)
     soundfile.write(str(path), samples, sample_rate, subtype="PCM_16", format="FLAC")
-    audio = FLAC(str(path))
-    for key, value in tags.items():
-        if value is not None:
-            audio[key] = str(value)
-    audio.save()
+    write_tags(path, tags)
 
 
 metadata = sa.MetaData()

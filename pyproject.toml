@@ -8,11 +8,10 @@ dynamic = ["version"]
 description = "Terminal station suite for the Icom IC-705 (and more rigs to come): dashboard, rig view, CW, D-STAR, logbook and packet"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "GPL-3.0-or-later" }
+license = { text = "PolyForm-Noncommercial-1.0.0" }
 authors = [{ name = "Manuel Alcocer", email = "manuel@alcocer.net" }]
 keywords = ["ham radio", "amateur radio", "ic-705", "cw", "d-star", "logbook", "packet", "tui"]
 dependencies = [
-    "mutagen>=1.47",
     "numpy>=1.26",
     "soundfile>=0.12",
     "sqlalchemy>=2.0",
