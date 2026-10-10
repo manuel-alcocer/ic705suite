@@ -164,7 +164,11 @@ hamlib (`rig/icom/controls.py`).
 **CW (F3).** As cwic705: F10 skimmer (↑↓ or Tab choose a station, Enter or `/go N` tunes
 it), F11 channels (↑↓ or Tab, Enter), ↑↓ (when not skimming) or Ctrl+P/Ctrl+N recall earlier
 lines, `/help` or F1 opens a window
-with every command and key (also over the skimmer). While it is
+with every command and key (also over the skimmer). A station calling CQ, looking for a
+contact, stands out in green: its row of the skimmer, its number on the waterfall's scale, a
+CALLING CQ badge in the detail window and every CQ in the received text. A station running a
+contest (CQ TEST, and its quick exchanges in between) stands out the same way in magenta,
+with a CONTEST badge. While it is
 open the radio is kept in CW. Leaving it returns to the dashboard; the channels stay in the
 core and leaving the suite offers to archive them.
 

@@ -216,6 +216,45 @@ def merge_variants(calls: list[str], scp: set[str]) -> Counter:
     return merged
 
 
+# Words that may follow the last CQ of a call ("DE EA7XYZ EA7XYZ PSE K"); any more and
+# someone has answered, or the caller has moved on to a contact.
+CQ_TAIL = 6
+# A contest station alternates its call with quick exchanges (5NN 14 TU): one that called
+# within this many words is still running the contest.
+CONTEST_WINDOW = 30
+CONTEST_WORDS = {"TEST", "CONTEST"}
+
+
+def _calls(words: list[str]) -> list[tuple[int, bool]]:
+    """Where each general call is, and whether it is a contest one. "TEST" counts as the
+    contest CQ only before a callsign or DE ("TEST EA7XYZ")."""
+    found = []
+    for i, word in enumerate(words):
+        following = words[i + 1:i + 3]
+        if word == "CQ":
+            found.append((i, bool(set(following) & CONTEST_WORDS)))
+        elif word in CONTEST_WORDS and (words[i - 1:i] == ["CQ"] or any(
+                w == "DE" or CALLSIGN_RE.fullmatch(w) for w in following)):
+            found.append((i, True))
+    return found
+
+
+def calling_cq(text: str) -> bool:
+    """Whether the station is calling CQ right now: its latest words are a general call."""
+    words = text.upper().split()
+    calls = _calls(words)
+    return bool(calls) and len(words) - calls[-1][0] - 1 <= CQ_TAIL
+
+
+def call_kind(text: str) -> str | None:
+    """"contest" for a station running a contest (calling or in a quick exchange), "cq" for
+    one calling CQ to anyone, None otherwise."""
+    words = text.upper().split()
+    if any(contest and len(words) - i <= CONTEST_WINDOW for i, contest in _calls(words)):
+        return "contest"
+    return "cq" if calling_cq(text) else None
+
+
 def interpret(words: list[str], scp: set[str] | None = None,
               heard: Counter | None = None) -> Interpretation:
     """`heard` counts exact callsign decodes over the whole session (see Interpreter)."""

@@ -23,7 +23,8 @@
 }
 
 /* The skimmer takes the receive pane's place in the same frame, under a strip of
-   waterfall: spectrum, scale and five rows of waterfall (two sweeps per row). */
+   waterfall: the stations' marks, spectrum, scale and four rows of waterfall (two sweeps
+   per row). */
 #skim-scope {
     height: 8;
     min-height: 8;

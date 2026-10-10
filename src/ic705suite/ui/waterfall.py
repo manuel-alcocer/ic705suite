@@ -89,9 +89,13 @@ class ScopeView:
     end: int = 0
     dial: int | None = None          # receive frequency marker
     passband: tuple[int, int] | None = None
-    # Labelled frequencies on the scale (the skimmer's stations), the chosen one highlighted.
+    # Labelled frequencies (the skimmer's stations) on a row of their own above the spectrum
+    # (Waterfall.mark_row): the chosen one highlighted, those in `calling` coloured by kind
+    # ("cq" green, "contest" magenta), those in `named` (with a callsign) labelled first.
     marks: list[tuple[int, str]] = field(default_factory=list)
     chosen: int | None = None
+    calling: dict[int, str] = field(default_factory=dict)
+    named: set[int] = field(default_factory=set)
 
 
 def resample_peak(values: np.ndarray, width: int) -> np.ndarray:
@@ -117,6 +121,8 @@ class Waterfall(Widget, can_focus=True):
     """
 
     spectrum_rows: reactive[int] = reactive(6)
+    # A first row for the marks of ScopeView (the skimmer's stations).
+    mark_row: reactive[bool] = reactive(False)
     # Contrast: amplitudes below `floor` are black, above `floor + span` saturate.
     floor: reactive[float] = reactive(0.10)
     span: reactive[float] = reactive(0.75)
@@ -185,6 +191,10 @@ class Waterfall(Widget, can_focus=True):
             a, b = (self.frequency_column(f) for f in self.view.passband)
             if a is not None and b is not None:
                 band = (min(a, b), max(a, b))
+        if self.mark_row:
+            if y == 0:
+                return self._marks_line(width)
+            y -= 1
         if y == self.spectrum_rows:
             return self._scale_line(width, marker)
         if y < self.spectrum_rows:
@@ -251,7 +261,7 @@ class Waterfall(Widget, can_focus=True):
         return Strip(segments, width)
 
     def _scale_line(self, width: int, marker: int | None) -> Strip:
-        """Frequency labels every ~16 columns, the marks over them and the dial marker."""
+        """Frequency labels every ~16 columns and the dial marker."""
         start, end = self.view.start, self.view.end
         line = [" "] * width
         if end > start and width > 0:
@@ -266,22 +276,50 @@ class Waterfall(Widget, can_focus=True):
                 for i, ch in enumerate(label, 1):
                     if x + i < width and line[x + i] == " ":
                         line[x + i] = ch
-        grey = Style(color="rgb(170,170,170)", bgcolor="rgb(20,20,20)")
-        styles = [grey] * width
-        mark = Style(color="yellow", bgcolor="rgb(20,20,20)", bold=True)
-        chosen = Style(color="black", bgcolor="yellow", bold=True)
-        for hz, label in self.view.marks:
+        segments = [Segment("".join(line), Style(color="rgb(170,170,170)", bgcolor="rgb(20,20,20)"))]
+        if marker is not None:
+            text = "".join(line)
+            segments = [Segment(text[:marker], Style(color="rgb(170,170,170)", bgcolor="rgb(20,20,20)")),
+                        Segment(text[marker] if text[marker] != " " else glyphs.MARK, Style(color="red", bold=True,
+                                bgcolor="rgb(20,20,20)")),
+                        Segment(text[marker + 1:], Style(color="rgb(170,170,170)", bgcolor="rgb(20,20,20)"))]
+        return Strip(segments, width)
+
+    def _marks_line(self, width: int) -> Strip:
+        """A tick on every mark and, where it fits without touching another, its label:
+        the chosen mark first, then those calling, then those with a callsign."""
+        view = self.view
+        line = [" "] * width
+        styles = [Style(bgcolor="black")] * width
+        colours = {None: "yellow", "cq": "green", "contest": "magenta"}
+        placed: list[tuple[int, int, str]] = []         # rank, column, label
+        for hz, label in view.marks:
             x = self.frequency_column(hz)
             if x is None:
                 continue
-            for i, ch in enumerate(label):
-                if x + i < width:
-                    line[x + i] = ch
-                    styles[x + i] = chosen if hz == self.view.chosen else mark
-        if marker is not None:
-            line[marker] = line[marker] if line[marker] != " " else glyphs.MARK
-            styles[marker] = Style(color="red", bold=True, bgcolor="rgb(20,20,20)")
-        return Strip([Segment(ch, style) for ch, style in zip(line, styles, strict=True)], width).simplify()
+            kind = view.calling.get(hz)
+            colour = colours[kind]
+            chosen = hz == view.chosen
+            styles[x] = Style(color="black", bgcolor=colour, bold=True) if chosen \
+                else Style(color=colour, bgcolor="black", bold=True)
+            line[x] = "▼"
+            rank = 0 if chosen else 1 if kind else 2 if hz in view.named else 3
+            placed.append((rank, x, label))
+        busy = [False] * width                         # label cells, with a gap around them
+        for rank, x, label in sorted(placed):
+            cells = range(x + 1, x + 1 + len(label))
+            if cells.stop > width:
+                cells = range(x - len(label), x)       # no room on the right: on the left
+            if cells.start < 0 or any(busy[c] for c in cells) or \
+                    (rank and any(line[c] == "▼" for c in cells)):
+                continue
+            for c in range(max(0, cells.start - 1), min(width, cells.stop + 1)):
+                busy[c] = True
+            for c, ch in zip(cells, label, strict=True):
+                line[c] = ch
+                styles[c] = styles[x]
+        return Strip([Segment(ch, style) for ch, style in zip(line, styles, strict=True)],
+                     width).simplify()
 
     # ---- signals ----------------------------------------------------------------------
 

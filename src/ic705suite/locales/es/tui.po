@@ -82,6 +82,12 @@ msgstr "ESTACIONES"
 msgid "SPOTS"
 msgstr "SPOTS"
 
+msgid "CALLING CQ"
+msgstr "LLAMANDO CQ"
+
+msgid "CONTEST"
+msgstr "CONCURSO"
+
 msgid "RANGE"
 msgstr "RANGO"
 

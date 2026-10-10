@@ -1,5 +1,5 @@
 from ic705suite import i18n
-from ic705suite.apps.cw.interpret import Interpreter, interpret
+from ic705suite.apps.cw.interpret import Interpreter, call_kind, calling_cq, interpret
 
 
 def summary(text: str) -> str:
@@ -62,3 +62,29 @@ def test_scp_correction_is_doubtful_and_never_overrides_repeated_calls():
     assert "DL2NFC? (Germany)" in s and "OZ3SM (Denmark)" in summary_scp
     s = ". ".join(interpret("EI2HY DE EI2HY".split(), scp).summary)
     assert "EI2HY" in s and "EI2HF" not in s
+
+
+def test_calling_cq_while_the_call_is_the_last_thing_sent():
+    assert calling_cq("CQ CQ CQ DE EA7XYZ EA7XYZ K")
+    assert calling_cq("cq cq de ea7xyz ea7xyz pse k")            # case does not matter
+    assert calling_cq("CQ POTA CQ POTA DE EA7XYZ EA7XYZ K")
+    assert calling_cq("TU 73 E E CQ TEST EA7XYZ")                  # a contest station again
+    assert calling_cq("5NN TU CQ CQ DE EA7")                        # still being sent
+
+
+def test_not_calling_cq_once_someone_answers_or_without_cq():
+    assert not calling_cq("")
+    assert not calling_cq("EA7XYZ DE F5ABC F5ABC UR RST 599 599 NAME JEAN K")
+    assert not calling_cq("CQ CQ DE EA7XYZ EA7XYZ K F5ABC DE EA7XYZ GM UR 599 NAME PEPE K")
+    assert not calling_cq("TEST BENCH LOOKS FINE")                 # TEST alone is not a CQ
+
+
+def test_contest_stations_apart_from_plain_cq():
+    assert call_kind("CQ CQ DE EA7XYZ EA7XYZ K") == "cq"
+    assert call_kind("CQ TEST EA7XYZ EA7XYZ") == "contest"
+    assert call_kind("TEST EA7XYZ TEST") == "contest"
+    assert call_kind("CQ CONTEST DE EA7XYZ") == "contest"
+    # Between calls a contest station gives its exchange: still a contest.
+    assert call_kind("CQ TEST EA7XYZ F5ABC 5NN 14 TU EA7XYZ") == "contest"
+    assert call_kind("EA7XYZ DE F5ABC UR 599 NAME JEAN K") is None
+    assert call_kind("") is None

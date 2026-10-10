@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import datetime as dt
+import re
 
 import numpy as np
 from rich.text import Text
@@ -19,7 +20,7 @@ from textual.widgets import DataTable, Input, Label, Static
 
 from ic705suite.rig import bands
 from ic705suite.i18n import N_, _, render
-from ic705suite.apps.cw.interpret import Interpretation, Interpreter, interpret
+from ic705suite.apps.cw.interpret import Interpretation, Interpreter, call_kind, interpret
 from ic705suite.station.links import Link, LinkError
 from ic705suite.rig.base import RigError, smeter_text
 from ic705suite.apps.cw.screens import ChannelsScreen
@@ -36,6 +37,28 @@ MAX_LINES = 2000
 LINE_HISTORY = 100
 # The scope streams only while someone watches: asked again this often while skimming.
 SCOPE_KEEPALIVE = 5.0
+
+# Someone calling CQ, looking for a contact, in green; a station running a contest in
+# magenta: the words in the receive pane, the stations of the skimmer and the badge in the
+# detail window.
+CALL_STYLES = {"cq": "bold black on green", "contest": "bold black on magenta"}
+ROW_STYLES = {"cq": "bold green", "contest": "bold magenta"}
+BADGES = {"cq": N_("CALLING CQ"), "contest": N_("CONTEST")}
+TABLE_BADGES = {"cq": "CQ", "contest": "TEST"}
+CALL_RES = {"contest": re.compile(r"\bCQ (?:TEST|CONTEST)\b"
+                                  r"|\b(?:TEST|CONTEST)(?= DE\b| [A-Z0-9/]*[0-9])"),
+            "cq": re.compile(r"\bCQ\b(?! (?:TEST|CONTEST)\b)")}
+
+
+def highlight_calls(text: Text) -> None:
+    for kind, pattern in CALL_RES.items():
+        text.highlight_regex(pattern, CALL_STYLES[kind])
+
+
+def badge(text: Text, kind: str | None) -> None:
+    if kind:
+        text.append("  ")
+        text.append(f" {_(BADGES[kind])} ", style=CALL_STYLES[kind])
 
 STYLES = {"rx": "white", "tx": "bold yellow", "info": "cyan", "error": "bold red",
           "spot": "bold green", "summary": "bold white", "glossary": "dim",
@@ -137,7 +160,10 @@ class TextPane(Widget):
         text = Text(no_wrap=True)
         text.append("\n" * (height - len(rows)))
         for i, (kind, chunk) in enumerate(rows):
-            text.append(chunk, style=STYLES.get(kind, ""))
+            line = Text(chunk, style=STYLES.get(kind, ""))
+            if kind == "rx":
+                highlight_calls(line)
+            text.append_text(line)
             if i < len(rows) - 1:
                 text.append("\n")
         return text
@@ -152,6 +178,7 @@ class DetailPanel(Static):
         self.channels: list[dict] = []
         self.selected = 0
         self.meaning = ""  # plain-language summary of the selected skimmer station
+        self.calling: str | None = None  # the single decoder's station: call_kind()
 
     def render(self) -> Text:
         st = self.state
@@ -180,6 +207,7 @@ class DetailPanel(Static):
                 chunk(_("CALL"), ch["callsign"] or "-", "bold cyan")
                 chunk(_("SPEED"), f"{ch['wpm']:.0f} {_('wpm')}")
                 chunk(_("SNR"), f"{ch['snr_db']:.0f} dB")
+                badge(text, call_kind(ch["text"]))
             else:
                 text.append(_("Looking for CW signals..."), style="dim")
             text.append("\n")
@@ -200,6 +228,7 @@ class DetailPanel(Static):
         chunk(_("AFC"), _("on") if d["afc"] else _("off"), "white")
         chunk(_("SQUELCH"), _("closed") if d["squelched"] else _("open"),
               "dim" if d["squelched"] else "bold green")
+        badge(text, self.calling)
         text.append("\n")
         text.append(f"{_('LEVEL')} ", style="dim")
         cells = round(d["level"] * 30)
@@ -315,6 +344,7 @@ class CwApp(ChannelSaving, App[int]):
         scope = self.query_one("#skim-scope", Waterfall)
         scope.can_focus = False
         scope.spectrum_rows = 2
+        scope.mark_row = True
         scope.display = False
         self._scope_wanted = False      # skimming on a radio that has a scope
         self.set_interval(SCOPE_KEEPALIVE, self._keep_scope)
@@ -359,6 +389,11 @@ class CwApp(ChannelSaving, App[int]):
             self._apply_scope(event)
         elif kind == "rx":
             pane.add("rx", event["text"], append=True)
+            detail = self.query_one("#detail", DetailPanel)
+            calling = call_kind(pane.lines[-1][1][-300:]) if pane.lines[-1][0] == "rx" else None
+            if calling != detail.calling:
+                detail.calling = calling
+                detail.refresh()
             for result in self.interpreter.feed(event["text"]):
                 self._show_meaning(result)
             footer = self.query_one("#stats", StatsFooter)
@@ -431,11 +466,20 @@ class CwApp(ChannelSaving, App[int]):
         room = max(10, table.size.width - 40)
         table.clear()
         for ch in channels:
+            calling = call_kind(ch["text"])
             call = Text(ch["callsign"] or "-", style="bold cyan" if ch["callsign"] else "dim")
             if ch.get("known"):
                 call.append(" ✓", style="green")
-            table.add_row(str(ch["index"]), bands.format_frequency(ch["frequency"]), call,
-                          f"{ch['wpm']:.0f}", f"{ch['snr_db']:.0f}", ch["text"][-room:])
+            if calling:
+                call.append(" ")
+                call.append(TABLE_BADGES[calling], style=CALL_STYLES[calling])
+            row_style = ROW_STYLES.get(calling, "")
+            heard = Text(ch["text"][-room:], style=row_style)
+            highlight_calls(heard)
+            table.add_row(Text(str(ch["index"]), style=CALL_STYLES.get(calling, "")),
+                          Text(bands.format_frequency(ch["frequency"]), style=row_style), call,
+                          Text(f"{ch['wpm']:.0f}", style=row_style),
+                          Text(f"{ch['snr_db']:.0f}", style=row_style), heard)
         if channels:
             table.move_cursor(row=min(row, len(channels) - 1))
         detail.channels = channels
@@ -450,6 +494,9 @@ class CwApp(ChannelSaving, App[int]):
         detail = self.query_one("#detail", DetailPanel)
         scope = self.query_one("#skim-scope", Waterfall)
         scope.view.marks = [(ch["frequency"], str(ch["index"])) for ch in detail.channels]
+        scope.view.calling = {ch["frequency"]: kind for ch in detail.channels
+                              if (kind := call_kind(ch["text"]))}
+        scope.view.named = {ch["frequency"] for ch in detail.channels if ch["callsign"]}
         chosen = detail.channels[detail.selected] if 0 <= detail.selected < len(detail.channels) \
             else None
         scope.view.chosen = chosen["frequency"] if chosen else None
