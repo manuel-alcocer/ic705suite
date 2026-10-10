@@ -38,6 +38,8 @@ def format_value(control: dict, value) -> str:
                 return _(label)
         return str(value)
     unit = control.get("unit", "")
+    if control.get("decimals") is not None:
+        return f"{value:.{control['decimals']}f} {unit}".strip()
     if kind == OFFSET:
         return f"{value:+.0f}{unit if unit != '%' else ''}"
     if unit == "%":
@@ -81,8 +83,11 @@ class ControlPanel(Widget, can_focus=True):
     }
     """
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, groups: tuple[tuple[str, str], ...] = GROUPS, bars: bool = True,
+                 **kwargs) -> None:
         super().__init__(**kwargs)
+        self.groups = groups      # (id, label) of each column, in order
+        self.bars = bars          # level bars beside the values (off: compact)
         self.controls: list[dict] = []
         self.values: dict = {}
         self.selected: str | None = None
@@ -91,7 +96,7 @@ class ControlPanel(Widget, can_focus=True):
         self.original = None      # value before editing, put back on Esc
 
     def set_controls(self, controls: list[dict]) -> None:
-        order = [g for g, _ in GROUPS]
+        order = [g for g, _ in self.groups]
         self.controls = sorted(controls, key=lambda c: order.index(c["group"])
                                if c["group"] in order else len(order))
         if self.controls and self.selected not in {c["id"] for c in self.controls}:
@@ -116,7 +121,7 @@ class ControlPanel(Widget, can_focus=True):
         self.refresh()
 
     def _columns(self) -> list[list[str]]:
-        groups = [g for g, _ in GROUPS if any(c["group"] == g for c in self.controls)]
+        groups = [g for g, _ in self.groups if any(c["group"] == g for c in self.controls)]
         return [[c["id"] for c in self.controls if c["group"] == g] for g in groups]
 
     def _position(self) -> tuple[int, int]:
@@ -181,7 +186,7 @@ class ControlPanel(Widget, can_focus=True):
 
     def move_group(self, step: int) -> None:
         """Jump to the first control of the next (or previous) group."""
-        groups = [g for g, _ in GROUPS if any(c["group"] == g for c in self.controls)]
+        groups = [g for g, _ in self.groups if any(c["group"] == g for c in self.controls)]
         current = self.control(self.selected)
         if not groups or current is None:
             return
@@ -216,7 +221,8 @@ class ControlPanel(Widget, can_focus=True):
         return 1 + max(per_group.values(), default=1)
 
     def render(self) -> Table:
-        groups = [(g, label) for g, label in GROUPS if any(c["group"] == g for c in self.controls)]
+        groups = [(g, label) for g, label in self.groups
+                  if any(c["group"] == g for c in self.controls)]
         table = Table.grid(expand=True, padding=(0, 2))
         for _group in groups:
             table.add_column(ratio=1, no_wrap=True, overflow="ellipsis")
@@ -237,7 +243,7 @@ class ControlPanel(Widget, can_focus=True):
                     cell.append(self.buffer + glyphs.CARET, style=glyphs.style("bold black on yellow"))
                     cells.append(cell)
                     continue
-                if c["kind"] in (LEVEL, OFFSET):
+                if c["kind"] in (LEVEL, OFFSET) and self.bars and c.get("bar", True):
                     cell.append_text(bar(c, value))
                     cell.append(" ")
                 on = c["kind"] == TOGGLE and value

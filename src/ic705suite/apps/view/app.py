@@ -24,6 +24,7 @@ from ic705suite.station.links import Link, LinkError
 from ic705suite.ui import glyphs
 from ic705suite.ui.bigdigits import BigDigits, height as digits_height
 from ic705suite.ui.controlpanel import ControlPanel, format_value
+from ic705suite.ui.panelkeys import PanelKeys
 from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.waterfall import Waterfall
 from ic705suite.ui.widgets import clock_footer, css
@@ -138,7 +139,7 @@ class MeterPanel(Static):
         return text
 
 
-class ViewApp(App[int]):
+class ViewApp(PanelKeys, App[int]):
     CSS = css("ic705suite.apps.view")
     TITLE = "ic705suite View"
     ENABLE_COMMAND_PALETTE = False
@@ -316,22 +317,6 @@ class ViewApp(App[int]):
         except LinkError as exc:
             self._message("error", str(exc))
 
-    async def _set(self, control_id: str, value) -> None:
-        try:
-            reply = await self.link.call("rig.set", id=control_id, value=value)
-        except LinkError as exc:
-            self._message("error", str(exc))
-            return
-        if reply.get("error"):
-            self._message("error", reply["error"])
-            return
-        panel = self.query_one("#panel", ControlPanel)
-        panel.values[control_id] = reply.get("value")
-        panel.refresh()
-        control = panel.control(control_id)
-        if control:
-            self._message("info", f"{_(control['label'])} = {format_value(control, reply.get('value'))}")
-
     async def action_signal(self, direction: int) -> None:
         """Jump to the next signal on the scope above (or below) the dial."""
         if self._entry_focused():
@@ -395,51 +380,8 @@ class ViewApp(App[int]):
     def _panel(self) -> ControlPanel:
         return self.query_one("#panel", ControlPanel)
 
-    async def action_arrow(self, dx: int, dy: int, big: bool = False) -> None:
-        """Navigation: move between the options. Editing: change the value
-        (→ and ↑ up, ← and ↓ down)."""
-        if self._entry_focused():
-            return
-        panel = self._panel()
-        if panel.editing:
-            await self.action_adjust(1 if dx > 0 or dy < 0 else -1, big)
-            return
-        if dy:
-            panel.move_vertical(dy)
-        else:
-            panel.move_horizontal(dx)
-        self._message("info", panel.help_line())
-
-    async def action_enter(self) -> None:
-        if self._entry_focused():
-            return
-        panel = self._panel()
-        if not panel.editing:
-            panel.start_edit()
-            self._message("info", _("editing {option}: ←→ ↑↓ change it or type the value · "
-                                    "Enter done · Esc cancel").format(
-                option=_(panel.control(panel.selected)["label"])))
-            return
-        if panel.buffer.strip():
-            try:
-                value = panel.typed_value()
-            except ValueError:
-                self._message("error", _("«{text}» is not a value for {option}").format(
-                    text=panel.buffer, option=_(panel.control(panel.selected)["label"])))
-                panel.buffer = ""
-                panel.refresh()
-                return
-            await self._set(panel.selected, value)
-        panel.end_edit()
-
-    async def _cancel_edit(self) -> None:
-        panel = self._panel()
-        control_id, original = panel.selected, panel.original
-        changed = panel.values.get(control_id) != original
-        panel.end_edit()
-        if changed and original is not None:
-            await self._set(control_id, original)
-        self._message("info", _("edit cancelled"))
+    def _panel_active(self) -> bool:
+        return not self._entry_focused()
 
     def action_control(self, step: int) -> None:
         if self._entry_focused() or self._panel().editing:
@@ -454,13 +396,6 @@ class ViewApp(App[int]):
         panel = self.query_one("#panel", ControlPanel)
         panel.move_group(step)
         self._message("info", panel.help_line())
-
-    async def action_adjust(self, direction: int, big: bool = False) -> None:
-        if self._entry_focused():
-            return
-        change = self.query_one("#panel", ControlPanel).adjusted(direction, big)
-        if change is not None:
-            await self._set(*change)
 
     def action_contrast(self, direction: int) -> None:
         scope = self.query_one("#scope", Waterfall)

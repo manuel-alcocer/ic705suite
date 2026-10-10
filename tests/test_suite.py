@@ -150,20 +150,72 @@ def test_dashboard_with_the_cursor_keys(tmp_path):
         config = sim_config(tmp_path)
         DashboardApp.chosen = None
         app = DashboardApp(None, config)
-        async with app.run_test(size=(120, 36)) as pilot:
+        async with app.run_test(size=(140, 44)) as pilot:
             await pilot.press("down", "down", "down", "down")     # View -> ... -> Logbook
             await pilot.press("up", "down", "down", "enter")      # Antenna, Logbook, Packet
             await pilot.pause(0.1)
         assert app.return_value == "packet"
-        # Back on the dashboard, still on Packet: down goes round to View, which needs the
-        # radio (there is none here) and stays; up twice is the Logbook, opened with Space.
+        # Back on the dashboard, still on Packet. The View needs the radio (there is none
+        # here) and stays; the Logbook opens with Space.
         app = DashboardApp(None, config)
-        async with app.run_test(size=(120, 36)) as pilot:
-            await pilot.press("down", "enter")
+        async with app.run_test(size=(140, 44)) as pilot:
+            await pilot.press(*["up"] * 5, "enter")
             await pilot.pause(0.1)
             assert app.is_running and "needs the radio" in app.messages[-1][1]
-            await pilot.press("up", "up", "space")
+            await pilot.press(*["down"] * 4, "space")
             await pilot.pause(0.1)
         assert app.return_value == "log"
+
+    asyncio.run(run())
+
+
+def test_dashboard_settings_and_scope(tmp_path):
+    from ic705suite.dashboard.app import DashboardApp
+    from ic705suite.launcher import start_link
+    from ic705suite.ui.controlpanel import ControlPanel
+    from ic705suite.ui.waterfall import Waterfall
+
+    def typed(text):
+        return ["full_stop" if c == "." else c for c in text]
+
+    async def run():
+        link = LocalLink(None, sim_config(tmp_path))
+        start_link(link)
+        DashboardApp.chosen = None
+        app = DashboardApp(link, link.core.config)
+        station = link.core.station
+        try:
+            async with app.run_test(size=(140, 44)) as pilot:
+                for _ in range(40):
+                    await pilot.pause(0.1)
+                    if app.rig.get("connected") and app.query_one(Waterfall)._raw:
+                        break
+                assert app.query_one(Waterfall)._raw          # the mini scope streams
+                panel = app.query_one("#controls", ControlPanel)
+                await pilot.press("tab")                      # applications -> settings
+                assert app.focused is panel and panel.selected == "frequency"
+                await pilot.press("enter", *typed("7.010"), "enter")
+                await pilot.pause(0.3)
+                assert station.state.frequency == 7_010_000 and not panel.editing
+                await pilot.press("enter", "right", "right", "enter")   # +200 Hz
+                await pilot.pause(0.3)
+                assert station.state.frequency == 7_010_200
+                await pilot.press("right")                    # Receive: AF
+                af = station.state.controls["af"]
+                await pilot.press("space", "up", "escape")    # changed, then put back
+                await pilot.pause(0.3)
+                assert panel.selected == "af" and station.state.controls["af"] == af
+                await pilot.press("pageup")                   # tune from anywhere
+                await pilot.pause(0.3)
+                assert station.state.frequency == 7_010_300
+                await pilot.press("escape")                   # back to the applications
+                assert app.focused is app.query_one("#apps")
+                await pilot.press("shift+tab")
+                assert app.focused is panel
+                await pilot.press("tab", "f3")
+                await pilot.pause(0.1)
+            assert app.return_value == "cw"
+        finally:
+            await link.close()
 
     asyncio.run(run())
