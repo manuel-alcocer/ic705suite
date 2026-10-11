@@ -104,3 +104,9 @@ msgstr "Configuración de ic705suite ({path})."
 
 msgid "Save them in {path}?"
 msgstr "¿Guardarla en {path}?"
+
+msgid "Graphical client"
+msgstr "Cliente gráfico"
+
+msgid "Look of the graphical client (ic705suite --gui): dark, light or auto (as the system)"
+msgstr "Aspecto del cliente gráfico (ic705suite --gui): dark (oscuro), light (claro) o auto (como el sistema)"

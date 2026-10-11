@@ -21,6 +21,7 @@ from ic705suite.config import DEFAULT_PATH, TEMPLATE, Config, load_config, set_v
 from ic705suite.i18n import _
 
 CONNECTIONS = ("lan", "sim")
+THEMES = ("dark", "light", "auto")
 CALLSIGN = re.compile(r"^[A-Z0-9]+(/[A-Z0-9]+)*$")
 MASK = "********"
 
@@ -46,6 +47,7 @@ def summary(config: Config) -> list[tuple[str, str]]:
                  (_("User"), config.username or "-"),
                  (_("Password"), MASK if config.password else "-")]
     rows.append((_("Transmission"), _("enabled") if config.tx_enabled else _("disabled")))
+    rows.append((_("Graphical client"), config.theme))
     return rows
 
 
@@ -155,6 +157,9 @@ def configure(path: Path | None = None, questions: Questions | None = None,
             config.password = q.password(_("Network password"), config.password)
         q.write(_("Transmission stays off until the antenna SWR is right for your bands."))
         config.tx_enabled = q.yes(_("Enable transmission?"), config.tx_enabled)
+        config.theme = q.choice(
+            _("Look of the graphical client (ic705suite --gui): dark, light or auto (as the "
+              "system)"), THEMES, config.theme if config.theme in THEMES else "auto")
 
         q.write("")
         q.write(_("The settings will be:"))
@@ -171,6 +176,7 @@ def configure(path: Path | None = None, questions: Questions | None = None,
         ("ui", "language"): config.language,
         ("station", "callsign"): config.callsign,
         ("rig", "connection"): config.connection,
+        ("ui", "theme"): config.theme,
         (_section_of(text, "tx_enabled", ("rig", "keyer")), "tx_enabled"): config.tx_enabled,
     }
     if config.connection == "lan":

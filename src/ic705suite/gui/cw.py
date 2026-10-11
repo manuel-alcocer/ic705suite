@@ -68,12 +68,21 @@ from ic705suite.rig.transport import TransportError
 from ic705suite.station.links import Link, LinkError
 from ic705suite.ui.channels import ChannelSaving
 
-# The terminal's styles by kind of line, as colours (bold, italic).
-LINE_STYLES = {"rx": (theme.TEXT, False, False), "tx": (theme.YELLOW, True, False),
-               "info": (theme.CYAN, False, False), "error": (theme.RED, True, False),
-               "spot": (theme.GREEN, True, False), "summary": (theme.TEXT, True, False),
-               "glossary": (theme.DIM, False, False), "history": (theme.DIM, False, True)}
-CALL_COLOURS = {"cq": theme.GREEN, "contest": theme.MAGENTA}
+
+def line_style(kind: str) -> tuple[str, bool, bool]:
+    """The terminal's style of a kind of line, as (colour, bold, italic) in the theme."""
+    return {"rx": (theme.TEXT, False, False), "tx": (theme.YELLOW, True, False),
+            "info": (theme.CYAN, False, False), "error": (theme.RED, True, False),
+            "spot": (theme.GREEN, True, False), "summary": (theme.TEXT, True, False),
+            "glossary": (theme.DIM, False, False),
+            "history": (theme.DIM, False, True)}.get(kind, (theme.TEXT, False, False))
+
+
+def call_colour(kind: str | None, background: bool = False) -> str:
+    """Green for a CQ, magenta for a contest: as text, or vivid behind black text."""
+    if background:
+        return {"cq": theme.BG_GREEN, "contest": theme.BG_MAGENTA}.get(kind, theme.BG_YELLOW)
+    return {"cq": theme.GREEN, "contest": theme.MAGENTA}.get(kind, theme.TEXT)
 VISIBLE_LINES = 400            # lines drawn of the MAX_LINES kept
 
 
@@ -81,13 +90,13 @@ def highlight_calls_html(escaped: str) -> str:
     """A CQ (green) and a contest (magenta) marked in text already escaped for HTML."""
     for kind, pattern in CALL_RES.items():
         escaped = re.sub(pattern, lambda m, k=kind: (
-            f'<span style="background:{CALL_COLOURS[k]};color:#000;font-weight:bold">'
+            f'<span style="background:{call_colour(k, True)};color:#000;font-weight:bold">'
             f"{m.group()}</span>"), escaped)
     return escaped
 
 
 def call_badge(kind: str | None) -> str:
-    return badge(_(BADGES[kind]), "#000000", CALL_COLOURS[kind]) if kind else ""
+    return badge(_(BADGES[kind]), "#000000", call_colour(kind, True)) if kind else ""
 
 
 class TextPane(QTextEdit):
@@ -121,7 +130,7 @@ class TextPane(QTextEdit):
         at_bottom = bar.value() >= bar.maximum() - 4
         rows = []
         for kind, line in self.lines[-VISIBLE_LINES:]:
-            colour, bold, italic = LINE_STYLES.get(kind, (theme.TEXT, False, False))
+            colour, bold, italic = line_style(kind)
             body = esc(line)
             if kind == "rx":
                 body = highlight_calls_html(body)
@@ -145,17 +154,18 @@ class CwStatus(StatusLine):
         if st.get("transmitting"):
             parts.append(badge(_("TX"), "#ffffff", "#d32f2f"))
         elif st and not st.get("tx_enabled"):
-            parts.append(badge(_("RX ONLY"), "#000000", theme.YELLOW))
+            parts.append(badge(_("RX ONLY"), "#000000", theme.BG_YELLOW))
         play = st.get("playback")
         if play:
             elapsed, duration = int(play["elapsed"]), int(play["duration"])
             parts.append(badge(f"▶ {play['file']} {elapsed // 60}:{elapsed % 60:02d}"
-                               f"/{duration // 60}:{duration % 60:02d}", "#000000", theme.MAGENTA))
+                               f"/{duration // 60}:{duration % 60:02d}", "#000000",
+                               theme.BG_MAGENTA))
         if st.get("scanning"):
             parts.append(badge(f"{_('SCAN')} {bands.format_frequency(st.get('scan_freq'))}",
-                               "#000000", theme.CYAN))
+                               "#000000", theme.BG_CYAN))
         if st.get("skimming"):
-            parts.append(badge(_("SKIMMER"), "#000000", theme.GREEN))
+            parts.append(badge(_("SKIMMER"), "#000000", theme.BG_GREEN))
         chunks = [span(st.get("radio") or "IC-705", theme.CYAN, True),
                   span(f"{_('QRG')} ", theme.DIM)
                   + span(bands.format_frequency(st.get("frequency")), theme.YELLOW, True),
@@ -414,7 +424,7 @@ class CwPage(ChannelSaving, Page):
         table.setRowCount(len(channels))
         for i, ch in enumerate(channels):
             calling = call_kind(ch["text"])
-            colour = CALL_COLOURS.get(calling, theme.TEXT)
+            colour = call_colour(calling)
             call = (ch["callsign"] or "-") + (" ✓" if ch.get("known") else "") + \
                 (f"  {TABLE_BADGES[calling]}" if calling else "")
             cells = (str(ch["index"]), bands.format_frequency(ch["frequency"]), call,
@@ -424,7 +434,7 @@ class CwPage(ChannelSaving, Page):
                 item.setForeground(QColor(theme.CYAN if column == 2 and ch["callsign"] and
                                           not calling else colour))
                 if column == 0 and calling:
-                    item.setBackground(QColor(colour))
+                    item.setBackground(QColor(call_colour(calling, True)))
                     item.setForeground(QColor("#000000"))
                 if column == 5:
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight |

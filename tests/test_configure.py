@@ -38,14 +38,14 @@ def test_set_values_keeps_the_rest_of_the_file():
 
 def test_a_new_setup_asks_and_writes_the_template(tmp_path):
     path = tmp_path / "config.toml"
-    script = Script("es", "ea7xyz/p", "lan", "192.168.1.84", "manuel", "", "s",
+    script = Script("es", "ea7xyz/p", "lan", "192.168.1.84", "manuel", "", "light", "s",
                     secrets=("secreto",))
     assert configure.configure(path, script, language="en") == 0
     config = load_config(path)
     assert (config.language, config.callsign, config.connection) == ("es", "EA7XYZ/P", "lan")
     assert (config.host, config.username, config.password) == ("192.168.1.84", "manuel",
                                                                  "secreto")
-    assert config.tx_enabled is False
+    assert config.tx_enabled is False and config.theme == "light"
     text = path.read_text(encoding="utf-8")
     assert "# Antenna tuning page" in text and "{token}" not in text   # the whole template
     if sys.platform != "win32":
@@ -59,7 +59,7 @@ def test_enter_keeps_the_current_values(tmp_path):
     path.write_text(path.read_text(encoding="utf-8").replace(
         'callsign = "N0CALL"', 'callsign = "EA7KLX"'), encoding="utf-8")
     before = load_config(path)
-    script = Script("", "", "", "", "", "", "", secrets=("",))
+    script = Script("", "", "", "", "", "", "", "", secrets=("",))
     assert configure.configure(path, script, language="en") == 0
     after = load_config(path)
     assert (after.callsign, after.host, after.username, after.password, after.tx_enabled) == \
@@ -75,7 +75,7 @@ def test_tx_enabled_stays_where_cwic705_put_it(tmp_path):
     path = tmp_path / "config.toml"
     path.write_text('[rig]\nconnection = "sim"\n\n[station]\ncallsign = "EA7KLX"\n\n'
                     '[keyer]\nwpm = 20\ntx_enabled = false\n', encoding="utf-8")
-    assert configure.configure(path, Script("en", "", "", "y", ""), language="en") == 0
+    assert configure.configure(path, Script("en", "", "", "y", "", ""), language="en") == 0
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     assert data["keyer"]["tx_enabled"] is True and "tx_enabled" not in data["rig"]
     assert "host" not in data["rig"]          # the simulator asks no network questions
@@ -83,9 +83,10 @@ def test_tx_enabled_stays_where_cwic705_put_it(tmp_path):
 
 def test_a_wrong_answer_is_asked_again(tmp_path):
     path = tmp_path / "config.toml"
-    script = Script("fr", "en", "not a call", "EA7XYZ", "usb", "sim", "maybe", "n", "y")
+    script = Script("fr", "en", "not a call", "EA7XYZ", "usb", "sim", "maybe", "n", "pink",
+                    "dark", "y")
     assert configure.configure(path, script, language="en") == 0
-    assert load_config(path).connection == "sim"
+    assert load_config(path).connection == "sim" and load_config(path).theme == "dark"
     assert any("Choose one of" in line for line in script.said)
     assert any("does not look like a callsign" in line for line in script.said)
 

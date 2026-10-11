@@ -49,7 +49,10 @@ from ic705suite.gui.borrow import borrow
 from ic705suite.gui.page import Page, _Dialog, _wait
 from ic705suite.gui.widgets import Frame, Table, hint_html, rich_html, span
 
-FEEDBACK = {"info": theme.DIM, "ok": theme.GREEN, "warning": theme.YELLOW, "error": theme.RED}
+
+def feedback_colour(level: str) -> str:
+    return {"info": theme.DIM, "ok": theme.GREEN, "warning": theme.YELLOW,
+            "error": theme.RED}.get(level, theme.DIM)
 MAX_BLOCKS = 5000
 
 
@@ -260,7 +263,7 @@ class QtPktEntry(QWidget):
 
     def set_target(self, call: str) -> None:
         self.target.setText(call or pkt_("CMD"))
-        background = theme.GREEN if call else "transparent"
+        background = theme.BG_GREEN if call else "transparent"
         colour = "#000000" if call else theme.CYAN
         self.target.setStyleSheet(f"background:{background};color:{colour};font-weight:bold;"
                                   "padding:2px 6px;")
@@ -269,7 +272,7 @@ class QtPktEntry(QWidget):
         self.hint.setText(f"<i>{hint_html(pkt_(keys))}</i>")
 
     def feedback(self, message: str, level: str = "info") -> None:
-        self.message.setText(span(message, FEEDBACK.get(level, theme.DIM), level != "info")
+        self.message.setText(span(message, feedback_colour(level), level != "info")
                              if message else "")
 
 
@@ -317,7 +320,7 @@ class QtPktFooter(QLabel):
     def redraw(self) -> None:
         now = dt.datetime.now(dt.UTC)
         c = self._counters
-        parts = [f'<span style="background:{theme.BLUE};color:#000;font-weight:bold">'
+        parts = [f'<span style="background:{theme.BG_BLUE};color:#000;font-weight:bold">'
                  f"&nbsp;{now:%Y-%m-%d %H:%M:%S} UTC&nbsp;</span>"]
         for label, value in (("RX", _human_bytes(c.rx_bytes)), ("TX", _human_bytes(c.tx_bytes)),
                              (pkt_("frames"), c.frames), (pkt_("heard"), c.heard)):

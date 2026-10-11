@@ -76,18 +76,27 @@ def hint_html(hint: str) -> str:
 # ---- rich text -----------------------------------------------------------------------------
 
 # The terminal's colour names, as the theme draws them.
-RICH_COLOURS = {"green": theme.GREEN, "bright_green": theme.GREEN, "yellow": theme.YELLOW,
-                "bright_yellow": theme.YELLOW, "red": theme.RED, "bright_red": theme.RED,
-                "cyan": theme.CYAN, "bright_cyan": theme.CYAN, "magenta": theme.MAGENTA,
-                "bright_magenta": theme.MAGENTA, "blue": theme.BLUE, "bright_blue": theme.BLUE,
-                "white": theme.TEXT, "bright_white": "#ffffff", "black": "#000000"}
+def rich_colours() -> dict[str, str]:
+    """The terminal's colour names, as the theme in use draws them."""
+    return {"green": theme.GREEN, "bright_green": theme.GREEN, "yellow": theme.YELLOW,
+            "bright_yellow": theme.YELLOW, "red": theme.RED, "bright_red": theme.RED,
+            "cyan": theme.CYAN, "bright_cyan": theme.CYAN, "magenta": theme.MAGENTA,
+            "bright_magenta": theme.MAGENTA, "blue": theme.BLUE, "bright_blue": theme.BLUE,
+            "white": theme.TEXT, "bright_white": theme.TEXT, "black": "#000000"}
 
 
-def _css_colour(colour) -> str | None:
+def _css_colour(colour, background: bool = False) -> str | None:
     if colour is None or colour.is_default:
         return None
-    if colour.name in RICH_COLOURS:
-        return RICH_COLOURS[colour.name]
+    if background:              # black text sits on it: the vivid ones, in either theme
+        vivid = {"yellow": theme.BG_YELLOW, "green": theme.BG_GREEN,
+                 "magenta": theme.BG_MAGENTA, "cyan": theme.BG_CYAN, "blue": theme.BG_BLUE}
+        name = colour.name.removeprefix("bright_")
+        if name in vivid:
+            return vivid[name]
+    colours = rich_colours()
+    if colour.name in colours:
+        return colours[colour.name]
     return colour.get_truecolor().hex
 
 
@@ -117,7 +126,7 @@ def rich_html(text) -> str:
             out.append(body)
             continue
         css = []
-        fg, bg = _css_colour(style.color), _css_colour(style.bgcolor)
+        fg, bg = _css_colour(style.color), _css_colour(style.bgcolor, background=True)
         if style.reverse:
             fg, bg = bg or theme.PANEL, fg or theme.TEXT
         if style.dim and not fg:
@@ -229,7 +238,7 @@ class StatusLine(QLabel):
         if rig.get("transmitting"):
             parts.append(badge(_("TX"), "#ffffff", "#d32f2f"))
         elif rig and not rig.get("tx_enabled"):
-            parts.append(badge(_("RX ONLY"), "#000000", theme.YELLOW))
+            parts.append(badge(_("RX ONLY"), "#000000", theme.BG_YELLOW))
         if rig.get("recording"):
             parts.append(badge("● REC", "#ffffff", "#8b0000"))
 
@@ -275,7 +284,7 @@ class Footer(QLabel):
 
     def redraw(self) -> None:
         now = dt.datetime.now(dt.UTC)
-        clock = (f'<span style="background:{theme.BLUE};color:#000;font-weight:bold;">'
+        clock = (f'<span style="background:{theme.BG_BLUE};color:#000;font-weight:bold;">'
                  f"&nbsp;{now:%Y-%m-%d %H:%M:%S} UTC&nbsp;</span>")
         counters = "".join(f"&nbsp;&nbsp;&nbsp;{span(label, theme.DIM)} "
                            f"{span(value, theme.TEXT, True)}" for label, value in self.counters)
@@ -303,11 +312,11 @@ class SevenSegment(QWidget):
 
     wheel = Signal(int)
 
-    def __init__(self, text: str = "", colour: str = theme.AMBER,
+    def __init__(self, text: str = "", colour: str | None = None,
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.text = text
-        self.colour = QColor(colour)
+        self.colour = QColor(colour or theme.AMBER)
         self.setMinimumSize(QSize(260, 64))
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
@@ -556,9 +565,9 @@ class ControlGrid(QWidget):
         name_w = min(70.0, rect.width() * 0.38)
         name_rect = QRectF(rect.left(), rect.top() + 1, name_w, rect.height() - 2)
         if editing:
-            p.setBrush(QColor(theme.YELLOW))
+            p.setBrush(QColor(theme.BG_YELLOW))
         elif selected and self.hasFocus():
-            p.setBrush(QColor(theme.BLUE))
+            p.setBrush(QColor(theme.BG_BLUE))
         elif selected:
             p.setBrush(QColor(theme.BORDER))
         else:
@@ -779,7 +788,8 @@ class Scope(QWidget):
 
     def _draw_marks(self, p: QPainter, w: int) -> None:
         view = self.view
-        colours = {None: theme.YELLOW, "cq": theme.GREEN, "contest": theme.MAGENTA}
+        # On the scope's black, the vivid colours whatever the theme.
+        colours = {None: theme.BG_YELLOW, "cq": theme.BG_GREEN, "contest": theme.BG_MAGENTA}
         p.setFont(theme.mono(7.5, bold=True))
         taken: list[tuple[float, float]] = []
         ranked = sorted(view.marks, key=lambda m: (0 if m[0] == view.chosen else

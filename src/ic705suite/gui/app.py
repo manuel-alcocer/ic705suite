@@ -160,6 +160,7 @@ def run_gui(link: Link | None, config: Config, problem: str = "",
     app.setApplicationName("ic705suite")
     app.setApplicationDisplayName("ic705suite")
     app.setWindowIcon(QIcon.fromTheme("network-wireless"))
+    theme.use(config.theme)        # after the application: "auto" asks the desktop
     theme.apply(app)
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)

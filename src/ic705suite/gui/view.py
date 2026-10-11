@@ -233,7 +233,7 @@ class ViewPage(PanelKeys, Page):
         chunk(first, _("Width"), self._value("filter_width"))
         chunk(second, "VFO", self._value("vfo"), theme.CYAN)
         if controls.get("split"):
-            second.append(badge("SPLIT", "#000000", theme.YELLOW))
+            second.append(badge("SPLIT", "#000000", theme.BG_YELLOW))
         if controls.get("rit"):
             chunk(second, "RIT", self._value("rit_offset"), theme.YELLOW)
         chunk(second, _("Step"), f"{self.step:,} Hz".replace(",", "."))

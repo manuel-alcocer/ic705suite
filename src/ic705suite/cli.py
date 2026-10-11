@@ -67,6 +67,9 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--gui", action="store_true",
                    help="the graphical client (Qt) instead of the terminal; same keys, and "
                         "the mouse")
+    p.add_argument("--theme", choices=("dark", "light", "auto"),
+                   help="the graphical client's look (default from the config: auto, as the "
+                        "system)")
     p.add_argument("--lang", help="interface language (en, es)")
     p.add_argument("--glyphs", choices=glyphs.MODES,
                    help="characters for the screen: console for the plain Linux console "
@@ -293,6 +296,8 @@ def main(argv: list[str] | None = None) -> int:
             if link is not None and args.record is not None:
                 link.core.station.record_to(str(args.record))
         if args.gui:
+            if args.theme:
+                config.theme = args.theme
             return run_graphical(link, config, problem, app, log_file, scp)
         startup = []
         if args.wav:

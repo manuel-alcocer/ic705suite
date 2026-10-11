@@ -100,6 +100,8 @@ max_power = 30
 # Characters for the screen: "auto" (plain ones on the Linux console, TERM=linux), "unicode",
 # or "console" (block font for the frequency, shaded 16-colour waterfall, square borders)
 # glyphs = "auto"
+# The graphical client's look (ic705suite --gui): "dark", "light" or "auto" (as the system)
+# theme = "auto"
 
 [server]
 # ic705suite --serve: address to listen on and the token clients must present
@@ -156,6 +158,7 @@ class Config:
     # [ui] [server] [client]
     language: str = ""
     glyphs: str = "auto"
+    theme: str = "auto"              # the graphical client: dark, light or auto
     listen: str = "127.0.0.1:7373"
     server_token: str = ""
     connect: str = ""
@@ -194,6 +197,7 @@ def load_config(path: Path | None = None) -> Config:
             cfg.scp_path = Path(data["skimmer"]["scp_path"]).expanduser()
         cfg.language = str(data.get("ui", {}).get("language", cfg.language))
         cfg.glyphs = str(data.get("ui", {}).get("glyphs", cfg.glyphs))
+        cfg.theme = str(data.get("ui", {}).get("theme", cfg.theme)).lower()
         chans = data.get("channels", {})
         cfg.channels_db = str(chans.get("database", cfg.channels_db))
         cfg.channel_audio = bool(chans.get("audio", cfg.channel_audio))

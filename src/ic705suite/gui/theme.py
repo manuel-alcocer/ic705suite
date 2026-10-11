@@ -1,7 +1,10 @@
-"""The graphical client's look: a dark radio front panel, the same on Linux and Windows.
+"""The graphical client's look: a radio front panel, dark or light, the same on Linux and
+Windows.
 
 The colours keep the terminal's meanings (cyan the rig, yellow the frequency, green the mode
-and good values, red errors and transmission, dim the labels), on a near-black panel.
+and good values, red errors and transmission, dim the labels). ``use()`` picks the palette
+before any window is made ([ui] theme, --theme: dark, light or auto, which follows the
+system). The band scope's waterfall stays dark in both, as on any radio.
 """
 
 from __future__ import annotations
@@ -9,27 +12,66 @@ from __future__ import annotations
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
 
-BACKGROUND = "#0b0e13"
-PANEL = "#12171f"
-RAISED = "#1a212c"
-BORDER = "#26303d"
-FOCUS = "#3fa7d6"
-TEXT = "#d6dde6"
-DIM = "#7b8796"
-CYAN = "#4fc3f7"
-YELLOW = "#ffc94d"
-AMBER = "#ffb000"
-GREEN = "#43d17a"
-RED = "#ff5a5a"
-MAGENTA = "#e070ff"
-BLUE = "#78b4ff"
-SELECTED = "#1f3b57"
+THEMES = ("dark", "light", "auto")
 
-# Rich style names of the terminal screens, for the messages they share.
-STYLE_COLOURS = {"cyan": CYAN, "yellow": YELLOW, "green": GREEN, "red": RED, "magenta": MAGENTA,
-                 "white": TEXT, "dim": DIM, "blue": BLUE}
+PALETTES = {
+    "dark": {
+        "BACKGROUND": "#0b0e13", "PANEL": "#12171f", "RAISED": "#1a212c", "BORDER": "#26303d",
+        "FOCUS": "#3fa7d6", "TEXT": "#d6dde6", "DIM": "#7b8796", "CYAN": "#4fc3f7",
+        "YELLOW": "#ffc94d", "AMBER": "#ffb000", "GREEN": "#43d17a", "RED": "#ff5a5a",
+        "MAGENTA": "#e070ff", "BLUE": "#78b4ff", "SELECTED": "#1f3b57",
+    },
+    "light": {
+        "BACKGROUND": "#e9edf2", "PANEL": "#ffffff", "RAISED": "#eef1f5", "BORDER": "#c6ced8",
+        "FOCUS": "#1f78c1", "TEXT": "#1b2430", "DIM": "#5f6b7a", "CYAN": "#0a6f99",
+        "YELLOW": "#8a5a00", "AMBER": "#b34d00", "GREEN": "#16793d", "RED": "#c62828",
+        "MAGENTA": "#8e24aa", "BLUE": "#1f5fbf", "SELECTED": "#cfe2f6",
+    },
+}
 
-STYLESHEET = f"""
+# Backgrounds with black text on them (badges, a CQ marked, the option under the cursor):
+# vivid, and the same in both themes so they always read.
+BG_YELLOW = "#ffc94d"
+BG_GREEN = "#43d17a"
+BG_MAGENTA = "#e070ff"
+BG_CYAN = "#4fc3f7"
+BG_BLUE = "#78b4ff"
+
+NAME = "dark"
+BACKGROUND = PANEL = RAISED = BORDER = FOCUS = TEXT = DIM = ""
+CYAN = YELLOW = AMBER = GREEN = RED = MAGENTA = BLUE = SELECTED = ""
+
+
+def use(name: str) -> str:
+    """Make `name` ("dark" or "light"; "auto" asks the system) the palette of what is drawn
+    from now on. Returns the one chosen."""
+    global NAME
+    if name == "auto":
+        name = system_theme()
+    if name not in PALETTES:
+        name = "dark"
+    NAME = name
+    globals().update(PALETTES[name])
+    return name
+
+
+def system_theme() -> str:
+    """The desktop's choice (Qt 6.5+ knows it once the application exists); dark if unknown."""
+    from PySide6.QtCore import Qt
+
+    app = QApplication.instance()
+    try:
+        scheme = app.styleHints().colorScheme() if app is not None else None
+    except AttributeError:
+        scheme = None
+    return "light" if scheme == Qt.ColorScheme.Light else "dark"
+
+
+use("dark")
+
+
+def stylesheet() -> str:
+    return f"""
 QWidget {{
     background: {BACKGROUND};
     color: {TEXT};
@@ -157,4 +199,4 @@ def apply(app: QApplication) -> None:
                          (QPalette.ColorRole.ToolTipText, TEXT)):
         palette.setColor(role, QColor(colour))
     app.setPalette(palette)
-    app.setStyleSheet(STYLESHEET)
+    app.setStyleSheet(stylesheet())

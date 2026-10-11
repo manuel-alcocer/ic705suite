@@ -61,8 +61,12 @@ from ic705suite.gui.borrow import borrow
 from ic705suite.gui.page import Page, _Dialog, _wait
 from ic705suite.gui.widgets import Frame, Table, hint_html, rich_colour, rich_html, span
 
-FEEDBACK = {"info": (theme.TEXT, False, True), "ok": (theme.GREEN, True, False),
-            "warning": (theme.YELLOW, True, False), "error": (theme.RED, True, False)}
+
+def feedback_style(level: str) -> tuple[str, bool, bool]:
+    """The entry line's message levels as (colour, bold, italic) in the theme."""
+    return {"info": (theme.TEXT, False, True), "ok": (theme.GREEN, True, False),
+            "warning": (theme.YELLOW, True, False),
+            "error": (theme.RED, True, False)}.get(level, (theme.TEXT, False, True))
 
 
 def _font_bold(item: QTableWidgetItem, cell) -> None:
@@ -844,10 +848,10 @@ class QtEntryPanel(QWidget):
             self.frame.subtitle.setText("")
             return
         if level == "dup":
-            html = (f'<span style="background:{theme.YELLOW};color:#000;font-weight:bold">'
+            html = (f'<span style="background:{theme.BG_YELLOW};color:#000;font-weight:bold">'
                     f"&nbsp;{span(message, '#000000')}&nbsp;</span>")
         else:
-            colour, bold, italic = FEEDBACK.get(level, FEEDBACK["info"])
+            colour, bold, italic = feedback_style(level)
             html = span(message, colour, bold)
             if italic:
                 html = f"<i>{html}</i>"
