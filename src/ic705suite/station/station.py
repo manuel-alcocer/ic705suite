@@ -271,6 +271,11 @@ class Station:
     async def _poll_meters(self, tick: int) -> None:
         meters = self.rig.state.meters
         meters["s"] = self.rig.state.smeter
+        # Transmitting is asked to the radio: it may be keyed by the microphone, the key,
+        # break-in or VOX, not only by this program. The transmit meters (Po, SWR, ALC...)
+        # are read while it is; their last values stay shown afterwards.
+        with contextlib.suppress(RigError, TransportError):
+            self.rig.state.transmitting = await self.rig.read_transmitting()
         for meter in self.rig.meters():
             if meter.id == "s":
                 continue

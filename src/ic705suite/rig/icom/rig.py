@@ -409,6 +409,10 @@ class IcomRig(Rig):
 
     # ---- PTT and meters (antenna tuning) ----------------------------------------------------
 
+    async def read_transmitting(self) -> bool:
+        frame = await self.transact(b"\x1c\x00", b"\x1c\x00")
+        return len(frame.body) > 2 and frame.body[2] == 1
+
     async def ptt(self, on: bool) -> None:
         await self.transact(b"\x1c\x00" + (b"\x01" if on else b"\x00"))
         self.keyed_at = time.monotonic() if on else None

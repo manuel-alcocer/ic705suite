@@ -82,7 +82,8 @@ def test_remote_client_cannot_transmit_or_enable_tx():
                 await link.command(line)
             await asyncio.sleep(0.5)
             assert sim.sent_text == []
-            assert not any(f[4] in (0x17, 0x1C) for f in frames)
+            # Nothing that keys: no CW, no PTT on (reading whether it transmits is fine).
+            assert not any(f[4] == 0x17 or f[4] == 0x1C and len(f) > 7 for f in frames)
             assert core.config.tx_enabled is False
         finally:
             await link.close()

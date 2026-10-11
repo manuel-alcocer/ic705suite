@@ -90,7 +90,8 @@ def test_receive_only_never_keys_the_radio():
             session.send_macro("F2")
             await asyncio.sleep(0.3)
             assert sim.sent_text == []
-            assert not any(f[4] in (0x17, 0x1C) for f in sent)
+            # Nothing that keys: no CW, no PTT on (reading whether it transmits is fine).
+            assert not any(f[4] == 0x17 or f[4] == 0x1C and len(f) > 7 for f in sent)
             # Break-in is read for the front panel but never written.
             assert not any(f[4:6] == b"\x16\x47" and len(f) > 7 for f in sent)
             assert len(ui.errors) == 4

@@ -210,6 +210,11 @@ class Rig(abc.ABC):
     async def ptt(self, on: bool) -> None:
         raise RigError(f"{self.model.name}: PTT is not supported")
 
+    async def read_transmitting(self) -> bool:
+        """Whether the radio is transmitting now, whoever keyed it (the microphone's PTT, the
+        key, break-in, VOX, this program)."""
+        return self.state.transmitting
+
     async def read_swr(self) -> float:
         raise RigError(f"{self.model.name}: has no SWR meter")
 

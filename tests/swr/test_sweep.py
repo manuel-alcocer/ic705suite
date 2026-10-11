@@ -66,6 +66,8 @@ class FakeRadio(Transport):
             self._reply(b"\x14\x0a" + civ.encode_level(self.power))
         elif body[:2] == b"\x14\x0a":
             self.power = civ.decode_level(body[2:4]); self._reply(ok)
+        elif body == b"\x1c\x00":                       # read: transmitting?
+            self._reply(b"\x1c\x00" + bytes([int(self.ptt)]))
         elif body[:2] == b"\x1c\x00":
             self.ptt = body[2] == 1; self.keyed += self.ptt; self._reply(ok)
         elif body == b"\x15\x12":
@@ -431,5 +433,30 @@ def test_phone_page_refuses_too_large_bodies(tmp_path):
         finally:
             server.close()
             await server.wait_closed()
+
+    asyncio.run(run())
+
+
+def test_transmit_meters_follow_the_radio_keyed_by_hand(tmp_path):
+    """The microphone's PTT (or the key, or break-in) keys the radio, not this program: the
+    station still sees it transmitting and reads the SWR and the power."""
+    fake = FakeRadio(resonance=7_100_000)
+
+    async def run():
+        station, _service = make_service(tmp_path, fake)
+        rig = station.rig
+        await station.start()
+        try:
+            await station._poll_meters(1)
+            assert not rig.state.transmitting and "swr" not in rig.state.meters
+            fake.ptt = True                                   # keyed on the radio
+            await station._poll_meters(2)
+            assert rig.state.transmitting
+            assert rig.state.meters["swr"] > 1.0 and rig.state.meters["po"] > 0
+            fake.ptt = False
+            await station._poll_meters(3)
+            assert not rig.state.transmitting
+        finally:
+            await station.stop()
 
     asyncio.run(run())
