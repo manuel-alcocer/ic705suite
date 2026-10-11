@@ -14,6 +14,8 @@ Events (server -> client), by "type":
   swr      {status, sweep: {...}}  antenna tuning progress, while a sweep runs or changes
   pkt      {tnc, mycall, channels, heard...}  packet radio, when it changes; and
   pkt.text {channel, kind, text}  as it arrives (see apps.packet.service)
+  ft8      {on, band, dial, decoding...}  when it changes; ft8.cycle each cycle decoded
+           (see apps.ft8.service)
   history  {title, text}  earlier text of a station picked from the skimmer
   reply    {id, result}   answer to a call
   rx       {text}  decoded characters (single decoder mode)
@@ -32,7 +34,7 @@ Commands (client -> server):
            swr.state, swr.bands, swr.history {band}, swr.sweep {...}, swr.stop,
            swr.remote {on}, swr.final {coil, band?, note?}, swr.antennas, swr.antenna.select {id},
            swr.antenna.save {name, notes, coil_sign, id?}, swr.antenna.delete {id},
-           pkt.* (see apps.packet.service)
+           pkt.* (see apps.packet.service), ft8.* (see apps.ft8.service)
 """
 
 from __future__ import annotations
@@ -170,6 +172,7 @@ def skim_table(session: Session) -> Event:
 class Core:
     def __init__(self, transport: Transport | None, config: Config) -> None:
         """transport=None opens the rig described by the config ([rig] model, connection)."""
+        from ic705suite.apps.ft8.service import Ft8Service
         from ic705suite.apps.packet.service import PacketService
         from ic705suite.apps.swr.service import SwrService
 
@@ -179,6 +182,7 @@ class Core:
         self.session = Session(self.station, config, self.hub)
         self.swr = SwrService(self.station, config, self.hub)
         self.packet = PacketService(config, self.hub, self.station)
+        self.ft8 = Ft8Service(self.station, config, self.hub)
         self._ticker: asyncio.Task | None = None
         self.started = False
 
@@ -244,6 +248,7 @@ class Core:
                 log.info("archived %d unsaved channels on exit", saved)
         await self.swr.stop()
         await self.packet.stop()
+        await self.ft8.stop()
         await self.session.stop()
         await self.station.stop()
 
@@ -283,6 +288,8 @@ class Core:
             return await self.swr.call(method[4:], params)
         if method.startswith("pkt."):
             return await self.packet.call(method[4:], params)
+        if method.startswith("ft8."):
+            return await self.ft8.call(method[4:], params)
         return {"error": f"unknown method {method}"}
 
     async def command(self, line: str, app: str = "cw") -> None:
@@ -312,3 +319,5 @@ class Core:
                     self.hub.emit({"type": "swr", **self.swr.state()})
                 if self.packet.changed():
                     self.hub.emit({"type": "pkt", **self.packet.state()})
+                if self.ft8.changed():
+                    self.hub.emit({"type": "ft8", **self.ft8.state()})

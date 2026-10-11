@@ -21,7 +21,7 @@ from ic705suite.station.core import DEFAULT_PORT
 from ic705suite.station.links import Link, LinkError, LocalLink, RemoteLink
 
 TRACE = 5
-APP_CHOICES = ("view", "cw", "swr", "log", "packet", "dstar")
+APP_CHOICES = ("view", "cw", "swr", "log", "packet", "ft8", "dstar")
 OFFLINE_APPS = ("log",)   # it never uses the core
 
 

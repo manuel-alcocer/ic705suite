@@ -1061,8 +1061,15 @@ class Table(QTableWidget):
             item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         super().setItem(row, column, item)
 
+    #: Letters go to the page (its shortcuts) instead of jumping to a row that starts so.
+    pass_letters = False
+
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
         if event.key() == Qt.Key.Key_Space:
+            event.ignore()
+            return
+        if self.pass_letters and event.text().isalpha() and not event.modifiers() & (
+                Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier):
             event.ignore()
             return
         super().keyPressEvent(event)

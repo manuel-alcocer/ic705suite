@@ -11,6 +11,7 @@ to the radio; a dashboard opens the applications, which all share that one conne
 | F5 | **Antenna** | SWR and noise sweeps, which way to move the coil, per-band history; also a page for the phone (formerly *swr-remote*) |
 | F6 | **Logbook** | *hamrlog*: contacts, ADIF, repeaters, address book |
 | F7 | **Packet** | BayCom-style terminal: 8 AX.25 channels and the monitor, over a Direwolf TNC (here or on another machine) |
+| F8 | **FT8** | the band's activity, decoded every 15 s with WSJT-X's jt9 (receive; transmit and the logbook to come) |
 
 Everything runs in a console (Textual) with the HAMRLOG look, in English or Spanish, and only
 with the keyboard — no mouse: Tab, function keys and `/commands` (and the cursor keys on the
@@ -285,6 +286,17 @@ rest. A station calling us takes the first free channel. **F9** hides the monito
 lists the stations heard (Enter calls one). The bar marks the channels with unread text. The
 sessions live in the core: leaving the screen, or closing a remote client, does not drop
 them. With `agwpe` or `direwolf` it needs no radio of the suite's own.
+
+**FT8 (F8).** The core cuts the radio's audio into the 15-second cycles of the UTC clock
+and decodes each one with WSJT-X's `jt9` (a program of its own, GPL, which the suite only
+runs: `apt install wsjtx`; on Windows, WSJT-X's installer). The list is WSJT-X's Band
+Activity: each cycle's time, dB, DT, audio frequency and message, a CQ in green and what is
+sent to you in red. **←→** go through the bands to the FT8 frequencies (USB-D), **C** shows
+only the CQs (and yours), **S** stops and starts the decoding; opening the screen starts it
+and leaving it stops it. As WSJT-X, a quick pass comes first (on a Raspberry Pi 4, depth 1
+in about 3-6 s after the cycle) and, when the machine has time before the next cycle, a
+deeper one adds the weaker signals; the depths follow what each one takes there
+(`[ft8] depth` fixes one). It needs the clock on time (NTP).
 
 **The BBS.** With `[packet] bbs = true` the core also runs a BBS on its own callsign
 (`bbs_call`, by default your callsign `-1`): personal messages and bulletins, with the

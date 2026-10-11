@@ -357,8 +357,8 @@ msgstr "XIT"
 msgid "Tab Window · ↑↓ Enter Open · Ctrl+Q Quit"
 msgstr "Tab Ventana · ↑↓ Enter Abrir · Ctrl+Q Salir"
 
-msgid "Tab Window · ↑↓ Enter or F2-F7 Open · PgUp/PgDn Tune · F9 Reconnect · Ctrl+Q Quit"
-msgstr "Tab Ventana · ↑↓ Enter o F2-F7 Abrir · PgUp/PgDn Sintonizar · F9 Reconectar · Ctrl+Q Salir"
+msgid "Tab Window · ↑↓ Enter or F2-F8 Open · PgUp/PgDn Tune · F9 Reconnect · Ctrl+Q Quit"
+msgstr "Tab Ventana · ↑↓ Enter o F2-F8 Abrir · PgUp/PgDn Sintonizar · F9 Reconectar · Ctrl+Q Salir"
 
 msgid "F2-F9 Band · N Noise sweep (RX) · S SWR sweep (TX) · C Coil position · Esc Stop/Back"
 msgstr "F2-F9 Banda · N Barrido de ruido (RX) · S Barrido ROE (TX) · C Posición de bobina · Esc Parar/Volver"

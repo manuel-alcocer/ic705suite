@@ -34,7 +34,7 @@ from ic705suite.ui.rigline import RigStatusLine, smeter_bar
 from ic705suite.ui.waterfall import Waterfall
 from ic705suite.ui.widgets import clock_footer, css
 
-HINT = N_("Tab Window · ↑↓ Enter or F2-F7 Open · PgUp/PgDn Tune · F9 Reconnect · Ctrl+Q Quit")
+HINT = N_("Tab Window · ↑↓ Enter or F2-F8 Open · PgUp/PgDn Tune · F9 Reconnect · Ctrl+Q Quit")
 SHORT_HINT = N_("Tab Window · ↑↓ Enter Open · Ctrl+Q Quit")
 MAX_MESSAGES = 200
 SCOPE_KEEPALIVE = 5.0

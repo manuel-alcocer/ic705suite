@@ -1049,3 +1049,83 @@ msgstr "↑↓ elegir · Intro lee · K borra · U usuarios/mensajes · Esc volv
 
 msgid "no radio here: this core serves packet only"
 msgstr "aquí no hay equipo: este core solo sirve packet"
+
+# FT8
+
+msgid "Band activity"
+msgstr "Actividad de la banda"
+
+msgid "CYCLE"
+msgstr "CICLO"
+
+msgid "Decoded"
+msgstr "Decodificados"
+
+msgid "Decoding"
+msgstr "Decodificando"
+
+msgid "Decoding stopped (S starts it again)"
+msgstr "Decodificación parada (S la vuelve a poner en marcha)"
+
+msgid "Decoding: the first cycle comes when the next 15 s are heard whole"
+msgstr "Decodificando: el primer ciclo llega cuando se oigan enteros los próximos 15 s"
+
+msgid "Every message"
+msgstr "Todos los mensajes"
+
+msgid "FT8"
+msgstr "FT8"
+
+msgid "FT8 on {band}: {frequency} USB-D"
+msgstr "FT8 en {band}: {frequency} USB-D"
+
+msgid "Freq"
+msgstr "Frec"
+
+msgid "LAST"
+msgstr "ÚLTIMO"
+
+msgid "Message"
+msgstr "Mensaje"
+
+msgid "No FT8 frequency for {band}"
+msgstr "No hay frecuencia de FT8 para {band}"
+
+msgid "Only the CQs"
+msgstr "Solo los CQ"
+
+msgid "Only the CQs (and what is sent to you)"
+msgstr "Solo los CQ (y lo que te envían a ti)"
+
+msgid "Start"
+msgstr "Seguir"
+
+msgid "Stop"
+msgstr "Parar"
+
+msgid "The band's activity, decoded every 15 s (WSJT-X's jt9)"
+msgstr "La actividad de la banda, decodificada cada 15 s (jt9 de WSJT-X)"
+
+msgid "The radio did not take it: {error}"
+msgstr "La radio no lo ha aceptado: {error}"
+
+msgid "The radio is not connected"
+msgstr "La radio no está conectada"
+
+msgid "WSJT-X's jt9 is not installed here: install WSJT-X (Debian, Ubuntu, Raspberry Pi OS: apt install wsjtx) or set [ft8] jt9"
+msgstr "El jt9 de WSJT-X no está instalado aquí: instala WSJT-X (Debian, Ubuntu, Raspberry Pi OS: apt install wsjtx) o indica el programa en [ft8] jt9"
+
+msgid "decoding…"
+msgstr "decodificando…"
+
+msgid "not on an FT8 frequency (←→)"
+msgstr "no está en una frecuencia de FT8 (←→)"
+
+msgid "{count} decoded in {seconds} s"
+msgstr "{count} decodificados en {seconds} s"
+
+msgid "←→ Band · C CQ only · S Stop/Start · Esc Back"
+msgstr "←→ Banda · C Solo CQ · S Parar/Seguir · Esc Volver"
+
+msgid "←→ Band · C CQ only · S Stop/Start · ↑↓ PgUp/PgDn · Esc Back"
+msgstr "←→ Banda · C Solo CQ · S Parar/Seguir · ↑↓ PgUp/PgDn · Esc Volver"

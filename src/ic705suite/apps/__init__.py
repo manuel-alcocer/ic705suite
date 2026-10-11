@@ -41,6 +41,8 @@ APPS = (
     AppInfo("packet", "F7", N_("Packet"),
             N_("BayCom-style terminal: 8 AX.25 channels and the monitor, over Direwolf"),
             None, True),
+    AppInfo("ft8", "F8", N_("FT8"),
+            N_("The band's activity, decoded every 15 s (WSJT-X's jt9)"), FEATURE_AUDIO, True),
 )
 BY_ID = {app.id: app for app in APPS}
 

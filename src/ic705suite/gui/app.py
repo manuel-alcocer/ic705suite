@@ -183,6 +183,10 @@ class MainWindow(QMainWindow):
             remote = packet_link(self.config)      # packet on another machine's core
             page = PacketPage(self, remote or self.link, self.config,
                               owns_link=standalone or remote is not None)
+        elif app_id == "ft8":
+            from ic705suite.gui.ft8 import Ft8Page
+
+            page = Ft8Page(self, self.link, self.config, owns_link=standalone)
         elif app_id == "log":
             from ic705suite.gui.log import LogPage
 

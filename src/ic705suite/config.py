@@ -131,6 +131,13 @@ max_power = 30
 # Radio port of the TNC, from 1
 # radio_port = 1
 
+[ft8]
+# FT8 (F8) decodes each cycle with WSJT-X's jt9 (apt install wsjtx): the program, when it is
+# not on the PATH or where WSJT-X installs it, and how hard it tries (1 fast, 3 deepest; 0,
+# the default: a quick pass and, when there is time, a deeper one, as this machine allows)
+# jt9 = "jt9"
+# depth = 0
+
 [ui]
 # Interface language: "en" or "es" (default: the system language; IC705SUITE_LANG overrides)
 # language = "es"
@@ -204,6 +211,9 @@ class Config:
     packet_txdelay: int = 30
     packet_direwolf: str = ""
     packet_bbs: bool = False
+    # [ft8]
+    ft8_jt9: str = ""
+    ft8_depth: int = 0               # 0: chosen from how long each depth takes here
     packet_core: str = ""            # "host:port" of the core packet runs on ("" = this one)
     packet_core_token: str = ""
     packet_bbs_call: str = ""        # "" = the station callsign -1
@@ -280,6 +290,9 @@ def load_config(path: Path | None = None) -> Config:
         cfg.packet_core_token = str(packet.get("core_token", cfg.packet_core_token))
         cfg.packet_bbs_call = str(packet.get("bbs_call", cfg.packet_bbs_call)).upper()
         cfg.packet_client = bool(packet.get("client", cfg.packet_client))
+        ft8 = data.get("ft8", {})
+        cfg.ft8_jt9 = str(ft8.get("jt9", cfg.ft8_jt9))
+        cfg.ft8_depth = int(ft8.get("depth", cfg.ft8_depth))
         server, client = data.get("server", {}), data.get("client", {})
         cfg.listen = str(server.get("listen", cfg.listen))
         cfg.server_token = str(server.get("token", cfg.server_token))

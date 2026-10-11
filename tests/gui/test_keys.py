@@ -47,6 +47,7 @@ PAGES = {"dashboard": ("ic705suite.gui.dashboard", "DashboardPage"),
          "entry": ("ic705suite.gui.swr", "EntryView"),
          "logbook": ("ic705suite.gui.log", "LogPage"),
          "packet": ("ic705suite.gui.packet", "PacketPage"),
+         "ft8": ("ic705suite.gui.ft8", "Ft8Page"),
          "packet heard": ("ic705suite.gui.packet", "HeardView"),
          "packet bbs": ("ic705suite.gui.packet", "BbsView")}
 
