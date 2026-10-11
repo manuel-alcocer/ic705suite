@@ -85,6 +85,9 @@ class Page(QWidget):
         else:
             self.restore_focus()
 
+    def retheme(self) -> None:
+        """The theme changed: draw again what took its colours when it was filled."""
+
     def restore_focus(self) -> None:
         """Back on the page: its usual place for the keys (the page itself by default)."""
         self.setFocus()

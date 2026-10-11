@@ -292,6 +292,10 @@ class SwrPage(Page):
         self.state = state
         self._show_state()
 
+    def retheme(self) -> None:
+        self._show_state()
+        self._show_sweep()
+
     def _show_state(self) -> None:
         """The terminal's SweepPanel: remote control, receive only, phone page, the sweep's
         verdict and advice; the points as a chart."""
@@ -307,6 +311,9 @@ class SwrPage(Page):
             remote = badge(_("OFF"), "#ffffff", "#2e5aa8") + span(
                 _("the phone only watches; no SWR sweeps") + "  " + _("(R switches it on)"),
                 theme.TEXT)
+            if state.get("remote_password"):
+                remote += "<br>" + span(
+                    _("The phone page can switch it on with the password."), theme.DIM)
         self.remote.setText(span(_("Remote control") + ": ", theme.DIM) + remote)
         notes = []
         if not state.get("allow_tx"):

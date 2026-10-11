@@ -483,7 +483,7 @@ class QtStatusLine(QLabel):
         self.demo = False
         self.setTextFormat(Qt.TextFormat.RichText)
         self.setContentsMargins(6, 3, 6, 3)
-        self.setStyleSheet(f"background:{theme.PANEL};border-bottom:1px solid {theme.BORDER};")
+        self.setObjectName("statusbar")      # styled by the theme
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.timer = QTimer(self, interval=2000, timeout=self.refresh)   # the load
         self.timer.start()
@@ -503,7 +503,7 @@ class QtStatsFooter(QLabel):
         self.timezone = ""
         self.setTextFormat(Qt.TextFormat.RichText)
         self.setContentsMargins(0, 2, 6, 2)
-        self.setStyleSheet(f"background:{theme.PANEL};border-top:1px solid {theme.BORDER};")
+        self.setObjectName("footerbar")      # styled by the theme
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.timer = QTimer(self, interval=1000, timeout=self.redraw)
         self.timer.start()
@@ -595,7 +595,7 @@ class QtBrowseBar(QLabel):
         self.prompt = BROWSE_PROMPT
         self.setTextFormat(Qt.TextFormat.RichText)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setStyleSheet(f"background:{theme.SELECTED};padding:4px 8px;font-weight:bold;")
+        self.setObjectName("browsebar")
         self.setVisible(False)
         self.set_prompt(BROWSE_PROMPT)
 
@@ -712,7 +712,7 @@ class QtEntryPanel(QWidget):
         for name in names:
             label_text, width = FIELD_LAYOUT.get(name, DEFAULT_LAYOUT)
             label = QLabel(log_(label_text))
-            label.setStyleSheet(f"color:{theme.CYAN};font-weight:bold;")
+            label.setObjectName("heading")
             box = QtEntryField(self.page, name, extra)
             box.setFont(theme.mono(10.5))
             if width is not None:
@@ -924,8 +924,7 @@ class LogPage(Page):
         self.entry_frame.add(self.entry)
         self.footer = QtStatsFooter()
         self.toast = QLabel(self)
-        self.toast.setStyleSheet(f"background:{theme.RAISED};border:1px solid {theme.FOCUS};"
-                                 "border-radius:6px;padding:8px 12px;")
+        self.toast.setObjectName("toast")
         self.toast.setVisible(False)
         self.toast_timer = QTimer(self, singleShot=True, interval=4500,
                                   timeout=lambda: self.toast.setVisible(False))

@@ -261,6 +261,10 @@ class QtPktEntry(QWidget):
         box.addWidget(self.message)
         self.set_target("")
 
+    def redraw(self) -> None:
+        """The theme changed."""
+        self.set_target("" if self.target.text() == pkt_("CMD") else self.target.text())
+
     def set_target(self, call: str) -> None:
         self.target.setText(call or pkt_("CMD"))
         background = theme.BG_GREEN if call else "transparent"
@@ -289,7 +293,7 @@ class QtPktStatus(QLabel):
         self.timer.start()
         self.setTextFormat(Qt.TextFormat.RichText)
         self.setContentsMargins(6, 3, 6, 3)
-        self.setStyleSheet(f"background:{theme.PANEL};border-bottom:1px solid {theme.BORDER};")
+        self.setObjectName("statusbar")      # styled by the theme
 
     def __setattr__(self, name: str, value) -> None:
         super().__setattr__(name, value)
@@ -309,7 +313,7 @@ class QtPktFooter(QLabel):
         self._counters = Counters()
         self.setTextFormat(Qt.TextFormat.RichText)
         self.setContentsMargins(0, 2, 6, 2)
-        self.setStyleSheet(f"background:{theme.PANEL};border-top:1px solid {theme.BORDER};")
+        self.setObjectName("footerbar")      # styled by the theme
         self.timer = QTimer(self, interval=1000, timeout=self.redraw)
         self.timer.start()
 

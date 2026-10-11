@@ -9,8 +9,11 @@ system). The band scope's waterfall stays dark in both, as on any radio.
 
 from __future__ import annotations
 
+import contextlib
+import re
+
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QLabel, QTableWidget, QWidget
 
 THEMES = ("dark", "light", "auto")
 
@@ -171,6 +174,29 @@ QSplitter::handle {{
 QDialog {{
     background: {PANEL};
 }}
+QLabel#statusbar {{
+    background: {PANEL};
+    border-bottom: 1px solid {BORDER};
+}}
+QLabel#footerbar {{
+    background: {PANEL};
+    border-top: 1px solid {BORDER};
+}}
+QLabel#heading {{
+    color: {CYAN};
+    font-weight: bold;
+}}
+QLabel#browsebar {{
+    background: {SELECTED};
+    padding: 4px 8px;
+    font-weight: bold;
+}}
+QLabel#toast {{
+    background: {RAISED};
+    border: 1px solid {FOCUS};
+    border-radius: 6px;
+    padding: 8px 12px;
+}}
 QMenuBar {{
     background: {PANEL};
     border-bottom: 1px solid {BORDER};
@@ -196,6 +222,54 @@ def mono(size: float = 10, bold: bool = False) -> QFont:
     font.setPointSizeF(size)
     font.setBold(bold)
     return font
+
+
+def switch(name: str) -> str:
+    """Change the theme of the running client: the palette, the stylesheet, and everything
+    drawn again. Returns the one in use ("auto" resolved)."""
+    before = dict(PALETTES[NAME])
+    chosen = use(name)
+    app = QApplication.instance()
+    if app is None:
+        return chosen
+    apply(app)
+    # A colour of the old palette becomes the same colour of the new one.
+    mapping = {QColor(before[key]).name(): QColor(PALETTES[chosen][key])
+               for key in before if before[key] != PALETTES[chosen][key]}
+    for widget in app.allWidgets():
+        if isinstance(widget, QTableWidget):
+            _recolour_items(widget, mapping)
+        elif isinstance(widget, QLabel) and "#" in widget.text():
+            # Rich text written with the old colours (spans, rich_html): the same, in the new.
+            widget.setText(re.sub(r"#[0-9a-fA-F]{6}\b", lambda m: mapping.get(
+                m.group(0).lower(), QColor(m.group(0))).name(), widget.text()))
+        # Status lines, footers, text panes: drawn again with the new colours.
+        for method in ("redraw", "refresh"):
+            draw = getattr(type(widget), method, None)
+            if draw is not None and not hasattr(QWidget, method):
+                with contextlib.suppress(TypeError, RuntimeError):
+                    draw(widget)
+                break
+        widget.update()
+    return chosen
+
+
+def _recolour_items(table: QTableWidget, mapping: dict[str, QColor]) -> None:
+    from PySide6.QtCore import Qt
+
+    for row in range(table.rowCount()):
+        for column in range(table.columnCount()):
+            item = table.item(row, column)
+            if item is None:
+                continue
+            for role in (Qt.ItemDataRole.ForegroundRole, Qt.ItemDataRole.BackgroundRole):
+                brush = item.data(role)
+                if brush is None:
+                    continue
+                colour = brush.color() if hasattr(brush, "color") else QColor(brush)
+                new = mapping.get(colour.name())
+                if new is not None:
+                    item.setData(role, new)
 
 
 def apply(app: QApplication) -> None:

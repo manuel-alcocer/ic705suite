@@ -1,5 +1,7 @@
 """The light theme: every colour drawn follows the palette in use; the waterfall stays dark."""
 
+import asyncio
+
 import pytest
 from rich.text import Text
 
@@ -50,8 +52,8 @@ def test_help_menu_and_the_version_always_shown(tmp_path, run):
         win, link = await window(tmp_path)
         try:
             menus = [a.text() for a in win.menuBar().actions()]
-            assert menus == ["Help"]
-            items = [a.text() for a in win.menuBar().actions()[0].menu().actions() if a.text()]
+            assert menus == ["View", "Help"]
+            items = [a.text() for a in win.menuBar().actions()[1].menu().actions() if a.text()]
             assert items == ["Project page", "About ic705suite"]
             box = win.show_about()
             assert f"ic705suite {__version__}" in box.text()
@@ -72,3 +74,63 @@ def test_terminal_status_lines_keep_the_version():
     for width in (200, 60, 20):
         line = with_load(Text("IC-705 · QRG 7.030.00 · MODE CW · LINK local"), width)
         assert line.plain.rstrip().endswith(f"v{__version__}") and line.cell_len <= width
+
+
+def test_view_menu_switches_the_theme_at_once_and_keeps_it(tmp_path, run):
+    """View > Theme: the palette changes on the open window (the status line's colours
+    too) and [ui] theme is written in the configuration file, the rest of it unchanged."""
+    from ic705suite.gui import theme
+    from tests.gui.test_pages import window
+
+    config_file = tmp_path / "config.toml"
+    config_file.write_text('# mine\n[station]\ncallsign = "EA7KLX"\n', encoding="utf-8")
+
+    async def scenario():
+        win, link = await window(tmp_path)
+        try:
+            win.config.source = config_file
+            win.set_theme("dark")
+            dark_cyan = theme.CYAN
+            assert dark_cyan in win.dashboard.status.text()
+            win.set_theme("light")
+            assert theme.NAME == "light" and theme.CYAN != dark_cyan
+            assert win.theme_actions["light"].isChecked()
+            assert theme.CYAN in win.dashboard.status.text()
+            assert dark_cyan not in win.dashboard.status.text()
+            saved = config_file.read_text(encoding="utf-8")
+            assert 'theme = "light"' in saved and 'callsign = "EA7KLX"' in saved
+            assert saved.startswith("# mine")
+        finally:
+            theme.switch("dark")
+            await link.close()
+
+    run(scenario())
+
+
+def test_cw_macro_keys_are_short_and_question_lists_them(tmp_path, run):
+    """F2-F9 show the key only (the window stays narrow); ? lists what each sends."""
+    from PySide6.QtWidgets import QApplication, QPlainTextEdit
+
+    from tests.gui.test_pages import window
+
+    async def scenario():
+        win, link = await window(tmp_path, start_app="cw")
+        page = win.page
+        try:
+            await asyncio.sleep(1.0)
+            assert [b.text() for b in page.macro_buttons.values()] == \
+                [f"F{n}" for n in range(2, 10)]
+            assert "CQ" in page.macro_buttons["F2"].toolTip()
+            page.macro_help.click()
+            for _ in range(50):
+                if QApplication.activeModalWidget() is not None:
+                    break
+                await asyncio.sleep(0.05)
+            dialog = QApplication.activeModalWidget()
+            shown = dialog.findChild(QPlainTextEdit).toPlainText()
+            assert shown.startswith("F2  CQ") and "F9" in shown
+            dialog.reject()
+        finally:
+            await link.close()
+
+    run(scenario())

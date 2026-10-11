@@ -675,3 +675,27 @@ msgstr "Suite de estación para el Icom IC-705: panel, vista del equipo, CW, aju
 
 msgid "Close"
 msgstr "Cerrar"
+
+msgid "View"
+msgstr "Ver"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Dark"
+msgstr "Oscuro"
+
+msgid "Light"
+msgstr "Claro"
+
+msgid "As the system"
+msgstr "Como el sistema"
+
+msgid "Macros"
+msgstr "Macros"
+
+msgid "What each macro sends"
+msgstr "Qué envía cada macro"
+
+msgid "The phone page can switch it on with the password."
+msgstr "La página del móvil puede encenderlo con la contraseña."

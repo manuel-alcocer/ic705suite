@@ -251,6 +251,10 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
         except (LinkError, OSError):
             pass
 
+    def retheme(self) -> None:
+        self._show_rig()
+        self._show_station()
+
     def _show_rig(self) -> None:
         rig, info = self.rig, self.welcome.get("rig", {})
         if not rig and not self.welcome:

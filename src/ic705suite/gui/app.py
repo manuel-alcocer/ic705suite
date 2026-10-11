@@ -9,6 +9,7 @@ Textual; the rest reach the focused widget first and then the page.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import sys
 
@@ -19,10 +20,23 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QStackedWi
 from ic705suite.config import Config
 from ic705suite.gui import theme
 from ic705suite.gui.page import Page
-from ic705suite.i18n import _
+from ic705suite.i18n import N_, _
 from ic705suite.station.links import Link
 
 log = logging.getLogger(__name__)
+
+
+def save_theme(config: Config) -> None:
+    """[ui] theme in the configuration file, the rest of it as it is (no file: nothing)."""
+    from ic705suite.configure import save, set_values
+
+    path = config.source
+    if path is None or not path.exists():
+        return
+    try:
+        save(path, set_values(path.read_text(encoding="utf-8"), {("ui", "theme"): config.theme}))
+    except (OSError, ValueError) as exc:
+        log.warning("cannot save the theme in %s: %s", path, exc)
 
 PROJECT_URL = "https://github.com/manuel-alcocer/ic705suite"
 
@@ -45,12 +59,47 @@ class MainWindow(QMainWindow):
         self.dashboard = DashboardPage(self, link, config, problem)
         self.stack.addWidget(self.dashboard)
         self.page: Page | None = None
+        self._view_menu()
         self._help_menu()
         QApplication.instance().installEventFilter(self)
         if start_app is None:
             self.show_page(self.dashboard)
         else:
             self.open_app(start_app, standalone=True)
+
+    # ---- the View menu: the theme ---------------------------------------------------------
+
+    def _view_menu(self) -> None:
+        from PySide6.QtGui import QActionGroup
+
+        menu = self.menuBar().addMenu(_("View")).addMenu(_("Theme"))
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        self.theme_actions = {}
+        for name, label in (("dark", N_("Dark")), ("light", N_("Light")),
+                            ("auto", N_("As the system"))):
+            action = menu.addAction(_(label))
+            action.setCheckable(True)
+            action.setChecked(name == (self.config.theme or "auto"))
+            action.triggered.connect(lambda _c=False, n=name: self.set_theme(n))
+            group.addAction(action)
+            self.theme_actions[name] = action
+        # "As the system" follows the desktop while the window is open.
+        with contextlib.suppress(AttributeError):
+            QApplication.instance().styleHints().colorSchemeChanged.connect(
+                lambda _scheme: self.config.theme == "auto" and self.set_theme("auto", save=False))
+
+    def set_theme(self, name: str, save: bool = True) -> None:
+        """Dark, light or as the system, at once; kept in the configuration file."""
+        self.config.theme = name
+        self.theme_actions[name].setChecked(True)
+        theme.switch(name)
+        for index in range(self.stack.count()):
+            page = self.stack.widget(index)
+            if hasattr(page, "retheme"):
+                page.retheme()
+        if save:
+            save_theme(self.config)
 
     # ---- the Help menu ------------------------------------------------------------------
 
