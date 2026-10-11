@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v0.3.0 (2026-10-11)
+
+### Features
+
+- **gui**: A light theme, or the desktop's choice
+  ([`8cdc660`](https://github.com/manuel-alcocer/ic705suite/commit/8cdc6606488d255bcb3c9bbee9ed01758b483856))
+
+- **swr**: A history to browse, with photos
+  ([`eada85e`](https://github.com/manuel-alcocer/ic705suite/commit/eada85e77df4209bdc6e5e8ac6e7be38ef37d666))
+
+- **swr**: Presets, your own targets besides the bands' own
+  ([`d0942b7`](https://github.com/manuel-alcocer/ic705suite/commit/d0942b7c0809ec2854425337fddb37f8b2cbe645))
+
+
 ## v0.2.1 (2026-10-11)
 
 ### Bug Fixes
