@@ -51,6 +51,12 @@ def summary(config: Config) -> list[tuple[str, str]]:
                  _("with a password") if config.swr_remote_password else
                  _("only from the antenna application")))
     rows.append((_("Graphical client"), config.theme))
+    if config.packet_host:
+        mycall = config.packet_mycall or config.callsign or "-"
+        rows.append((_("Packet"), _("{call} on the TNC at {host}:{port}").format(
+            call=mycall, host=config.packet_host, port=config.packet_tcp_port)))
+    else:
+        rows.append((_("Packet"), _("not set up")))
     return rows
 
 
@@ -121,6 +127,22 @@ def _callsign(value: str) -> str | None:
     return _("That does not look like a callsign (for example EA7XYZ or EA7XYZ/P)")
 
 
+def _tnc(value: str) -> str | None:
+    host, _sep, port = value.rpartition(":") if ":" in value else (value, "", "")
+    if not value or (host and (not port or port.isdigit())):
+        return None
+    return _("Write it as host or host:port, for example raspberrypi.local:8000")
+
+
+def _packet_call(value: str) -> str | None:
+    from ic705suite.apps.packet.agwpe import CALLSIGN as AX25_CALLSIGN
+
+    if AX25_CALLSIGN.match(value):
+        return None
+    return _("A callsign of up to 6 characters and an SSID from 0 to 15, for example "
+             "EA7XYZ-4")
+
+
 def _not_empty(value: str) -> str | None:
     return None if value else _("It cannot be empty")
 
@@ -166,6 +188,19 @@ def configure(path: Path | None = None, questions: Questions | None = None,
         config.theme = q.choice(
             _("Look of the graphical client (ic705suite --gui): dark, light or auto (as the "
               "system)"), THEMES, config.theme if config.theme in THEMES else "auto")
+        current = (f"{config.packet_host}:{config.packet_tcp_port}" if config.packet_host
+                   else "")
+        tnc = q.text(_("Packet: the Direwolf TNC (its AGWPE port) as host or host:port, on "
+                       "this machine or another (Enter with nothing: no packet)"), current, _tnc)
+        if tnc:
+            host, _sep, port = tnc.rpartition(":") if ":" in tnc else (tnc, "", "")
+            config.packet_host, config.packet_tcp_port = host, int(port or 8000)
+            config.packet_mycall = q.text(
+                _("Packet callsign, with its SSID"),
+                config.packet_mycall or f"{config.callsign.split('/')[0]}-4", _packet_call,
+                upper=True)
+        else:
+            config.packet_host = ""
 
         q.write("")
         q.write(_("The settings will be:"))
@@ -184,8 +219,12 @@ def configure(path: Path | None = None, questions: Questions | None = None,
         ("rig", "connection"): config.connection,
         ("ui", "theme"): config.theme,
         ("swr", "remote_password"): config.swr_remote_password,
+        ("packet", "host"): config.packet_host,
         (_section_of(text, "tx_enabled", ("rig", "keyer")), "tx_enabled"): config.tx_enabled,
     }
+    if config.packet_host:
+        values.update({("packet", "tcp_port"): config.packet_tcp_port,
+                       ("packet", "mycall"): config.packet_mycall})
     if config.connection == "lan":
         values.update({("rig", "host"): config.host, ("rig", "username"): config.username,
                        ("rig", "password"): config.password})

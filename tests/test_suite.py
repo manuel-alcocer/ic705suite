@@ -154,9 +154,12 @@ def test_dashboard_with_the_cursor_keys(tmp_path):
             await pilot.press("down", "down", "down", "down")     # View -> ... -> Logbook
             await pilot.press("up", "down", "down", "enter")      # Antenna, Logbook, Packet
             await pilot.pause(0.1)
-        assert app.return_value == "packet"
-        # Back on the dashboard, still on Packet. The View needs the radio (there is none
-        # here) and stays; the Logbook opens with Space.
+            # Packet runs on the core, and with no radio set up there is none: it stays.
+            assert app.is_running and "needs the radio" in app.messages[-1][1]
+            await pilot.press("up", "enter")                      # the Logbook
+            await pilot.pause(0.1)
+        assert app.return_value == "log"
+        # The View needs the radio too and stays; the Logbook opens with Space.
         app = DashboardApp(None, config)
         async with app.run_test(size=(140, 44)) as pilot:
             await pilot.press(*["up"] * 5, "enter")

@@ -122,3 +122,18 @@ msgstr "con contraseña"
 
 msgid "only from the antenna application"
 msgstr "solo desde la aplicación de antena"
+
+msgid "Packet: the Direwolf TNC (its AGWPE port) as host or host:port, on this machine or another (Enter with nothing: no packet)"
+msgstr "Packet: el TNC Direwolf (su puerto AGWPE) como máquina o máquina:puerto, en esta o en otra (Intro sin nada: sin packet)"
+
+msgid "Write it as host or host:port, for example raspberrypi.local:8000"
+msgstr "Escríbelo como máquina o máquina:puerto, por ejemplo raspberrypi.local:8000"
+
+msgid "Packet callsign, with its SSID"
+msgstr "Indicativo para packet, con su SSID"
+
+msgid "A callsign of up to 6 characters and an SSID from 0 to 15, for example EA7XYZ-4"
+msgstr "Un indicativo de hasta 6 caracteres y un SSID de 0 a 15, por ejemplo EA7XYZ-4"
+
+msgid "{call} on the TNC at {host}:{port}"
+msgstr "{call} en el TNC de {host}:{port}"

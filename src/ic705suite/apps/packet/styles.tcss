@@ -1,0 +1,29 @@
+/* Packet: the monitor on top, the channel bar, the chosen channel, the command line. */
+
+#monitor {
+    height: 30%;
+    min-height: 5;
+    background: $surface;
+}
+
+#tabs {
+    height: 1;
+    background: $boost;
+    padding: 0 1;
+}
+
+#channel {
+    height: 1fr;
+    background: $surface;
+}
+
+#line {
+    border: none;
+    height: 1;
+    padding: 0 1;
+    background: $boost;
+}
+
+#line:focus {
+    background: $primary-darken-2;
+}

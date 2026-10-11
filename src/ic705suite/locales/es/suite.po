@@ -255,9 +255,6 @@ msgstr "modo datos"
 msgid "hamrlog: contacts, ADIF, repeaters, address book"
 msgstr "hamrlog: contactos, ADIF, repetidores, agenda"
 
-msgid "hamrpkt: AX.25 terminal over AGWPE or Telnet (LinBPQ, Direwolf)"
-msgstr "hamrpkt: terminal AX.25 por AGWPE o Telnet (LinBPQ, Direwolf)"
-
 msgid "mode {mode}"
 msgstr "modo {mode}"
 
@@ -702,3 +699,171 @@ msgstr "Sin curva guardada (medición anterior a la versión 0.3.1, o una posici
 
 msgid "saved"
 msgstr "guardado"
+
+# Packet
+
+msgid ""
+"/c CALL [v DIGI …]   connect this channel to CALL (via digipeaters)\n"
+"/d                   disconnect this channel\n"
+"/ch N                go to channel N (also F1-F8; 0 is the monitor)\n"
+"/ui DEST text        send an unconnected UI frame\n"
+"/clear               clear this channel's window (also Ctrl+L)\n"
+"/retry               reach the TNC again now\n"
+"/quit                back to the dashboard (also Ctrl+Q)\n"
+"//text               send a line starting with /"
+msgstr ""
+"/c IND [v DIGI …]    conecta este canal con IND (por digirrepetidores)\n"
+"/d                   desconecta este canal\n"
+"/ch N                va al canal N (también F1-F8; el 0 es el monitor)\n"
+"/ui DEST texto       envía una trama UI sin conexión\n"
+"/clear               limpia la ventana de este canal (también Ctrl+L)\n"
+"/retry               vuelve a buscar el TNC ahora\n"
+"/quit                vuelve al panel (también Ctrl+Q)\n"
+"//texto              envía una línea que empieza por /"
+
+msgid "/c CALL connects this channel · /help"
+msgstr "/c IND conecta este canal · /help"
+
+msgid "Already connected to {call}"
+msgstr "Ya hay conexión con {call}"
+
+msgid "At most 7 digipeaters"
+msgstr "Como mucho 7 digirrepetidores"
+
+msgid "BayCom-style terminal: 8 AX.25 channels and the monitor, over Direwolf"
+msgstr "Terminal al estilo BayCom: 8 canales AX.25 y el monitor, sobre Direwolf"
+
+msgid "Call to {call} cancelled"
+msgstr "Llamada a {call} cancelada"
+
+msgid "Calling {call}…"
+msgstr "Llamando a {call}…"
+
+msgid "Cannot reach the TNC at {host}:{port}: {error}; trying again in {seconds} s"
+msgstr "No se llega al TNC en {host}:{port}: {error}; se reintenta en {seconds} s"
+
+msgid "Ch"
+msgstr "Canal"
+
+msgid "Channel {channel}"
+msgstr "Canal {channel}"
+
+msgid "Channel {channel} is busy with {call}"
+msgstr "El canal {channel} está ocupado con {call}"
+
+msgid "Channel {channel} is not connected: /c CALL first"
+msgstr "El canal {channel} no está conectado: primero /c IND"
+
+msgid "Commands"
+msgstr "Comandos"
+
+msgid "Connected to {call}"
+msgstr "Conectado con {call}"
+
+msgid "Disconnected from {call}"
+msgstr "Desconectado de {call}"
+
+msgid "F1-F8 Channel · /help · F9 Monitor · F10 Heard · Ctrl+Q Back"
+msgstr "F1-F8 Canal · /help · F9 Monitor · F10 Oídas · Ctrl+Q Volver"
+
+msgid "F1-F8 Channel · Enter sends · /c CALL connects · /d disconnects · /help · F9 Monitor · F10 Heard · PgUp/PgDn · Ctrl+L Clear · Ctrl+Q Back"
+msgstr "F1-F8 Canal · Intro envía · /c IND conecta · /d desconecta · /help · F9 Monitor · F10 Oídas · PgUp/PgDn · Ctrl+L Limpiar · Ctrl+Q Volver"
+
+msgid "Frames"
+msgstr "Tramas"
+
+msgid "Heard"
+msgstr "Oídas"
+
+msgid "Heard stations"
+msgstr "Estaciones oídas"
+
+msgid "Last heard"
+msgstr "Última vez"
+
+msgid "Link to the TNC lost: {call} is no longer connected"
+msgstr "Se perdió el enlace con el TNC: {call} ya no está conectado"
+
+msgid "Monitor"
+msgstr "Monitor"
+
+msgid "No TNC: {state}"
+msgstr "Sin TNC: {state}"
+
+msgid "Nobody heard yet"
+msgstr "Aún no se ha oído a nadie"
+
+msgid "Nothing to disconnect on channel {channel}"
+msgstr "Nada que desconectar en el canal {channel}"
+
+msgid "Packet is not set up: [packet] host in the configuration (ic705suite --configure)"
+msgstr "Packet no está configurado: [packet] host en la configuración (ic705suite --configure)"
+
+msgid "Packet is not set up: set the TNC in [packet] (ic705suite --configure)"
+msgstr "Packet no está configurado: indica el TNC en [packet] (ic705suite --configure)"
+
+msgid "Sessions use channels 1 to {last}"
+msgstr "Las sesiones usan los canales 1 a {last}"
+
+msgid "TNC"
+msgstr "TNC"
+
+msgid "TNC connected: {host}:{port}"
+msgstr "TNC conectado: {host}:{port}"
+
+msgid "The TNC refused the callsign {call}"
+msgstr "El TNC rechazó el indicativo {call}"
+
+msgid "There is no channel {channel}"
+msgstr "No existe el canal {channel}"
+
+msgid "To"
+msgstr "A"
+
+msgid "UI frame sent to {call}"
+msgstr "Trama UI enviada a {call}"
+
+msgid "Unknown command: {cmd}. /help lists them"
+msgstr "Comando desconocido: {cmd}. /help los lista"
+
+msgid "Usage: {usage}"
+msgstr "Uso: {usage}"
+
+msgid "Via"
+msgstr "Vía"
+
+msgid "calling"
+msgstr "llamando"
+
+msgid "connecting"
+msgstr "conectando"
+
+msgid "disconnecting"
+msgstr "desconectando"
+
+msgid "down"
+msgstr "caído"
+
+msgid "free"
+msgstr "libre"
+
+msgid "not set up"
+msgstr "sin configurar"
+
+msgid "to {call}"
+msgstr "a {call}"
+
+msgid "up"
+msgstr "activo"
+
+msgid "{call} called but every channel is busy"
+msgstr "{call} llamó pero todos los canales están ocupados"
+
+msgid "{call} connected to us"
+msgstr "{call} se ha conectado con nosotros"
+
+msgid "{call} is not a callsign"
+msgstr "{call} no es un indicativo"
+
+msgid "↑↓ choose · Enter connects · Esc back"
+msgstr "↑↓ elegir · Intro conecta · Esc volver"

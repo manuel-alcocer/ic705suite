@@ -61,11 +61,9 @@ async def run_app(app_id: str, link: Link | None, config: Config, scp: set[str] 
         await HamrlogApp(demo=config.connection == "sim").run_async(mouse=False)
         return 0
     if app_id == "packet":
-        from ic705suite.apps.packet import config as packet_config
-        from ic705suite.apps.packet.tui.app import HamrpktApp
+        from ic705suite.apps.packet.app import PacketApp
 
-        await HamrpktApp(packet_config.load(None), None).run_async(mouse=False)
-        return 0
+        return await PacketApp(link, owns_link=standalone).run_async(mouse=False) or 0
     raise ValueError(f"unknown application {app_id}")
 
 

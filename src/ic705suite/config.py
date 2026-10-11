@@ -11,6 +11,7 @@ import logging
 import os
 import re
 import shutil
+import sys
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -98,6 +99,16 @@ max_power = 30
 # antenna, without going down to the computer). Empty: only from the antenna application.
 # remote_password = ""
 
+[packet]
+# Packet radio (F7): the suite's client, over a Direwolf TNC reached by AGWPE (its AGWPORT),
+# on this machine or another one (e.g. the Raspberry Pi with a Digirig).
+# host = "raspberrypi.local"
+# tcp_port = 8000
+# Own callsign for packet, with its SSID (default: [station] callsign)
+# mycall = "N0CALL-4"
+# Radio port of the TNC, from 1
+# radio_port = 1
+
 [ui]
 # Interface language: "en" or "es" (default: the system language; IC705SUITE_LANG overrides)
 # language = "es"
@@ -160,6 +171,11 @@ class Config:
     swr_port: int = 8705
     swr_max_power: int = 30
     swr_remote_password: str = ""    # lets the phone page switch the remote control on
+    # [packet]
+    packet_host: str = ""            # the TNC's AGWPE server; "" = packet not set up
+    packet_tcp_port: int = 8000
+    packet_mycall: str = ""          # "" = the station callsign
+    packet_radio_port: int = 1
     # [ui] [server] [client]
     language: str = ""
     glyphs: str = "auto"
@@ -215,6 +231,13 @@ def load_config(path: Path | None = None) -> Config:
         cfg.swr_port = int(swr.get("port", cfg.swr_port))
         cfg.swr_max_power = int(swr.get("max_power", cfg.swr_max_power))
         cfg.swr_remote_password = str(swr.get("remote_password", cfg.swr_remote_password))
+        packet = data.get("packet")
+        if packet is None:
+            packet = hamrpkt_settings()
+        cfg.packet_host = str(packet.get("host", cfg.packet_host))
+        cfg.packet_tcp_port = int(packet.get("tcp_port", cfg.packet_tcp_port))
+        cfg.packet_mycall = str(packet.get("mycall", cfg.packet_mycall)).upper()
+        cfg.packet_radio_port = int(packet.get("radio_port", cfg.packet_radio_port))
         server, client = data.get("server", {}), data.get("client", {})
         cfg.listen = str(server.get("listen", cfg.listen))
         cfg.server_token = str(server.get("token", cfg.server_token))
@@ -223,6 +246,29 @@ def load_config(path: Path | None = None) -> Config:
         cfg.macros.update({k.upper(): str(v) for k, v in data.get("macros", {}).items()})
     cfg.password = os.environ.get("IC705SUITE_PASSWORD", cfg.password)
     return cfg
+
+
+def hamrpkt_settings() -> dict:
+    """The [packet] settings of hamrpkt's own file, while the suite's has none: its AGWPE
+    node, callsign and radio port carry on."""
+    if sys.platform == "win32":
+        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    else:
+        base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    path = Path(os.environ.get("HAMRPKT_HOME") or base / "hamrpkt") / "config.toml"
+    try:
+        with path.open("rb") as fh:
+            data = tomllib.load(fh)
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    link = data.get("link", {})
+    if link.get("type", "agw") != "agw":
+        return {}
+    found = {"host": link.get("host", ""), "tcp_port": link.get("port", 8000),
+             "radio_port": link.get("radio_port", 1)}
+    if data.get("station", {}).get("mycall"):
+        found["mycall"] = data["station"]["mycall"]
+    return found
 
 
 def write_template(path: Path | None = None) -> Path:

@@ -12,6 +12,8 @@ Events (server -> client), by "type":
   skim     {channels: [{index, frequency, tone, callsign, wpm, snr_db, text}]}  (1 per s)
   channels {session: [{id, label, frequency, callsign, unsaved, stats...}]}   (every 2 s)
   swr      {status, sweep: {...}}  antenna tuning progress, while a sweep runs or changes
+  pkt      {tnc, mycall, channels, heard...}  packet radio, when it changes; and
+  pkt.text {channel, kind, text}  as it arrives (see apps.packet.service)
   history  {title, text}  earlier text of a station picked from the skimmer
   reply    {id, result}   answer to a call
   rx       {text}  decoded characters (single decoder mode)
@@ -29,7 +31,8 @@ Commands (client -> server):
            save_channel {id, name, auto, append, audio}, autosave, cw.activate,
            swr.state, swr.bands, swr.history {band}, swr.sweep {...}, swr.stop,
            swr.remote {on}, swr.final {coil, band?, note?}, swr.antennas, swr.antenna.select {id},
-           swr.antenna.save {name, notes, coil_sign, id?}, swr.antenna.delete {id}
+           swr.antenna.save {name, notes, coil_sign, id?}, swr.antenna.delete {id},
+           pkt.* (see apps.packet.service)
 """
 
 from __future__ import annotations
@@ -167,6 +170,7 @@ def skim_table(session: Session) -> Event:
 class Core:
     def __init__(self, transport: Transport | None, config: Config) -> None:
         """transport=None opens the rig described by the config ([rig] model, connection)."""
+        from ic705suite.apps.packet.service import PacketService
         from ic705suite.apps.swr.service import SwrService
 
         self.config = config
@@ -174,6 +178,7 @@ class Core:
         self.station = Station(open_rig(config, transport), config, self.hub)
         self.session = Session(self.station, config, self.hub)
         self.swr = SwrService(self.station, config, self.hub)
+        self.packet = PacketService(config, self.hub)
         self._ticker: asyncio.Task | None = None
         self.started = False
 
@@ -201,8 +206,9 @@ class Core:
         return self.hub.subscribe(callback)
 
     async def start(self, retry_forever: bool = False) -> None:
-        # Services that do not need the radio (the antenna page) come up first.
+        # Services that do not need the radio (the antenna page, packet) come up first.
         await self.swr.start()
+        await self.packet.start()
         self._ticker = asyncio.create_task(self._tick())
         reported = False
         while True:
@@ -232,6 +238,7 @@ class Core:
             if saved:
                 log.info("archived %d unsaved channels on exit", saved)
         await self.swr.stop()
+        await self.packet.stop()
         await self.session.stop()
         await self.station.stop()
 
@@ -269,6 +276,8 @@ class Core:
             return {"active": True}
         if method.startswith("swr."):
             return await self.swr.call(method[4:], params)
+        if method.startswith("pkt."):
+            return await self.packet.call(method[4:], params)
         return {"error": f"unknown method {method}"}
 
     async def command(self, line: str, app: str = "cw") -> None:
@@ -296,3 +305,5 @@ class Core:
                     self.hub.emit(skim_table(self.session))
                 if self.swr.changed():
                     self.hub.emit({"type": "swr", **self.swr.state()})
+                if self.packet.changed():
+                    self.hub.emit({"type": "pkt", **self.packet.state()})

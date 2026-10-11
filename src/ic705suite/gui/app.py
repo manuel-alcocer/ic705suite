@@ -177,10 +177,9 @@ class MainWindow(QMainWindow):
 
             page = ViewPage(self, self.link, self.config, owns_link=standalone)
         elif app_id == "packet":
-            from ic705suite.apps.packet import config as packet_config
             from ic705suite.gui.packet import PacketPage
 
-            page = PacketPage(self, packet_config.load(None))
+            page = PacketPage(self, self.link, self.config, owns_link=standalone)
         elif app_id == "log":
             from ic705suite.gui.log import LogPage
 

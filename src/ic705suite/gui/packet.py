@@ -1,64 +1,55 @@
-"""The packet terminal (hamrpkt) in the graphical client.
-
-As with the logbook, hamrpkt's terminal application (apps.packet.tui.app.HamrpktApp) holds
-the behaviour: the link with the node (AGWPE or Telnet), sessions, the monitor, the heard
-stations, the /commands and the setup form. This page runs that code with Qt widgets offering
-the methods of its Textual ones. Same keys; the mouse picks a heard station (double click
+"""The packet terminal in the graphical client: the terminal's screen (apps.packet.app) with
+the same PacketClient underneath, so the keys, the commands and what is shown are the same.
+The mouse picks a channel from the bar and a station from the heard list (double click
 connects to it).
 """
 
 from __future__ import annotations
 
-import asyncio
 import datetime as dt
-from types import SimpleNamespace as Event
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor, QKeySequence, QShortcut, QTextCursor
+from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QDialog,
-    QFormLayout,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QPushButton,
     QTableWidgetItem,
     QTextEdit,
     QVBoxLayout,
-    QWidget,
 )
 from rich.text import Text
 
-from ic705suite.apps.packet.i18n import _ as pkt_
-from ic705suite.apps.packet.tui import app as pkt_app
-from ic705suite.apps.packet.tui.app import HamrpktApp
-from ic705suite.apps.packet.tui.screens import ConfirmScreen, FormScreen
-from ic705suite.apps.packet.tui.widgets import (
+from ic705suite.apps.packet.app import (
     CONTROL,
-    HEARD_COLUMNS,
-    HELP_HINT,
+    HEARD_HINT,
+    HINT,
     LINE_BREAK,
-    SHORT_HINTS,
-    Counters,
-    _human_bytes,
+    SHORT_HINT,
+    HeardScreen,
+    PacketApp,
 )
-from ic705suite.apps.packet.tui.widgets import StatusLine as PktStatusLine
+from ic705suite.apps.packet.client import CHANNELS, STYLES, PacketClient, piece_text
 from ic705suite.gui import theme
-from ic705suite.gui.borrow import borrow
-from ic705suite.gui.page import Page, _Dialog, _wait
-from ic705suite.gui.widgets import Frame, Table, hint_html, rich_html, span, with_load_html
+from ic705suite.gui.page import Overlay, Page
+from ic705suite.gui.widgets import Footer, Frame, Table, rich_html, span, with_load_html
+from ic705suite.i18n import _
+from ic705suite.station.links import Link
 
-
-def feedback_colour(level: str) -> str:
-    return {"info": theme.DIM, "ok": theme.GREEN, "warning": theme.YELLOW,
-            "error": theme.RED}.get(level, theme.DIM)
 MAX_BLOCKS = 5000
 
 
-class QtTextView(QTextEdit):
-    """A scrolling log of whole lines fed as text arrives (widgets.TextView): complete lines
-    at once, the rest after a moment so a prompt is never hidden."""
+def feedback_colour(level: str) -> str:
+    return {"ok": theme.GREEN, "warning": theme.YELLOW, "error": theme.RED}.get(level,
+                                                                               theme.CYAN)
+
+
+class TextView(QTextEdit):
+    """A scrolling log fed as text arrives: whole lines at once, the rest a moment later
+    so a prompt is never hidden (apps.packet.app.TextView)."""
 
     FLUSH_DELAY = 0.4
 
@@ -72,14 +63,6 @@ class QtTextView(QTextEdit):
         self._partial_style = ""
         self._timer = QTimer(self, singleShot=True, interval=int(self.FLUSH_DELAY * 1000),
                              timeout=self._flush)
-
-    @property
-    def display(self) -> bool:
-        return self.isVisible()
-
-    @display.setter
-    def display(self, shown: bool) -> None:
-        self.setVisible(shown)
 
     def feed(self, text: str, style: str = "") -> None:
         if self._partial and style != self._partial_style:
@@ -104,424 +87,262 @@ class QtTextView(QTextEdit):
         rendered = Text.from_ansi(line) if "\x1b" in line else Text(line)
         if style:
             rendered.stylize(style)
-        self.write(rendered)
-
-    def write(self, text: Text) -> None:
         bar = self.verticalScrollBar()
         at_bottom = bar.value() >= bar.maximum() - 4
         cursor = QTextCursor(self.document())
         cursor.movePosition(QTextCursor.MoveOperation.End)
         if not self.document().isEmpty():
             cursor.insertBlock()
-        cursor.insertHtml(f'<span style="white-space:pre-wrap">{rich_html(text) or "&nbsp;"}'
+        cursor.insertHtml(f'<span style="white-space:pre-wrap">{rich_html(rendered) or "&nbsp;"}'
                           "</span>")
         if at_bottom:
             bar.setValue(bar.maximum())
 
-    def say(self, message: str, style: str) -> None:
-        self._flush()
-        self.write(Text(message, style=style))
+    def reset(self) -> None:
+        self._timer.stop()
+        self._partial = ""
+        self.clear()
 
-    def clear(self) -> None:  # noqa: D102 - RichLog's
-        super().clear()
+    def text(self) -> str:
+        return self.toPlainText()
 
-    def scroll_page_up(self) -> None:
+    def scroll_page(self, direction: int) -> None:
         bar = self.verticalScrollBar()
-        bar.setValue(bar.value() - bar.pageStep())
-
-    def scroll_page_down(self) -> None:
-        bar = self.verticalScrollBar()
-        bar.setValue(bar.value() + bar.pageStep())
+        bar.setValue(bar.value() + direction * bar.pageStep())
 
 
-class QtHeardTable(Table):
-    """Stations heard, the most recent first (widgets.HeardTable); double click connects."""
+class HeardView(Overlay):
+    """The stations heard, the latest first; Enter or a double click connects."""
+
+    TUI = HeardScreen
 
     def __init__(self, page: PacketPage) -> None:
-        super().__init__(0, len(HEARD_COLUMNS))
-        self.page = page
-        self._calls: list[str] = []
-        self.setHorizontalHeaderLabels([pkt_(label) for label, _w in HEARD_COLUMNS])
-        self.verticalHeader().hide()
-        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.setAlternatingRowColors(True)
-        self.setShowGrid(False)
-        self.horizontalHeader().setStretchLastSection(True)
-        char = self.fontMetrics().averageCharWidth()
-        for column, (_label, width) in enumerate(HEARD_COLUMNS):
-            if width:
-                self.setColumnWidth(column, width * char + 18)
-        self.cellDoubleClicked.connect(lambda row, _c: self._connect(row))
+        super().__init__(page)
+        self.heard = page.client.heard()
+        frame = Frame(_("Heard stations"))
+        self.table = frame.add(Table(0, 5), 1)
+        self.table.setHorizontalHeaderLabels([_("Callsign"), _("Last heard"), _("Frames"),
+                                              _("To"), _("Via")])
+        self.table.right_align(2)
+        self.table.verticalHeader().hide()
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.cellDoubleClicked.connect(lambda row, _c: self._choose(row))
+        for row, station in enumerate(self.heard):
+            last = dt.datetime.fromtimestamp(station["last"], dt.UTC)
+            self.table.insertRow(row)
+            for column, value in enumerate((station["call"], f"{last:%H:%M:%S} UTC",
+                                            str(station["frames"]), station["dest"],
+                                            station["via"])):
+                self.table.setItem(row, column, QTableWidgetItem(value))
+        hint = QLabel(_(HEARD_HINT) if self.heard else _("Nobody heard yet"))
+        hint.setStyleSheet(f"color:{theme.DIM};")
+        frame.add(hint)
+        layout = QVBoxLayout(self)
+        layout.addWidget(frame)
 
-    @property
-    def display(self) -> bool:
-        return self.isVisible()
+    def start(self) -> None:
+        self.table.setFocus()
+        if self.heard:
+            self.table.selectRow(0)
 
-    @display.setter
-    def display(self, shown: bool) -> None:
-        self.setVisible(shown)
+    def action_dismiss(self, _result: str = "") -> None:
+        self.page.pop_overlay()
 
-    @property
-    def row_count(self) -> int:
-        return self.rowCount()
+    def action_choose(self) -> None:
+        self._choose(self.table.currentRow())
 
-    @property
-    def cursor_row(self) -> int:
-        return max(0, self.currentRow())
-
-    def move_cursor(self, row: int) -> None:
-        self.selectRow(row)
-
-    def load(self, stations: list) -> None:
-        selected = self.selected_call
-        self._calls = [s.call for s in stations]
-        self.setRowCount(len(stations))
-        for i, s in enumerate(stations):
-            cells = (s.call, f"{s.last:%Y-%m-%d %H:%M:%S}", str(s.frames), str(s.port), s.dest,
-                     s.via)
-            for column, text in enumerate(cells):
-                item = QTableWidgetItem(text)
-                if column == 0:
-                    item.setForeground(QColor(theme.CYAN))
-                self.setItem(i, column, item)
-        if selected in self._calls:
-            self.selectRow(self._calls.index(selected))
-        elif self._calls:
-            self.selectRow(0)                 # as Textual's table: the cursor on a row
-
-    @property
-    def selected_call(self) -> str:
-        row = self.currentRow()
-        return self._calls[row] if 0 <= row < len(self._calls) else ""
-
-    def scroll_page_up(self) -> None:
-        bar = self.verticalScrollBar()
-        bar.setValue(bar.value() - bar.pageStep())
-
-    def scroll_page_down(self) -> None:
-        bar = self.verticalScrollBar()
-        bar.setValue(bar.value() + bar.pageStep())
-
-    def _connect(self, row: int) -> None:
-        self.selectRow(row)
-        self.page._connect_selected()
-
-
-class QtLine(QLineEdit):
-    """The command line's box: Textual's Input as hamrpkt uses it."""
-
-    def __init__(self, page: PacketPage) -> None:
-        super().__init__()
-        self.page = page
-        self.setFont(theme.mono(10.5))
-        self.returnPressed.connect(
-            lambda: self.page._on_line(Event(value=self.text(), input=self)))
-
-    @property
-    def value(self) -> str:
-        return self.text()
-
-    @value.setter
-    def value(self, text: str) -> None:
-        self.setText(text)
-
-    @property
-    def cursor_position(self) -> int:
-        return self.cursorPosition()
-
-    @cursor_position.setter
-    def cursor_position(self, position: int) -> None:
-        self.setCursorPosition(position)
-
-    def focus(self) -> None:
-        self.setFocus()
-
-
-class QtPktEntry(QWidget):
-    """The command line: who the text goes to, the box, the keys and a message line."""
-
-    def __init__(self, page: PacketPage) -> None:
-        super().__init__()
-        self.target = QLabel()
-        self.line = QtLine(page)
-        self.hint = QLabel()
-        self.hint.setTextFormat(Qt.TextFormat.RichText)
-        self.message = QLabel()
-        self.message.setTextFormat(Qt.TextFormat.RichText)
-        row = QHBoxLayout()
-        row.addWidget(self.target)
-        row.addWidget(self.line, 1)
-        box = QVBoxLayout(self)
-        box.setContentsMargins(0, 0, 0, 0)
-        box.addLayout(row)
-        box.addWidget(self.hint)
-        box.addWidget(self.message)
-        self.set_target("")
-
-    def redraw(self) -> None:
-        """The theme changed."""
-        self.set_target("" if self.target.text() == pkt_("CMD") else self.target.text())
-
-    def set_target(self, call: str) -> None:
-        self.target.setText(call or pkt_("CMD"))
-        background = theme.BG_GREEN if call else "transparent"
-        colour = "#000000" if call else theme.CYAN
-        self.target.setStyleSheet(f"background:{background};color:{colour};font-weight:bold;"
-                                  "padding:2px 6px;")
-
-    def show_keys(self, keys: str) -> None:
-        self.hint.setText(f"<i>{hint_html(pkt_(keys))}</i>")
-
-    def feedback(self, message: str, level: str = "info") -> None:
-        self.message.setText(span(message, feedback_colour(level), level != "info")
-                             if message else "")
-
-
-class QtPktStatus(QLabel):
-    """Who we are, where the node is and who we talk to (widgets.StatusLine)."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.mycall = self.link_kind = self.host = self.session = ""
-        self.link_state = "offline"
-        self.radio_port = 1
-        self.monitor = False
-        self.timer = QTimer(self, interval=2000, timeout=self.redraw)   # the load
-        self.timer.start()
-        self.setTextFormat(Qt.TextFormat.RichText)
-        self.setContentsMargins(6, 3, 6, 3)
-        self.setObjectName("statusbar")      # styled by the theme
-
-    def __setattr__(self, name: str, value) -> None:
-        super().__setattr__(name, value)
-        if name in ("mycall", "link_kind", "host", "link_state", "radio_port", "session",
-                    "monitor") and hasattr(self, "monitor"):
-            self.redraw()
-
-    def redraw(self) -> None:
-        self.setText(with_load_html(rich_html(PktStatusLine.line(self))))
-
-
-class QtPktFooter(QLabel):
-    """Counters and the UTC clock (widgets.StatsFooter)."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._counters = Counters()
-        self.setTextFormat(Qt.TextFormat.RichText)
-        self.setContentsMargins(0, 2, 6, 2)
-        self.setObjectName("footerbar")      # styled by the theme
-        self.timer = QTimer(self, interval=1000, timeout=self.redraw)
-        self.timer.start()
-
-    @property
-    def counters(self) -> Counters:
-        return self._counters
-
-    @counters.setter
-    def counters(self, counters: Counters) -> None:
-        self._counters = counters
-        self.redraw()
-
-    def redraw(self) -> None:
-        now = dt.datetime.now(dt.UTC)
-        c = self._counters
-        parts = [f'<span style="background:{theme.BG_BLUE};color:#000;font-weight:bold">'
-                 f"&nbsp;{now:%Y-%m-%d %H:%M:%S} UTC&nbsp;</span>"]
-        for label, value in (("RX", _human_bytes(c.rx_bytes)), ("TX", _human_bytes(c.tx_bytes)),
-                             (pkt_("frames"), c.frames), (pkt_("heard"), c.heard)):
-            parts.append(span(f"   {label} ", theme.DIM) + span(value, theme.TEXT, True))
-        if c.session_start is not None:
-            elapsed = int((now - c.session_start).total_seconds())
-            hours, rest = divmod(elapsed, 3600)
-            parts.append(span(f"   {hours:02}:{rest // 60:02}:{rest % 60:02}", theme.YELLOW))
-        hints = [pkt_(HELP_HINT), *(pkt_(h) for h in SHORT_HINTS)]
-        chars = max(1, self.width() // max(1, self.fontMetrics().averageCharWidth()))
-        hint = next((h for h in hints if len(h) + 60 < chars), hints[-1])
-        self.setText(f'<table width="100%"><tr><td>{"".join(parts)}</td>'
-                     f'<td align="right">{hint_html(hint)}</td></tr></table>')
-
-
-class TitledFrame(Frame):
-    @property
-    def border_title(self) -> str:
-        return self.title.text()
-
-    @border_title.setter
-    def border_title(self, text: str) -> None:
-        self.set_title(text)
+    def _choose(self, row: int) -> None:
+        if 0 <= row < len(self.heard):
+            call = self.heard[row]["call"]
+            self.page.pop_overlay()
+            self.page.run_worker(self.page.client.connect_to(call))
 
 
 class PacketPage(Page):
-    TUI = HamrpktApp
+    TUI = PacketApp
 
-    def __init__(self, window, config, config_path=None) -> None:
-        super().__init__(window, None, config)
-        # HamrpktApp's state, as its __init__ sets it (self.link is the node's link here).
-        self.config_path = config_path
-        self.link = None
-        self.link_state = "offline"
-        self.view = "terminal"
-        self.radio_port = config.link.radio_port
-        self.session = ""
-        self.session_port = self.radio_port
-        self.session_start = None
-        self.heard: dict = {}
-        self.frames = 0
-        self._history: list[str] = []
-        self._history_index: int | None = None
-        self._session_log = None
-        self._reopen = False
-        self._bpq_target = ""
-        self.status = QtPktStatus()
-        self.frame = TitledFrame()
-        self.terminal_view = self.frame.add(QtTextView(), 1)
-        self.monitor_view = self.frame.add(QtTextView(), 1)
-        self.heard_table = self.frame.add(QtHeardTable(self), 1)
-        self.entry_frame = Frame("")
-        self.entry_panel = self.entry_frame.add(QtPktEntry(self))
-        self.footer = QtPktFooter()
-        box = QVBoxLayout(self)
-        box.setContentsMargins(6, 0, 6, 0)
-        box.setSpacing(6)
-        box.addWidget(self.status)
-        box.addWidget(self.frame, 1)
-        box.addWidget(self.entry_frame)
-        box.addWidget(self.footer)
-        self.counter_timer = QTimer(self, interval=1000, timeout=self._refresh_counters)
+    def __init__(self, window, link: Link, config, owns_link: bool = False) -> None:
+        super().__init__(window, link, config)
+        self.owns_link = owns_link
+        self.setWindowTitle(_("Packet"))
+        self.client = PacketClient(link, self._on_text, self._on_reload, self._on_state,
+                                   self._feedback)
+        self.client.link_task = lambda awaitable: self.run_worker(awaitable)
+        self._build()
+        self.link.attach(self.client.handle)
+        self.run_worker(self._start())
 
-    # ---- what hamrpkt's code asks of a Textual App ----
+    def _build(self) -> None:
+        self.status = QLabel()
+        self.status.setObjectName("statusbar")
+        self.status.setTextFormat(Qt.TextFormat.RichText)
+        self.status.setContentsMargins(6, 2, 6, 2)
+        self.monitor_frame = Frame(_("Monitor"))
+        self.monitor = self.monitor_frame.add(TextView(), 1)
+        self.tabs: list[QPushButton] = []
+        tabs = QHBoxLayout()
+        tabs.setSpacing(4)
+        for number in range(CHANNELS + 1):
+            button = QPushButton()
+            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            button.setCheckable(True)
+            button.clicked.connect(lambda _c=False, n=number: self.action_channel(n))
+            tabs.addWidget(button)
+            self.tabs.append(button)
+        tabs.addStretch(1)
+        self.channel_frame = Frame()
+        self.channel_view = self.channel_frame.add(TextView(), 1)
+        self.line = QLineEdit()
+        self.line.setFont(theme.mono(11))
+        self.line.returnPressed.connect(self._submit)
+        self.feedback = QLabel()
+        self.feedback.setTextFormat(Qt.TextFormat.RichText)
+        self.footer = Footer([HINT, SHORT_HINT])
 
-    def query_one(self, selector, _type=None):
-        if isinstance(selector, str):
-            return {"#terminal": self.terminal_view, "#monitor": self.monitor_view,
-                    "#log-frame": self.frame, "#entry": self.entry_panel,
-                    "#heard": self.heard_table}[selector]
-        return {QtPktEntry: self.entry_panel, QtHeardTable: self.heard_table,
-                QtPktStatus: self.status, QtPktFooter: self.footer}[selector]
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        layout.addWidget(self.status)
+        body = QVBoxLayout()
+        body.setContentsMargins(8, 4, 8, 4)
+        body.addWidget(self.monitor_frame, 2)
+        body.addLayout(tabs)
+        body.addWidget(self.channel_frame, 5)
+        body.addWidget(self.line)
+        body.addWidget(self.feedback)
+        layout.addLayout(body, 1)
+        layout.addWidget(self.footer)
+        self.timer = QTimer(self, interval=1000, timeout=self._tick)
+        self.timer.start()
+        self._on_state()
 
-    def push_screen(self, screen, callback=None) -> None:
-        async def show() -> None:
-            if isinstance(screen, ConfirmScreen):
-                from ic705suite.gui.log import confirm
-
-                result = await confirm(self, screen.question, "", screen.danger)
-            elif isinstance(screen, FormScreen):
-                result = await packet_form(self, screen)
-            else:
-                raise TypeError(f"no dialog for {type(screen).__name__}")
-            if callback is not None:
-                outcome = callback(result)
-                if asyncio.iscoroutine(outcome):
-                    await outcome
-            self.entry_panel.line.setFocus()
-        self.run_worker(show())
-
-    def call_after_refresh(self, callback, *args) -> None:
-        QTimer.singleShot(0, lambda: self._call(callback, *args))
-
-    def call_later(self, callback, *args) -> None:
-        QTimer.singleShot(0, lambda: self._call(callback, *args))
-
-    def _call(self, callback, *args) -> None:
-        result = callback(*args)
-        if asyncio.iscoroutine(result):
-            self.run_worker(result)
-
-    def set_interval(self, seconds: float, callback) -> None:
-        self.counter_timer.setInterval(int(seconds * 1000))
-
-    # ---- life ----
-
-    def start(self) -> None:
-        """What HamrpktApp.on_mount does."""
-        self._show_view("terminal")
-        self._refresh_status()
-        self.counter_timer.start()
-        self.entry.line.focus()
-        if self.config.is_complete:
-            self.start_link()
-        else:
-            self.entry.feedback(pkt_("Set your callsign and the node address with F9"),
-                                "warning")
-            self.call_after_refresh(self.action_setup)
-
-    def stop(self) -> None:
-        self.counter_timer.stop()
-        self._close_session_log()
-        link, self.link = self.link, None
-        if link is not None:
-            self.run_worker(link.close())
-        self.pop_overlay()
+    async def _start(self) -> None:
+        try:
+            await self.client.start()
+        except Exception as exc:  # noqa: BLE001 - shown on screen
+            self._feedback("error", _("cannot connect: {error}").format(error=exc))
+            return
+        if not self.client.configured:
+            self._feedback("warning", _("Packet is not set up: set the TNC in [packet] "
+                                        "(ic705suite --configure)"))
 
     def restore_focus(self) -> None:
-        self.entry.line.setFocus()
+        self.line.setFocus()
 
-    def _show_view(self, view: str) -> None:
-        """HamrpktApp._show_view, with the Qt frame's title."""
-        from ic705suite.apps.packet.tui.app import VIEWS
+    def showEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        super().showEvent(event)
+        self.line.setFocus()
 
-        self.view = view
-        self.terminal_view.display = view == "terminal"
-        self.monitor_view.display = view == "monitor"
-        self.heard_table.display = view == "heard"
-        self.frame.border_title = pkt_(VIEWS[view][0])
-        self.refresh_keys()
+    # ---- painting ------------------------------------------------------------------------
 
-    def exit(self, result: object = None) -> None:
-        Page.exit(self, result)
+    def _views(self, number: int) -> list[TextView]:
+        views = []
+        if number == 0:
+            views.append(self.monitor)
+        if number == self.client.channel:
+            views.append(self.channel_view)
+        return views
 
+    def _on_text(self, number: int, piece: dict) -> None:
+        for view in self._views(number):
+            view.feed(piece_text(piece), STYLES.get(piece.get("kind"), "dim"))
 
-# hamrpkt's own methods, with the Qt widgets in place of the Textual ones.
-QT_WIDGETS = {"EntryPanel": QtPktEntry, "HeardTable": QtHeardTable, "StatusLine": QtPktStatus,
-              "StatsFooter": QtPktFooter, "TextView": QtTextView, "Input": QtLine}
-borrow(HamrpktApp, PacketPage, QT_WIDGETS, own={"compose", "on_mount", "_show_view"})
-assert pkt_app.EntryPanel is not QtPktEntry              # the terminal keeps its own
+    def _on_reload(self, number: int, pieces: list[dict]) -> None:
+        for view in self._views(number):
+            view.reset()
+            for piece in pieces:
+                view.feed(piece_text(piece), STYLES.get(piece.get("kind"), "dim"))
 
+    def _on_state(self) -> None:
+        client = self.client
+        colours = {"connected": theme.GREEN, "calling": theme.YELLOW, "leaving": theme.YELLOW}
+        for tab, button in zip(client.tabs(), self.tabs, strict=True):
+            label = f"{tab.number}: {tab.label}" + (f"  •{tab.unread}" if tab.unread else "")
+            button.setText(label)
+            button.setChecked(tab.current)
+            colour = colours.get(tab.state, theme.TEXT if tab.number == 0 else theme.DIM)
+            button.setStyleSheet(f"color:{colour};" + ("font-weight:bold;" if tab.current
+                                                        or tab.unread else ""))
+        info = client.channel_info()
+        if client.channel == 0:
+            title = _("Monitor")
+        else:
+            title = _("Channel {channel}").format(channel=client.channel)
+            if info.get("call"):
+                title += f" · {info['call']}"
+        self.channel_frame.set_title(title)
+        target = client.target()
+        self.line.setPlaceholderText(_("to {call}").format(call=target) if target
+                                     else _("/c CALL connects this channel · /help"))
+        self._tick()
 
-async def packet_form(parent: QWidget, screen: FormScreen) -> dict[str, str] | None:
-    """hamrpkt's FormScreen: boxes (passwords hidden) with their hints; Enter or Ctrl+S
-    saves unless `validate` objects (the form stays open with the error), Esc cancels."""
-    dialog = _Dialog(parent, screen.title_text, screen.subtitle_text)
-    layout = QFormLayout()
-    boxes: dict[str, QLineEdit] = {}
-    for field in screen.fields:
-        box = QLineEdit(field.value)
-        if field.password:
-            box.setEchoMode(QLineEdit.EchoMode.Password)
-        box.setPlaceholderText(field.hint)
-        box.setToolTip(field.hint)
-        box.returnPressed.connect(lambda: save())
-        boxes[field.key] = box
-        layout.addRow(field.label, box)
-    dialog.layout_.addLayout(layout)
-    error = QLabel("")
-    error.setStyleSheet(f"color:{theme.RED};font-weight:bold;")
-    dialog.layout_.addWidget(error)
-    row = QHBoxLayout()
-    row.addStretch(1)
-    save_button = QPushButton(f"{screen.save_label} (Ctrl+S)")
-    cancel = QPushButton(pkt_("Cancel (Esc)"))
-    row.addWidget(save_button)
-    row.addWidget(cancel)
-    dialog.layout_.addLayout(row)
+    def _tick(self) -> None:
+        parts = []
+        for label, value, style in self.client.status():
+            colour = {"bold green": theme.GREEN, "bold yellow": theme.YELLOW,
+                      "bold red": theme.RED, "bold cyan": theme.CYAN}.get(style, theme.TEXT)
+            parts.append((span(label, theme.DIM) + " " if label else "")
+                         + span(value, colour, bold=True))
+        self.status.setText(with_load_html("&nbsp;&nbsp;&nbsp;".join(parts)))
+        self.footer.counters = self.client.counters()
+        self.footer.redraw()
 
-    def save() -> None:
-        values = {key: box.text().strip() for key, box in boxes.items()}
-        problem = screen.validate(values) if screen.validate else None
-        if problem:
-            error.setText(problem)
-            return
-        dialog.answer = values
-        dialog.accept()
+    def _feedback(self, level: str, text: str) -> None:
+        self.feedback.setText(span(text, feedback_colour(level)) if text else "")
 
-    save_button.clicked.connect(save)
-    cancel.clicked.connect(dialog.reject)
-    QShortcut(QKeySequence("Ctrl+S"), dialog, activated=save)
-    next(iter(boxes.values())).setFocus()
-    await _wait(dialog)
-    return dialog.answer if dialog.result() == QDialog.DialogCode.Accepted else None
+    def retheme(self) -> None:
+        self._on_state()
+        for number in (0, self.client.channel):
+            self.run_worker(self.client.reload(number))
 
+    # ---- keys ----------------------------------------------------------------------------
+
+    def _submit(self) -> None:
+        text = self.line.text()
+        self.line.clear()
+        self._feedback("", "")
+        self.run_worker(self._do_submit(text))
+
+    async def _do_submit(self, text: str) -> None:
+        if await self.client.submit(text) == "quit":
+            self.action_leave()
+
+    def action_channel(self, number: int) -> None:
+        self.run_worker(self.client.select(number), group="channel", exclusive=True)
+        self.line.setFocus()
+
+    def action_monitor(self) -> None:
+        self.monitor_frame.setVisible(not self.monitor_frame.isVisible())
+
+    def action_heard(self) -> None:
+        self.push_overlay(HeardView(self))
+
+    def action_scroll(self, direction: int) -> None:
+        self.channel_view.scroll_page(direction)
+
+    def action_clear(self) -> None:
+        self.run_worker(self.client.clear())
+
+    def action_recall(self, delta: int) -> None:
+        text = self.client.recall(delta)
+        if text is not None:
+            self.line.setText(text)
+            self.line.setCursorPosition(len(text))
+
+    def action_escape(self) -> None:
+        self.line.clear()
+        self._feedback("", "")
+        self.client.history_index = None
+
+    def action_leave(self) -> None:
+        self.run_worker(self._leave(), group="leave", exclusive=True)
+
+    async def _leave(self) -> None:
+        # The sessions stay up in the core; coming back shows them as they are.
+        self.timer.stop()
+        if self.owns_link:
+            await self.link.close()
+        self.exit(0)

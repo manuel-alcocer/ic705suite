@@ -1,7 +1,8 @@
 """The applications of the suite, as the dashboard lists them.
 
 Applications that need the radio run on the shared station of the core (local or on a
-server); the logbook and the packet terminal work on their own and run on this machine.
+server); packet runs on the core too, with its own TNC, so it works without the radio; the
+logbook works on its own and runs on this machine.
 """
 
 from __future__ import annotations
@@ -38,7 +39,8 @@ APPS = (
     AppInfo("log", "F6", N_("Logbook"),
             N_("hamrlog: contacts, ADIF, repeaters, address book"), None, False),
     AppInfo("packet", "F7", N_("Packet"),
-            N_("hamrpkt: AX.25 terminal over AGWPE or Telnet (LinBPQ, Direwolf)"), None, False),
+            N_("BayCom-style terminal: 8 AX.25 channels and the monitor, over Direwolf"),
+            None, True),
 )
 BY_ID = {app.id: app for app in APPS}
 

@@ -10,7 +10,7 @@ to the radio; a dashboard opens the applications, which all share that one conne
 | F4 | **D-STAR** | terminal mode, built-in gateway, reflectors, D-PRS: *QDStar* in the terminal — **coming soon** |
 | F5 | **Antenna** | SWR and noise sweeps, which way to move the coil, per-band history; also a page for the phone (formerly *swr-remote*) |
 | F6 | **Logbook** | *hamrlog*: contacts, ADIF, repeaters, address book |
-| F7 | **Packet** | *hamrpkt*: AX.25 terminal over AGWPE or Telnet (LinBPQ, Direwolf) |
+| F7 | **Packet** | BayCom-style terminal: 8 AX.25 channels and the monitor, over a Direwolf TNC (here or on another machine) |
 
 Everything runs in a console (Textual) with the HAMRLOG look, in English or Spanish, and only
 with the keyboard — no mouse: Tab, function keys and `/commands` (and the cursor keys on the
@@ -38,7 +38,7 @@ or full blocks, square borders. It is chosen by itself when `TERM=linux`; `[ui] 
 │ F4   D-STAR        coming soon · Terminal mode, gateway ││   S6     ▮▮▮▮▮▮··············     │
 │ F5   Antenna       SWR and noise sweeps, coil; phone    ││   Receive only (--tx to transmit) │
 │ F6   Logbook       hamrlog: contacts, ADIF, repeaters   │╰───────────────────────────────────╯
-│ F7   Packet        hamrpkt: AX.25 over AGWPE or Telnet  │╭─ Station ─────────────────────────╮
+│ F7   Packet        BayCom-style, 8 channels, Direwolf   │╭─ Station ─────────────────────────╮
 ╰─────────────────────────────────────────────────────────╯│ Database: postgresql+psycopg://…  │
 ```
 
@@ -142,8 +142,8 @@ Where the files go:
 application (rig view, CW, Antenna, Logbook, Packet), with the same menus, options and
 messages, and **the same keys**: each page takes the bindings of its terminal screen, so they
 cannot drift apart. The shared code is shared, not copied: the front panel's model, the rig
-keys, the skimmer's marks; the logbook (hamrlog) and the packet terminal (hamrpkt) run their
-own terminal application's methods behind Qt widgets that offer the same methods
+keys, the skimmer's marks, the packet terminal's client; the logbook (hamrlog) runs its own
+terminal application's methods behind Qt widgets that offer the same methods
 (`gui/borrow.py`). The mouse comes on top: a double click opens an application or a QSO's
 card, a click picks a front-panel option, a skimmer station, a band or a row and the wheel
 turns an option (double click edits it), a click on a band scope tunes there and the wheel on
@@ -251,8 +251,20 @@ higher number lowering or raising the frequency, or not known yet, which the adv
 learns from the saved positions). Enter makes one the active antenna; N, E and D add, edit
 and delete them. The phone page can switch the active antenna too.
 
-**Logbook (F6) and Packet (F7).** hamrlog and hamrpkt as they were, with their own settings
-(F9). They do not need the radio, so they open even when it is unreachable.
+**Logbook (F6).** hamrlog as it was, with its own settings (F9). It does not need the radio,
+so it opens even when it is unreachable.
+
+**Packet (F7).** A BayCom-style terminal on a Direwolf TNC, which the core reaches over its
+AGWPE port (`[packet] host` and `tcp_port`, also asked by `--configure`): on this machine or
+on another one, such as a Raspberry Pi with a Digirig and another radio. Until `[packet]` is
+written, hamrpkt's own settings (its node and callsign) are used. The monitor (channel 0)
+stays on top; below it, the chosen channel: **F1-F8** choose one of the 8 channels, one
+session each. What is typed goes to that channel's station; `/c CALL [v DIGI …]` calls from
+this channel, `/d` hangs up, `/ui DEST text` sends an unconnected frame, `/help` lists the
+rest. A station calling us takes the first free channel. **F9** hides the monitor, **F10**
+lists the stations heard (Enter calls one). The bar marks the channels with unread text. The
+sessions live in the core: leaving the screen, or closing a remote client, does not drop
+them. It needs no radio of the suite's own (the IC-705 will come as a TNC radio later).
 
 ## Development
 
@@ -300,7 +312,7 @@ uv run pyinstaller --clean --noconfirm packaging/pyinstaller/ic705suite.spec
 ```
 
 Code, comments and base strings are in English; translations are gettext `.po` files read
-directly (`src/ic705suite/locales/es/`; hamrlog and hamrpkt keep theirs). A test fails when a
+directly (`src/ic705suite/locales/es/`; hamrlog keeps its own). A test fails when a
 marked string has no Spanish translation.
 
 Layout:
@@ -316,7 +328,8 @@ src/ic705suite/
   apps/view/              rig view
   apps/cw/                decoder, bayes, skimmer, channels, interpret, tui...
   apps/swr/               service (sweeps, history), analysis, web (phone page), app (TUI)
-  apps/log/               hamrlog          apps/packet/   hamrpkt
+  apps/packet/            service (the TNC in the core), client, app (TUI)
+  apps/log/               hamrlog
 ```
 
 ## Licence

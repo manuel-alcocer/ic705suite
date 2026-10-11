@@ -22,7 +22,7 @@ from ic705suite.station.links import Link, LinkError, LocalLink, RemoteLink
 
 TRACE = 5
 APP_CHOICES = ("view", "cw", "swr", "log", "packet", "dstar")
-OFFLINE_APPS = ("log", "packet")   # they never use the radio
+OFFLINE_APPS = ("log",)   # it never uses the core
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:

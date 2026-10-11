@@ -1,4 +1,4 @@
-"""The suite's Spanish catalog covers every marked string (hamrlog and hamrpkt keep their own)."""
+"""The suite's Spanish catalog covers every marked string (hamrlog keeps its own)."""
 
 import ast
 import re
@@ -7,7 +7,7 @@ from pathlib import Path
 from ic705suite import i18n
 
 SRC = Path(__file__).parents[1] / "src" / "ic705suite"
-OWN_CATALOGS = ("apps/log", "apps/packet")
+OWN_CATALOGS = ("apps/log",)
 
 
 def _marked_strings() -> set[str]:

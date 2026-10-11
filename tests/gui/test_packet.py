@@ -1,68 +1,76 @@
-"""The packet terminal in the graphical client against hamrpkt's fake AGWPE node: the same
-session as the terminal test (tests/packet/test_app.py), with the same keys."""
-
-import asyncio
+"""The packet terminal in the graphical client against the fake Direwolf: the same session
+as the terminal test (tests/packet/test_app.py), with the same keys, plus the mouse."""
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication
 
-from ic705suite.apps.packet.config import Config, LinkConfig
-from ic705suite.config import Config as SuiteConfig
+from ic705suite.station.links import LocalLink
 from tests.gui.test_pages import key, until
-from tests.packet.test_app import FakeNode
+from tests.packet.fake_tnc import FakeTnc
+from tests.packet.test_app import packet_config
 
 
-def test_packet_session_as_in_the_terminal(tmp_path, run, monkeypatch):
-    monkeypatch.setenv("HAMRPKT_HOME", str(tmp_path))
-
+def test_packet_session_as_in_the_terminal(tmp_path, run):
     async def scenario():
         from ic705suite.gui.app import MainWindow
-        from ic705suite.gui.packet import PacketPage
+        from ic705suite.gui.packet import HeardView, PacketPage
 
-        node = FakeNode()
-        server = await asyncio.start_server(node.handle, "127.0.0.1", 0)
-        port = server.sockets[0].getsockname()[1]
-        config = Config("EA7WM-1", LinkConfig(type="agw", host="127.0.0.1", port=port))
-        win = MainWindow(None, SuiteConfig(connection="lan", host="", swr_web=False))
+        tnc = await FakeTnc().start()
+        config = packet_config(tmp_path, tnc.port)
+        link = LocalLink(None, config)
+        win = MainWindow(link, config, start_app="packet")
         win.resize(1200, 800)
         win.show()
         win.activateWindow()
-        page = PacketPage(win, config, tmp_path / "config.toml")
-        win.stack.addWidget(page)
-        win.show_page(page)
+        page = win.page
+        assert isinstance(page, PacketPage)
+        client = page.client
         try:
-            await until(lambda: page.status.link_state == "up")
-            await until(lambda: "EA1ABC-7" in page.heard)
-            assert page.heard_table.row_count == 1
+            await until(lambda: (client.state.get("tnc") or {}).get("state") == "up")
+            await until(lambda: "Fm EA1ABC-7 To ID" in page.monitor.text())
+            assert page.tabs[0].text() == "0: Monitor"
 
+            await key(Qt.Key.Key_F2)
+            await until(lambda: client.channel == 2)
+            assert page.tabs[2].isChecked()
             await key(None, text="/c ea1abc")
             await key(Qt.Key.Key_Return)
-            await until(lambda: page.session == "EA1ABC")
-            assert page.status.session == "EA1ABC"
+            await until(lambda: client.channel_info(2).get("state") == "connected")
+            await until(lambda: "BBS>" in page.channel_view.text())
+            assert page.tabs[2].text() == "2: EA1ABC"
+            assert page.line.placeholderText() == "to EA1ABC"
 
             await key(None, text="hola")
             await key(Qt.Key.Key_Return)
-            await until(lambda: "EA1ABC BBS>" in page.terminal_view.toPlainText())
-            assert "ECHO hola" in page.terminal_view.toPlainText()
-
+            await until(lambda: "ECHO hola" in page.channel_view.text())
             await key(Qt.Key.Key_Up)                               # the line typed before
-            assert page.entry_panel.line.text() == "hola"
+            assert page.line.text() == "hola"
             await key(Qt.Key.Key_Escape)
-            await key(Qt.Key.Key_F5)
-            await until(lambda: page.session == "")
+            assert page.line.text() == ""
 
-            await key(Qt.Key.Key_F3)                               # the heard stations
-            assert page.view == "heard" and page.heard_table.isVisible()
+            page.tabs[5].click()                                   # the mouse picks a channel
+            await until(lambda: client.channel == 5)
+            assert "ECHO" not in page.channel_view.text()
+            page.tabs[2].click()
+            await until(lambda: "ECHO hola" in page.channel_view.text())
+
+            await key(None, text="/d")
+            await key(Qt.Key.Key_Return)
+            await until(lambda: client.channel_info(2).get("state") == "free")
+
+            await key(Qt.Key.Key_F10)                              # the heard stations
+            assert isinstance(page.overlay, HeardView)
+            assert page.overlay.table.rowCount() == 1
             await key(Qt.Key.Key_Return)                           # Enter connects
-            await until(lambda: page.session == "EA1ABC-7")
+            await until(lambda: client.channel_info(2).get("call") == "EA1ABC-7")
+            assert page.overlay is None
+
+            await key(Qt.Key.Key_F9)
+            assert not page.monitor_frame.isVisible()
             await key(Qt.Key.Key_Q, Qt.KeyboardModifier.ControlModifier)
-            await until(lambda: QApplication.activeModalWidget() is not None)
-            await key(None, text="y")                              # still connected: quit?
-            await until(lambda: win.page is win.dashboard)
+            await until(lambda: link.closed.is_set())
         finally:
-            server.close()
-            await server.wait_closed()
-        logs = list((tmp_path / "sessions").glob("*_EA1ABC.log"))
-        assert logs and "ECHO hola" in logs[0].read_text()
+            await link.close()
+            await tnc.stop()
+            win.close()
 
     run(scenario())

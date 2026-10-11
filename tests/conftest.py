@@ -17,3 +17,11 @@ def private_logbook(tmp_path, monkeypatch):
 def english(monkeypatch):
     """The suite in English whatever the machine's language (a Spanish Windows, say)."""
     monkeypatch.setenv("IC705SUITE_LANG", "en")
+
+
+@pytest.fixture(autouse=True)
+def private_packet(tmp_path, monkeypatch):
+    """hamrpkt's old settings (taken over by [packet] when it is missing) in an empty folder."""
+    home = tmp_path / "hamrpkt"
+    home.mkdir()
+    monkeypatch.setenv("HAMRPKT_HOME", str(home))

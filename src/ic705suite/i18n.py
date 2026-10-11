@@ -27,8 +27,8 @@ log = logging.getLogger(__name__)
 LANG_ENV = "IC705SUITE_LANG"
 SOURCE_LANGUAGE = "en"
 AVAILABLE = ("en", "es")
-# Language variables of the apps that bring their own catalogs (hamrlog, hamrpkt).
-APP_LANG_ENVS = ("HAMRLOG_LANG", "HAMRPKT_LANG")
+# Language variables of the apps that bring their own catalogs (hamrlog).
+APP_LANG_ENVS = ("HAMRLOG_LANG",)
 
 _catalog: dict[str, str] | None = None
 _language: str | None = None
@@ -55,8 +55,8 @@ def detect_language(configured: str = "") -> str:
 
 
 def set_language(language: str | None = None, configured: str = "") -> str:
-    """Choose the suite's language; hamrlog and hamrpkt, which keep their own catalogs,
-    follow it through their environment variables."""
+    """Choose the suite's language; hamrlog, which keeps its own catalog, follows it
+    through its environment variable."""
     global _catalog, _language
     _language = language or detect_language(configured)
     _catalog = {} if _language == SOURCE_LANGUAGE else load_catalog(_language)

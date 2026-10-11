@@ -1,3 +1,2 @@
-"""hamrpkt - keyboard-only packet radio terminal with the look of hamrlog."""
-
-__version__ = "0.1.0"
+"""Packet radio: the core's TNC service (service), the terminal (app) and what both screens
+share (client)."""
