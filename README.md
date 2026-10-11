@@ -246,7 +246,9 @@ It writes the version into `src/ic705suite/__init__.py` and `CHANGELOG.md`, comm
 workflow tests, builds the executable with PyInstaller (`packaging/pyinstaller/ic705suite.spec`),
 checks that it starts with the simulator (`packaging/windows/smoke.py` on Windows), packs it
 with its installer (`packaging/linux/install.sh`, `packaging/windows/install.ps1`), tries
-installing and uninstalling it and publishes the release, its notes taken from the changelog.
+installing and uninstalling it and publishes the release, its notes taken from the changelog,
+every file with a signed build provenance (`gh attestation verify FILE --repo
+manuel-alcocer/ic705suite`).
 Run by hand (Actions > Release) it releases `main` at once, or, given a tag, builds and
 publishes that tag again. What the next version would be:
 

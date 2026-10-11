@@ -262,6 +262,12 @@ jobs:
     name: Publish the release
     needs: [meta, linux, windows, python-package]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # Build provenance: a Sigstore signature of each file, tied to this
+      # workflow run, that "gh attestation verify" checks.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -277,6 +283,11 @@ jobs:
           find artifacts -type f -exec cp {} release/ \;
           cd release && sha256sum * > SHA256SUMS.txt
           ls -lh
+
+      - name: Sign where the files come from
+        uses: actions/attest-build-provenance@v4.2.2
+        with:
+          subject-path: release/*
 
       # What changed (this version's part of CHANGELOG.md, as python-semantic-release
       # wrote it), then how to install.

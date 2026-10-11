@@ -30,4 +30,9 @@ asks again at any time.
 **With Python 3.11 or newer**: `uv tool install` or `pipx install` the `.whl`
 (add `[postgres]` for PostgreSQL).
 
-Check the downloads with `SHA256SUMS.txt`.
+Check the downloads with `SHA256SUMS.txt`. Every file is also signed with its build
+provenance (made by this repository's release workflow, from this tag); with the GitHub CLI:
+
+```bash
+gh attestation verify ic705suite-linux-x86_64 --repo manuel-alcocer/ic705suite
+```
