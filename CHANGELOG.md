@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v0.13.0 (2026-10-11)
+
+### Features
+
+- **ft8**: The band's activity, decoded every 15 s with WSJT-X's jt9
+  ([`2bc6835`](https://github.com/manuel-alcocer/ic705suite/commit/2bc6835ded0009d06ec8f61428067b613d01bd7c))
+
+- **rig**: The radio on another machine's core, with no --connect to type
+  ([`061d0b5`](https://github.com/manuel-alcocer/ic705suite/commit/061d0b57efad991a6df563736b031bbcc0009c01))
+
+### Testing
+
+- **ft8**: The 20 m recording jt9 is tried on (*.wav are otherwise ignored)
+  ([`f265c67`](https://github.com/manuel-alcocer/ic705suite/commit/f265c67d46f7958df42a94a4ab9c11bf01cea558))
+
+
 ## v0.12.0 (2026-10-11)
 
 ### Features
