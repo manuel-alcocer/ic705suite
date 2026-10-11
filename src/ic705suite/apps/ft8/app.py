@@ -2,8 +2,10 @@
 
 The core decodes (apps.ft8.service); this screen starts it when it opens, shows what each
 cycle brings (a CQ in green, what is sent to us in red, what we send in yellow) and stops
-it when it closes. Enter answers the chosen station, Q calls CQ, H halts, F puts our
-transmit frequency on the chosen line's.
+it when it closes. Under it, the QSO: what we send, what is sent to us and what the station
+we work says. Enter answers the chosen station, Q calls CQ, H halts, F puts our transmit
+frequency on the chosen line's ([ ] move it), - + the transmit audio (the ALC must stay
+at 0), , . the radio's power.
 """
 
 from __future__ import annotations
@@ -22,10 +24,13 @@ from ic705suite.station.links import Link
 from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.widgets import clock_footer, css
 
-HINT = N_("Enter Answer · Q CQ · H Halt · F TX freq · ←→ Band · C CQ only · S Stop/Start · "
-          "Esc Back")
+HINT = N_("Enter Answer · Q CQ · H Halt · F [ ] TX freq · - + TX level · , . Power · ←→ Band · "
+          "C CQ only · S Stop/Start · Esc Back")
 SHORT_HINT = N_("Enter Answer · Q CQ · H Halt · ←→ Band · Esc Back")
 FT8_BANDS = list(DIALS)
+FREQ_STEP = 25                 # Hz: [ ] move the transmit frequency
+LEVEL_STEP = 0.05              # - + change the transmit audio
+ALC_HOT = 0.3                  # the ALC over this: drawn red (the audio is too strong)
 
 # How each kind of line is drawn (Rich styles; the graphical client maps them too).
 STYLE_CQ = "bold green"
@@ -99,6 +104,56 @@ def rows(cycles: list[dict], cq_only: bool, mycall: str) -> list[tuple]:
     return out
 
 
+def conversation(cycles: list[dict], mycall: str, them: str) -> list[tuple]:
+    """The QSO's lines, as rows(): what we sent, what was sent to us, and what the station
+    we work said (to anyone)."""
+    out = []
+    for cycle in cycles:
+        for d in sorted(cycle["decodes"], key=lambda d: (d.get("kind") != "tx", d["freq"])):
+            style = STYLE_TX if d.get("kind") == "tx" else kind_style(d, mycall)
+            if style not in (STYLE_TX, STYLE_ME) and not (them and d.get("sender") == them):
+                continue
+            stamp = f"{d['time'][:2]}:{d['time'][2:4]}:{d['time'][4:]}"
+            if style == STYLE_TX:
+                cells = [stamp, "TX", "", str(d["freq"]), d["message"]]
+            else:
+                cells = [stamp, str(d["snr"]), f"{d['dt']:.1f}", str(d["freq"]), d["message"]]
+            out.append((cycle["start"], d, cells, style))
+    return out
+
+
+def power_percent(rig: dict) -> float | None:
+    power = (rig.get("controls") or {}).get("power")
+    return power if power is not None else rig.get("power")
+
+
+def watts(rig: dict, percent: float | None) -> str:
+    if percent is None:
+        return "?"
+    return f"{percent * float(rig.get('max_power_w') or 10) / 100:.1f} W"
+
+
+def power_step(rig: dict, percent: float | None, step: int) -> float:
+    """The power one watt up or down (in percent, as the radio takes it)."""
+    one = 100 / float(rig.get("max_power_w") or 10)
+    return max(0.0, min(100.0, round((percent or 0) + step * one)))
+
+
+def tx_pieces(state: dict, rig: dict) -> list[tuple[str, str]]:
+    """The transmit settings, for the status line: audio, power, the ALC (live while
+    transmitting, else the last message's peak)."""
+    tx = state.get("tx") or {}
+    pieces = [] if tx.get("on") else [("TX", f"{tx.get('freq', '?')} Hz")]   # else tx_piece's
+    pieces += [(_("LEVEL"), f"{round(float(tx.get('level', 0.5)) * 100)} %"),
+               (_("PWR"), watts(rig, power_percent(rig)))]
+    meters = rig.get("meters") or {}
+    if rig.get("transmitting"):
+        pieces.append(("ALC", f"{float(meters.get('alc') or 0):.2f}"))
+    elif tx.get("last"):
+        pieces.append(("ALC", _("{alc} (last)").format(alc=f"{tx['last']['alc']:.2f}")))
+    return pieces
+
+
 def tx_piece(state: dict) -> tuple[str, str] | None:
     """What we are sending, for the status line."""
     tx = state.get("tx") or {}
@@ -139,6 +194,12 @@ class Ft8App(App[int]):
         Binding("q", "cq", show=False),
         Binding("h", "halt", show=False),
         Binding("f", "tx_freq", show=False),
+        Binding("left_square_bracket", "move_tx(-1)", show=False),
+        Binding("right_square_bracket", "move_tx(1)", show=False),
+        Binding("minus", "level(-1)", show=False),
+        Binding("plus", "level(1)", show=False),
+        Binding("comma", "power(-1)", show=False),
+        Binding("full_stop", "power(1)", show=False),
         Binding("left", "band(-1)", show=False, priority=True),
         Binding("right", "band(1)", show=False, priority=True),
         Binding("c", "cq_only", show=False),
@@ -152,6 +213,7 @@ class Ft8App(App[int]):
         self.link = link
         self.owns_link = owns_link
         self.state: dict = {}
+        self.rig: dict = {}
         self.cycles: list[dict] = []         # oldest first, as decoded (passes merged)
         self.lines: list[tuple] = []         # what each row of the table shows
         self.cq_only = False
@@ -162,6 +224,7 @@ class Ft8App(App[int]):
         yield RigStatusLine(self.link.description, id="statusline")
         yield DataTable(id="activity", cursor_type="row", zebra_stripes=False,
                         classes="frame")
+        yield DataTable(id="qso", cursor_type="none", zebra_stripes=False, classes="frame")
         yield Static(id="message")
         yield Static(id="stats")
 
@@ -171,6 +234,12 @@ class Ft8App(App[int]):
         table.add_columns(_("UTC"), Text("dB", justify="right"), Text("DT", justify="right"),
                           Text(_("Freq"), justify="right"), _("Message"))
         table.styles.height = "1fr"
+        qso = self.query_one("#qso", DataTable)
+        qso.border_title = _("QSO")
+        qso.add_columns(_("UTC"), Text("dB", justify="right"), Text("DT", justify="right"),
+                        Text(_("Freq"), justify="right"), _("Message"))
+        qso.styles.height = 9
+        qso.can_focus = False
         self.set_interval(1.0, self._tick)
         self._tick()
         self.link.attach(self._on_event)
@@ -207,8 +276,12 @@ class Ft8App(App[int]):
             status = self.query_one("#statusline", RigStatusLine)
             status.rig = event
             status.refresh()
+            self.rig = event
         elif kind == "ft8":
+            them = (self.state.get("tx") or {}).get("them")
             self.state = event
+            if (event.get("tx") or {}).get("them") != them:
+                self._fill_qso()
             self._tick()
         elif kind == "ft8.cycle":
             self._add(event)
@@ -238,6 +311,18 @@ class Ft8App(App[int]):
         if table.row_count:
             table.move_cursor(row=table.row_count - 1 if at_end or not keep_end
                               else min(row, table.row_count - 1))
+        self._fill_qso()
+
+    def _fill_qso(self) -> None:
+        table = self.query_one("#qso", DataTable)
+        table.clear()
+        them = (self.state.get("tx") or {}).get("them") or ""
+        for _start, _decode, cells, style in conversation(self.cycles, self.mycall, them):
+            stamp, snr, dt, freq, message = cells
+            table.add_row(stamp, Text(snr, justify="right"), Text(dt, justify="right"),
+                          Text(freq, justify="right"), Text(message, style=style))
+        if table.row_count:
+            table.scroll_end(animate=False)
 
     def _chosen(self) -> tuple[float, dict] | None:
         table = self.query_one("#activity", DataTable)
@@ -251,7 +336,8 @@ class Ft8App(App[int]):
         if not self.is_running:
             return
         status = self.query_one("#statusline", RigStatusLine)
-        status.extra = extra(self.state)
+        status.extra = extra(self.state) + (tx_pieces(self.state, self.rig)
+                                            if self.state.get("on") else [])
         status.refresh()
         stats = self.query_one("#stats", Static)
         count = sum(len(c["decodes"]) for c in self.cycles[-1:])
@@ -322,6 +408,30 @@ class Ft8App(App[int]):
             return
         self.run_worker(self._call(_("Transmitting on {freq} Hz"), "ft8.txfreq",
                                    freq=chosen[1]["freq"]), group="tx")
+
+    def action_move_tx(self, step: int) -> None:
+        freq = int((self.state.get("tx") or {}).get("freq") or 1500) + step * FREQ_STEP
+        self.run_worker(self._call(_("Transmitting on {freq} Hz"), "ft8.txfreq", freq=freq),
+                        group="tx")
+
+    def action_level(self, step: int) -> None:
+        level = float((self.state.get("tx") or {}).get("level") or 0.5) + step * LEVEL_STEP
+        self.run_worker(self._call(_("TX level {percent} %"), "ft8.level", level=level),
+                        group="tx")
+
+    def action_power(self, step: int) -> None:
+        percent = power_step(self.rig, power_percent(self.rig), step)
+        self.run_worker(self._power(percent), group="power", exclusive=True)
+
+    async def _power(self, percent: float) -> None:
+        reply = await self.link.call("rig.set", id="power", value=percent)
+        if reply.get("error"):
+            self._message("error", reply["error"])
+        else:
+            value = reply.get("value", percent)
+            self.rig.setdefault("controls", {})["power"] = value   # before the next rig event
+            self._message("info", _("Power {watts}").format(watts=watts(self.rig, value)))
+            self._tick()
 
     async def _call(self, done: str, method: str, **params) -> None:
         reply = await self.link.call(method, **params)

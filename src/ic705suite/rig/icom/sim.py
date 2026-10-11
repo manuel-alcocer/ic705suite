@@ -96,6 +96,7 @@ class SimTransport(Transport):
         self.data_mode = (0, 0)
         self.ptt = False
         self.tx_audio_bytes = 0
+        self.tx_peak = 0.0                   # of full scale: the audio sent lately (the ALC)
         self.antenna_resonance = 7_100_000   # simulated antenna: SWR 1.1 here, rising away
         # Every other setting (levels, switches, scope) is kept by its command prefix.
         self.settings: dict[bytes, bytes] = dict(DEFAULT_SETTINGS)
@@ -125,6 +126,8 @@ class SimTransport(Transport):
 
     def send_audio(self, pcm: bytes) -> None:
         self.tx_audio_bytes += len(pcm)
+        if pcm:
+            self.tx_peak = float(np.abs(np.frombuffer(pcm, "<i2")).max()) / 32767
         if self.on_tx_audio is not None:
             self.on_tx_audio(pcm, self.ptt)
 
@@ -185,7 +188,10 @@ class SimTransport(Transport):
             if prefix in (b"\x27\x10", b"\x27\x11"):
                 self._scope_switch()
             return ok
-        if body[:2] in (b"\x15\x13", b"\x15\x14"):
+        if body[:2] == b"\x15\x13":   # ALC: the audio over 0.6 of full scale drives it
+            alc = max(0.0, self.tx_peak - 0.6) / 0.4 * 180 if self.ptt else 0
+            return body[:2] + civ.encode_level(min(255, int(alc)))
+        if body[:2] == b"\x15\x14":
             return body[:2] + civ.encode_level(0)
         if body[:2] == b"\x15\x15":
             return body[:2] + civ.encode_level(102)        # about 6.8 V: two Li-ion cells

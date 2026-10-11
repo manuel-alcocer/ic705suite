@@ -8,10 +8,13 @@ Events (server -> client):
              cycle: "early" (in a QSO, near the other station, at second 13), "quick", then
              "deep" when the machine has time; a cycle seen before gets the new decodes
   ft8.tx     {start, message, freq}  a message sent
+  ft8.sent   {start, message, alc, watts}  how it went out: the highest ALC (0 none, 1 the
+             top of the radio's ALC zone) and RF power the radio showed while sending
   ft8.qso    {qso: {ADIF fields}, path}  a QSO completed, added to ft8_log.adi
   info       a QSO completed, given up, or a transmission refused (and why)
 Calls ("ft8.*"): state, start, stop, history {cycles}, band {band}, cq {freq}, reply
-  {decode, start}, halt, txfreq {freq}, log (the QSOs completed and ft8_log.adi)
+  {decode, start}, halt, txfreq {freq}, level {level} (the transmit audio, 0.05-1 of full
+  scale: lower it when the ALC moves), log (the QSOs completed and ft8_log.adi)
 Decoding ([ft8] depth 0, the default): as WSJT-X, the deepest pass that is done in about
 3 s first, then a deeper one if it fits before the next cycle, from what each depth took
 here (a Raspberry Pi 4: depth 1 in 3 s, 2 in 9 s, 3 in 23 s). In a QSO a narrow pass near
@@ -60,7 +63,9 @@ LATE = 2.0                 # starting later than this would not be decoded well:
 LEAD = 0.1                 # audio sent this much ahead (the radio keeps a small buffer)
 PIECE = 0.02               # seconds of audio per piece sent
 TAIL = 0.3                 # after the last piece, before unkeying
-LEVEL = 0.5                # of full scale (the radio's LAN MOD level sets the drive)
+LEVEL_RANGE = (0.05, 1.0)  # the transmit audio, of full scale ([ft8] level; the radio's
+                           # LAN MOD level scales it again)
+ALC_HIGH = 0.3             # an ALC peak over this (of the ALC zone): the audio is too strong
 LONGEST_KEY = 16.0         # the PTT watchdog while a message goes out
 CQ_TURNS = 20              # CQs with nobody answering (5 minutes): stop
 DATA1_MOD = b"\x1a\x05\x01\x19"
@@ -77,6 +82,10 @@ class Ft8Error(Exception):
     def __init__(self, msgid: str, **args: object) -> None:
         super().__init__(msgid.format(**args) if args else msgid)
         self.msgid, self.args_ = msgid, args
+
+
+def clamp_level(level: float) -> float:
+    return round(max(LEVEL_RANGE[0], min(LEVEL_RANGE[1], float(level))), 2)
 
 
 def cycle_start(now: float) -> float:
@@ -114,6 +123,8 @@ class Ft8Service:
         self.tx_on = False
         self.tx_parity = 0
         self.tx_freq = config.ft8_tx_freq
+        self.tx_level = clamp_level(config.ft8_level)
+        self.last_sent: dict = {}                 # the last message's ALC and power peaks
         self.their_freq = 0                       # the other station's audio frequency
         self.transmitting = False
         self.cq_turns = 0
@@ -452,13 +463,18 @@ class Ft8Service:
                            error=str(exc))
             await self.halt()
             return
-        sound = jt9.resample(sound, encode.RATE, rate) * LEVEL
+        sound = jt9.resample(sound, encode.RATE, rate) * self.tx_level
         pcm = (np.clip(sound, -1, 1) * 32767).astype("<i2").tobytes()
         piece = int(rate * PIECE) * 2
+        meters = self.station.rig.state.meters
+        alc = watts = 0.0
         try:
             await asyncio.sleep(max(0.0, begin - LEAD - 0.2 - time.time()))
-            await self.station.rig.ptt(True, longest=LONGEST_KEY)
+            # Marked first: halted while the radio is being keyed, it is still released.
             self.transmitting = True
+            await self.station.rig.ptt(True, longest=LONGEST_KEY)
+            for meter in ("alc", "po"):          # the last message's: read anew for this one
+                meters.pop(meter, None)
             if qso.them and self.qso_began is None:
                 self.qso_began = time.time()          # TIME_ON: our first word to them
             self._touch()
@@ -468,7 +484,12 @@ class Ft8Service:
             for index, offset in enumerate(range(0, len(pcm), piece)):
                 await asyncio.sleep(max(0.0, began + index * PIECE - LEAD - time.time()))
                 self.station.transport.send_audio(pcm[offset:offset + piece])
+                if index % 25 == 0:      # the station reads the meters while transmitting
+                    alc = max(alc, float(meters.get("alc") or 0))
+                    watts = max(watts, float(meters.get("po") or 0))
             await asyncio.sleep(max(0.0, began + len(pcm) / 2 / rate - time.time()) + TAIL)
+            alc = max(alc, float(meters.get("alc") or 0))
+            watts = max(watts, float(meters.get("po") or 0))
         except (RigError, TransportError) as exc:
             self.hub.error(N_("FT8 transmission failed: {error}"), error=str(exc))
             await self.halt()
@@ -476,10 +497,20 @@ class Ft8Service:
         finally:
             if self.transmitting:
                 await self._unkey()
+        self._sent(start, message, alc, watts)
         qso.sent()
         self._touch()
         if qso.step == "done":
             self._finished()
+
+    def _sent(self, start: float, message: str, alc: float, watts: float) -> None:
+        self.last_sent = {"start": start, "message": message, "alc": round(alc, 2),
+                          "watts": round(watts, 1), "level": self.tx_level}
+        self.hub.emit({"type": "ft8.sent", **self.last_sent})
+        if alc > ALC_HIGH:
+            self.hub.info(N_("FT8: the ALC rose to {alc} while sending: lower the TX level "
+                             "(now {level} %) until it stays at 0"),
+                          alc=f"{alc:.2f}", level=round(self.tx_level * 100))
 
     async def _unkey(self) -> None:
         with contextlib.suppress(RigError, TransportError):
@@ -538,7 +569,8 @@ class Ft8Service:
                 "tx": {"on": self.tx_on, "transmitting": self.transmitting,
                        "message": qso.message if self.tx_on else "", "step": qso.step,
                        "them": qso.them, "freq": self.tx_freq, "parity": self.tx_parity,
-                       "tries": qso.tries, "mycall": qso.mycall, "grid": qso.mygrid}}
+                       "tries": qso.tries, "mycall": qso.mycall, "grid": qso.mygrid,
+                       "level": self.tx_level, "last": self.last_sent}}
 
     async def call(self, method: str, params: dict) -> dict:
         try:
@@ -570,6 +602,10 @@ class Ft8Service:
                 self.tx_freq = max(200, min(3000, int(params["freq"])))
                 self._touch()
                 return {"freq": self.tx_freq}
+            elif method == "level":
+                self.tx_level = clamp_level(params["level"])
+                self._touch()
+                return {"level": self.tx_level, "percent": round(self.tx_level * 100)}
             else:
                 return {"error": f"unknown method ft8.{method}"}
         except Ft8Error as exc:

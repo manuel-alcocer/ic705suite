@@ -252,6 +252,17 @@ def test_the_terminal_screen(tmp_path, monkeypatch):
             await until(lambda: not link.core.ft8.on and not app.state.get("on"))
             await pilot.press("s")
             await until(lambda: link.core.ft8.on)
+            ft8, rig = link.core.ft8, link.core.station.rig
+            await until(lambda: app.state.get("tx", {}).get("freq") == 1500)
+            await pilot.press("right_square_bracket")                # TX 25 Hz up
+            await until(lambda: ft8.tx_freq == 1525)
+            await until(lambda: app.state["tx"]["level"] == 0.5)
+            await pilot.press("minus")                               # the audio 5 % down
+            await until(lambda: ft8.tx_level == 0.45)
+            await until(lambda: app.rig.get("controls", {}).get("power") is not None)
+            before = app.rig["controls"]["power"]
+            await pilot.press("comma")                               # a watt less
+            await until(lambda: rig.state.controls.get("power") == max(0, before - 10))
             await pilot.press("escape")
             await pilot.pause(0.3)
         assert not link.core.ft8.on                                  # stopped on leaving
@@ -478,3 +489,73 @@ def test_into_the_logbook_once(tmp_path):
     assert row.qso_utc == dt.datetime(2026, 10, 11, 18, 1, 15)
     assert log_qso(fields) == (None, "already logged")
     assert len([r for r in QsoService.recent(limit=10) if r.call == "DL1ABC"]) == 1
+
+
+def test_the_transmit_level_and_the_alc(tmp_path, monkeypatch):
+    """Too strong an audio moves the radio's ALC: the message says so, and a lower level
+    sends it clean (the simulator's ALC rises over 0.6 of full scale)."""
+    air = short_turns(monkeypatch)
+    monkeypatch.setattr(service_module, "LONGEST_KEY", 5.0)
+
+    def audio(program, message, frequency, rate=12_000):
+        air["sent"].append(message)
+        t = np.arange(int(rate * 0.7)) / rate
+        return np.sin(2 * np.pi * frequency * t).astype(np.float32)   # full scale
+
+    monkeypatch.setattr(service_module.encode, "audio", audio)
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        sent: list[dict] = []
+        texts: list[str] = []
+        link.attach(lambda e: sent.append(e) if e.get("type") == "ft8.sent" else
+                    e.get("type") == "info" and texts.append(e["text"]))
+        try:
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            assert (await link.call("ft8.level", level=2)) == {"level": 1.0, "percent": 100}
+            await link.call("ft8.cq")
+            await until(lambda: sent)
+            assert sent[0]["alc"] > 0.3 and sent[0]["level"] == 1.0
+            await until(lambda: any("lower the TX level" in t for t in texts))
+            assert (await link.call("ft8.level", level=0.3))["percent"] == 30
+            await until(lambda: len(sent) >= 2 and sent[-1]["level"] == 0.3)
+            assert sent[-1]["alc"] == 0
+            state = await link.call("ft8.state")
+            assert state["tx"]["level"] == 0.3 and state["tx"]["last"]["alc"] == 0
+            await link.call("ft8.halt")
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_the_qso_lines():
+    """The QSO's area: what we sent, what is sent to us, and the station we work."""
+    from ic705suite.apps.ft8.app import STYLE_ME, STYLE_TX, conversation, power_step, tx_pieces
+
+    def line(message, sender, to, kind="call"):
+        return {"time": "120015", "snr": -9, "dt": 0.2, "freq": 1200, "message": message,
+                "kind": kind, "sender": sender, "to": to}
+
+    cycles = [{"start": 0, "decodes": [line("CQ DL1ABC JO62", "DL1ABC", "", "cq"),
+                                       line("CQ F5ABC JN12", "F5ABC", "", "cq")]},
+              {"start": 15, "decodes": [{"kind": "tx", "time": "120015", "snr": None,
+                                         "dt": None, "freq": 1500,
+                                         "message": "DL1ABC EA7KLX IM77"}]},
+              {"start": 30, "decodes": [line("EA7KLX DL1ABC -07", "DL1ABC", "EA7KLX"),
+                                        line("G4XYZ F5ABC JN12", "F5ABC", "G4XYZ")]}]
+    shown = conversation(cycles, "EA7KLX", "DL1ABC")
+    assert [cells[4] for _s, _d, cells, _st in shown] == [
+        "CQ DL1ABC JO62", "DL1ABC EA7KLX IM77", "EA7KLX DL1ABC -07"]
+    assert [style for *_r, style in shown][1:] == [STYLE_TX, STYLE_ME]
+    assert len(conversation(cycles, "EA7KLX", "")) == 2           # nobody worked yet
+
+    rig = {"max_power_w": 10, "controls": {"power": 20.0}, "meters": {"alc": 0.5},
+           "transmitting": True}
+    assert power_step(rig, 20.0, 1) == 30 and power_step(rig, 5.0, -1) == 0
+    pieces = dict(tx_pieces({"tx": {"freq": 1500, "level": 0.45}}, rig))
+    assert pieces["TX"] == "1500 Hz" and pieces["PWR"] == "2.0 W" and pieces["ALC"] == "0.50"

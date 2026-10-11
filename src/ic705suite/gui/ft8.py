@@ -1,6 +1,7 @@
 """FT8 in the graphical client: the terminal's screen (apps.ft8.app) with the same keys, and
 the mouse: a double click answers a station, buttons call CQ and halt, the band from a list,
-Stop/Start, the CQ-only box."""
+Stop/Start, the CQ-only box; beside the band's activity, the QSO; under them, what we
+transmit with: the audio frequency, the audio level, the radio's power, and the ALC."""
 
 from __future__ import annotations
 
@@ -10,15 +11,21 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
     QComboBox,
+    QDoubleSpinBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QProgressBar,
     QPushButton,
+    QSpinBox,
+    QSplitter,
     QTableWidgetItem,
     QVBoxLayout,
 )
 
 from ic705suite.apps.ft8.app import (
+    ALC_HOT,
+    FREQ_STEP,
     FT8_BANDS,
     HINT,
     SHORT_HINT,
@@ -28,10 +35,14 @@ from ic705suite.apps.ft8.app import (
     STYLE_ME,
     STYLE_TX,
     Ft8App,
+    conversation,
     extra,
     merge,
+    power_percent,
+    power_step,
     rows,
     sent_line,
+    watts,
 )
 from ic705suite.gui import theme
 from ic705suite.gui.page import Page
@@ -49,6 +60,7 @@ class Ft8Page(Page):
         self.owns_link = owns_link
         self.setWindowTitle("FT8")
         self.state: dict = {}
+        self.rig: dict = {}
         self.cycles: list[dict] = []
         self.lines: list[tuple] = []
         self.cq_only = False
@@ -85,23 +97,22 @@ class Ft8Page(Page):
             button.clicked.connect(lambda _c=False, a=action: a())
             controls.addWidget(button)
         self.frame.body.addLayout(controls)
-        self.table = self.frame.add(Table(0, 5), 1)
+        self.table = self.frame.add(self._log_table(), 1)
         self.table.pass_letters = True                       # C, S are the page's
-        self.table.setHorizontalHeaderLabels([_("UTC"), "dB", "DT", _("Freq"), _("Message")])
-        self.table.right_align(1, 2, 3)
-        self.table.verticalHeader().hide()
-        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.setShowGrid(False)
-        self.table.setFont(theme.mono(10.5))
-        self.table.verticalHeader().setDefaultSectionSize(
-            self.table.fontMetrics().height() + 4)          # compact, as a log
-        header = self.table.horizontalHeader()
-        for column in range(4):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-        header.setStretchLastSection(True)
         self.table.cellDoubleClicked.connect(self._double_click)
+        self.qso_frame = Frame(_("QSO"))
+        self.qso_table = self.qso_frame.add(self._log_table(), 1)
+        self.qso_table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.qso_table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.addWidget(self.frame)
+        self.splitter.addWidget(self.qso_frame)
+        self.splitter.setStretchFactor(0, 3)
+        self.splitter.setStretchFactor(1, 2)
+        self.splitter.setChildrenCollapsible(False)
+        self.splitter.setSizes([600, 400])
+        self.tx_frame = Frame(_("Transmit"))
+        self.tx_frame.body.addLayout(self._tx_controls())
         self.message = QLabel()
         self.message.setTextFormat(Qt.TextFormat.RichText)
         self.footer = Footer([HINT, SHORT_HINT])
@@ -110,13 +121,105 @@ class Ft8Page(Page):
         layout.addWidget(self.status)
         body = QVBoxLayout()
         body.setContentsMargins(8, 4, 8, 4)
-        body.addWidget(self.frame, 1)
+        body.addWidget(self.splitter, 1)
+        body.addWidget(self.tx_frame)
         body.addWidget(self.message)
         layout.addLayout(body, 1)
         layout.addWidget(self.footer)
         self.timer = QTimer(self, interval=1000, timeout=self._tick)
         self.timer.start()
         self._tick()
+
+    def _log_table(self) -> Table:
+        table = Table(0, 5)
+        table.setHorizontalHeaderLabels([_("UTC"), "dB", "DT", _("Freq"), _("Message")])
+        table.right_align(1, 2, 3)
+        table.verticalHeader().hide()
+        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.setShowGrid(False)
+        table.setFont(theme.mono(10.5))
+        table.verticalHeader().setDefaultSectionSize(
+            table.fontMetrics().height() + 4)               # compact, as a log
+        header = table.horizontalHeader()
+        for column in range(4):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        header.setStretchLastSection(True)
+        return table
+
+    def _tx_controls(self) -> QHBoxLayout:
+        """TX audio frequency, audio level, the radio's power, and the ALC."""
+        row = QHBoxLayout()
+
+        def spin(box, label: str, tip: str):
+            box.setKeyboardTracking(False)               # typed: taken on Enter
+            box.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+            box.setToolTip(tip)
+            box.editingFinished.connect(lambda: self.table.setFocus())   # the keys again
+            row.addWidget(QLabel(label))
+            row.addWidget(box)
+            return box
+
+        self.freq_spin = spin(QSpinBox(), _("Audio"), _(
+            "Audio frequency of what we send (F takes the chosen line's; [ ] move it)"))
+        self.freq_spin.setRange(200, 3000)
+        self.freq_spin.setSingleStep(FREQ_STEP)
+        self.freq_spin.setSuffix(" Hz")
+        self.freq_spin.valueChanged.connect(lambda v: self._changed(
+            "freq", v, lambda: self.run_worker(self._call(
+                _("Transmitting on {freq} Hz"), "ft8.txfreq", freq=v), group="tx")))
+        self.level_spin = spin(QSpinBox(), _("Level"), _(
+            "Transmit audio: lower it until the ALC stays at 0 (- +)"))
+        self.level_spin.setRange(5, 100)
+        self.level_spin.setSingleStep(5)
+        self.level_spin.setSuffix(" %")
+        self.level_spin.valueChanged.connect(lambda v: self._changed(
+            "level", v, lambda: self.run_worker(self._call(
+                _("TX level {percent} %"), "ft8.level", level=v / 100), group="tx")))
+        self.power_spin = spin(QDoubleSpinBox(), _("Power"), _(
+            "The radio's RF power (, .)"))
+        self.power_spin.setDecimals(1)
+        self.power_spin.setRange(0, 10)
+        self.power_spin.setSingleStep(0.5)
+        self.power_spin.setSuffix(" W")
+        self.power_spin.valueChanged.connect(lambda v: self._changed(
+            "power", v, lambda: self.run_worker(self._power(
+                v * 100 / self._max_watts()), group="power", exclusive=True)))
+        row.addSpacing(12)
+        row.addWidget(QLabel("ALC"))
+        self.alc_bar = QProgressBar()
+        self.alc_bar.setRange(0, 100)
+        self.alc_bar.setTextVisible(False)
+        self.alc_bar.setFixedWidth(140)
+        self.alc_bar.setMaximumHeight(14)
+        self.alc_bar.setToolTip(_("The radio's ALC while sending: it must stay at 0 (if it "
+                                  "rises, lower the level)"))
+        row.addWidget(self.alc_bar)
+        self.alc_label = QLabel()
+        self.alc_label.setTextFormat(Qt.TextFormat.RichText)
+        self.alc_label.setMinimumWidth(self.alc_label.fontMetrics().horizontalAdvance("x" * 34))
+        row.addWidget(self.alc_label)
+        row.addStretch(1)
+        self._shown: dict[str, float] = {}
+        return row
+
+    def _changed(self, name: str, value: float, send) -> None:
+        """A box changed by the operator (not by an update from the core)."""
+        if self._shown.get(name) != value:
+            self._shown[name] = value
+            send()
+
+    def _show(self, box, name: str, value: float) -> None:
+        if box.hasFocus() or self._shown.get(name) == value:
+            return
+        self._shown[name] = value
+        box.blockSignals(True)
+        box.setValue(value)
+        box.blockSignals(False)
+
+    def _max_watts(self) -> float:
+        return float(self.rig.get("max_power_w") or 10)
 
     def start(self) -> None:
         self.link.attach(self._on_event)
@@ -158,9 +261,16 @@ class Ft8Page(Page):
         kind = event.get("type")
         if kind == "rig":
             self.status.update_rig(event)
+            self.rig = event
+            self._show_tx()
         elif kind == "ft8":
+            them = (self.state.get("tx") or {}).get("them")
             self.state = event
+            if (event.get("tx") or {}).get("them") != them:
+                self._fill_qso()
             self._tick()
+        elif kind == "ft8.sent":
+            self._show_tx()
         elif kind == "ft8.cycle":
             merge(self.cycles, event)
             self._fill(keep_end=True)
@@ -191,8 +301,16 @@ class Ft8Page(Page):
         at_end = bar.value() >= bar.maximum() - 4
         chosen = table.currentRow()
         self.lines = rows(self.cycles, self.cq_only, self.mycall)
-        table.setRowCount(len(self.lines))
-        for row, (_start, _decode, cells, style) in enumerate(self.lines):
+        self._paint(table, self.lines)
+        if self.lines and (at_end or not keep_end):
+            table.scrollToBottom()
+        if 0 <= chosen < len(self.lines):
+            table.selectRow(chosen)
+        self._fill_qso()
+
+    def _paint(self, table: Table, lines: list[tuple]) -> None:
+        table.setRowCount(len(lines))
+        for row, (_start, _decode, cells, style) in enumerate(lines):
             fg, bg, bold = self._colours(style)
             for column, text in enumerate(cells):
                 item = QTableWidgetItem(text)
@@ -205,10 +323,39 @@ class Ft8Page(Page):
                     font.setBold(True)
                     item.setFont(font)
                 table.setItem(row, column, item)
-        if self.lines and (at_end or not keep_end):
-            table.scrollToBottom()
-        if 0 <= chosen < len(self.lines):
-            table.selectRow(chosen)
+
+    def _fill_qso(self) -> None:
+        them = (self.state.get("tx") or {}).get("them") or ""
+        self._paint(self.qso_table, conversation(self.cycles, self.mycall, them))
+        self.qso_table.scrollToBottom()
+
+    def _show_tx(self) -> None:
+        tx = self.state.get("tx") or {}
+        if tx.get("freq"):
+            self._show(self.freq_spin, "freq", int(tx["freq"]))
+        if tx.get("level") is not None:
+            self._show(self.level_spin, "level", round(float(tx["level"]) * 100))
+        self.power_spin.setMaximum(self._max_watts())
+        percent = power_percent(self.rig)
+        if percent is not None:
+            self._show(self.power_spin, "power",
+                       round(percent * self._max_watts() / 100 * 2) / 2)
+        if self.rig.get("transmitting"):
+            alc, note = float((self.rig.get("meters") or {}).get("alc") or 0), ""
+        elif tx.get("last"):
+            alc, note = float(tx["last"]["alc"]), _("last")
+        else:
+            alc, note = 0.0, ""
+        hot = alc > ALC_HOT
+        colour = theme.RED if hot else theme.YELLOW if alc > 0.05 else theme.GREEN
+        self.alc_bar.setValue(min(100, round(alc * 100)))
+        self.alc_bar.setStyleSheet(
+            f"QProgressBar {{ background: {theme.RAISED}; border: 1px solid {theme.BORDER}; "
+            f"border-radius: 3px; }} QProgressBar::chunk {{ background: {colour}; }}")
+        text = f"{alc:.2f}" + (f" ({note})" if note else "")
+        if hot:
+            text += " · " + _("lower the level")
+        self.alc_label.setText(span(text, colour, hot))
 
     def _double_click(self, row: int, _column: int) -> None:
         self.table.selectRow(row)
@@ -231,6 +378,7 @@ class Ft8Page(Page):
         if band in FT8_BANDS and self.band_box.currentText() != band:
             self.band_box.setCurrentText(band)
         self.footer.counters = [(_("Decoded"), sum(len(c["decodes"]) for c in self.cycles[-1:]))]
+        self._show_tx()
 
     def _message(self, kind: str, text: str) -> None:
         self.message.setText(span(text, theme.RED if kind == "error" else theme.CYAN,
@@ -298,6 +446,30 @@ class Ft8Page(Page):
             return
         self.run_worker(self._call(_("Transmitting on {freq} Hz"), "ft8.txfreq",
                                    freq=chosen[1]["freq"]), group="tx")
+
+    def action_move_tx(self, step: int) -> None:
+        freq = int((self.state.get("tx") or {}).get("freq") or 1500) + step * FREQ_STEP
+        self.run_worker(self._call(_("Transmitting on {freq} Hz"), "ft8.txfreq", freq=freq),
+                        group="tx")
+
+    def action_level(self, step: int) -> None:
+        level = float((self.state.get("tx") or {}).get("level") or 0.5) + step * 0.05
+        self.run_worker(self._call(_("TX level {percent} %"), "ft8.level", level=level),
+                        group="tx")
+
+    def action_power(self, step: int) -> None:
+        percent = power_step(self.rig, power_percent(self.rig), step)
+        self.run_worker(self._power(percent), group="power", exclusive=True)
+
+    async def _power(self, percent: float) -> None:
+        reply = await self.link.call("rig.set", id="power", value=percent)
+        if reply.get("error"):
+            self._message("error", reply["error"])
+            return
+        value = reply.get("value", percent)
+        self.rig.setdefault("controls", {})["power"] = value    # before the next rig event
+        self._message("info", _("Power {watts}").format(watts=watts(self.rig, value)))
+        self._show_tx()
 
     async def _call(self, done: str, method: str, **params) -> None:
         reply = await self.link.call(method, **params)

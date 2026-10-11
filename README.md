@@ -311,6 +311,14 @@ own link, keying it by CI-V, only with `tx_enabled` and the radio in a data mode
 MOD input set to WLAN). What we send shows in yellow. `[station] locator` is the grid sent
 (asked by `--configure`).
 
+Beside the band's activity (under it in the terminal), the **QSO** area shows the
+conversation alone: what we send, what is sent to us and what the station we work says.
+Under them, what we transmit with: the audio frequency (**[ ]** move it 25 Hz, or type it),
+the audio level (**- +**, `[ft8] level`, 50 % by default), the radio's power (**, .** a watt
+down or up) and its **ALC**, live while sending and the last message's peak afterwards. FT8
+wants the ALC at 0: if it rises, lower the level (the suite says so after the message);
+the watts come from the power, not from the audio.
+
 Each QSO completed (reports both ways) is added to `ft8/ft8_log.adi` in the core's data
 folder (`~/.local/share/ic705suite` on Linux), as WSJT-X keeps `wsjtx_log.adi`: call, grid,
 mode, both reports, the start and end times, band, frequency (dial plus audio), our call,

@@ -141,6 +141,9 @@ max_power = 30
 # depth = 0
 # Audio frequency (Hz) of our transmissions, until a click or a key moves it
 # tx_freq = 1500
+# Transmit audio, of full scale (0.05-1): lower it if the ALC moves while sending (F8 shows
+# it); the radio's power sets the watts
+# level = 0.5
 
 [ui]
 # Interface language: "en" or "es" (default: the system language; IC705SUITE_LANG overrides)
@@ -220,6 +223,7 @@ class Config:
     ft8_jt9: str = ""
     ft8_depth: int = 0               # 0: chosen from how long each depth takes here
     ft8_tx_freq: int = 1500
+    ft8_level: float = 0.5
     packet_core: str = ""            # "host:port" of the core packet runs on ("" = this one)
     packet_core_token: str = ""
     packet_bbs_call: str = ""        # "" = the station callsign -1
@@ -301,6 +305,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.ft8_jt9 = str(ft8.get("jt9", cfg.ft8_jt9))
         cfg.ft8_depth = int(ft8.get("depth", cfg.ft8_depth))
         cfg.ft8_tx_freq = int(ft8.get("tx_freq", cfg.ft8_tx_freq))
+        cfg.ft8_level = float(ft8.get("level", cfg.ft8_level))
         server, client = data.get("server", {}), data.get("client", {})
         cfg.listen = str(server.get("listen", cfg.listen))
         cfg.server_token = str(server.get("token", cfg.server_token))
