@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.12.0 (2026-10-11)
+
+### Features
+
+- **packet**: A core with no radio for packet, and F7 on another machine's core
+  ([`09c6b2f`](https://github.com/manuel-alcocer/ic705suite/commit/09c6b2f41dd27f35b873327aa96c0138a6b36e02))
+
+
 ## v0.11.0 (2026-10-11)
 
 ### Features
