@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.6.0 (2026-10-11)
+
+### Features
+
+- **swr**: The chosen band's history and its latest curve beside the bands
+  ([`048903f`](https://github.com/manuel-alcocer/ic705suite/commit/048903f5d8047260540d6de4403473c54035f56f))
+
+
 ## v0.5.0 (2026-10-11)
 
 ### Features
