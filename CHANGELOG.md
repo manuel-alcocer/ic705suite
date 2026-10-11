@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.8.0 (2026-10-11)
+
+### Features
+
+- **packet**: BayCom-style terminal on a Direwolf TNC kept by the core
+  ([`d9972b2`](https://github.com/manuel-alcocer/ic705suite/commit/d9972b2d26cb94d49f406f2d0821237682f8bb18))
+
+
 ## v0.7.0 (2026-10-11)
 
 ### Features
