@@ -331,4 +331,7 @@ def details_facts(entry: dict) -> Text:
     fact(_("Note"), entry.get("note") or "—", "white")
     fact(_("Photo"), _("yes (V opens it)") if entry.get("photo") else _("none (F adds one)"),
          "white")
+    if not entry.get("points"):
+        text.append(_("No curve kept for this one (measured before version 0.3.1, or a "
+                      "position saved without a sweep).") + "\n", style="dim")
     return text

@@ -183,6 +183,8 @@
     <h2 id="entryTitle"></h2>
     <div class="facts" id="entryFacts"></div>
     <svg id="entryChart" viewBox="0 0 340 200" role="img" aria-label="Curva de esta medición"></svg>
+    <div class="sub hidden" id="entryNoCurve">Sin curva guardada: medición anterior a la versión
+      0.3.1, o una posición guardada sin barrido.</div>
     <img class="photo hidden" id="entryPhoto" alt="Foto de la antena">
     <div class="row">
       <label><span>Bobina (posición del ajuste)</span><input id="entryCoil" inputmode="decimal"></label>
@@ -278,6 +280,7 @@ async function openEntry(id) {
   else if (e.points && !e.confident) facts.push(["Resultado", "sin resonancia clara"]);
   $("entryFacts").innerHTML = facts.map(([k, v]) => `<div><span>${k}</span><b>${esc(v)}</b></div>`).join("");
   $("entryChart").classList.toggle("hidden", !(e.points && e.points.length));
+  $("entryNoCurve").classList.toggle("hidden", !!(e.points && e.points.length));
   if (e.points && e.points.length) {
     drawChart({ points: e.points, kind: e.kind, target: e.target, analysis: e.confident ? e.analysis : null }, $("entryChart"));
   }

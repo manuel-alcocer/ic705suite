@@ -134,6 +134,8 @@ def test_history_as_in_the_terminal(tmp_path, run, monkeypatch):
             await until(lambda: isinstance(page.overlay, swr_page.HistoryView)
                         and page.overlay.entries)
             listing = page.overlay
+            # The chosen row's curve beside the list.
+            await until(lambda: listing.preview.sweep.get("points") == points)
             await key(Qt.Key.Key_Return)
             await until(lambda: isinstance(page.overlay, swr_page.EntryView)
                         and page.overlay.entry)
@@ -162,6 +164,41 @@ def test_history_as_in_the_terminal(tmp_path, run, monkeypatch):
             await until(lambda: not listing.entries)
             await key(Qt.Key.Key_Escape)
             await until(lambda: page.overlay is None)
+        finally:
+            await link.close()
+
+    run(scenario())
+
+
+def test_the_chosen_bands_history_and_its_latest_curve(tmp_path, run, monkeypatch):
+    """Below the bands, the chosen one's history; with no sweep of its own in the core the
+    chart shows its latest saved curve, and a click on a row shows that one's."""
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    from ic705suite.apps.swr import service as service_module
+
+    monkeypatch.setattr(service_module, "LEGACY_HISTORY", tmp_path / "none.json")
+    older = [{"f": 7_000_000 + i * 20_000, "v": 2.0 - i / 20} for i in range(11)]
+    newer = [{"f": 7_000_000 + i * 10_000, "v": 1.1 + abs(i - 10) / 10} for i in range(21)]
+
+    async def scenario():
+        win, link = await window(tmp_path, start_app="swr")
+        page = win.page
+        history = link.core.swr.history
+        history.add({"ts": "2026-10-10 10:00:00", "band": "40m", "kind": "swr",
+                     "target": 7_074_000, "points": older})
+        history.add({"ts": "2026-10-11 10:00:00", "band": "40m", "kind": "swr",
+                     "target": 7_074_000, "points": newer})
+        history.add({"ts": "2026-10-11 10:00:00", "band": "20m", "kind": "final", "coil": 3.0})
+        try:
+            await until(lambda: page.bands and page.state)
+            await key(Qt.Key.Key_F3)
+            await key(Qt.Key.Key_F2)                       # 40m: its history is loaded
+            await until(lambda: len(page.recent) == 2)
+            await until(lambda: page.chart.sweep.get("points") == newer)
+            page.recent_table.cellClicked.emit(1, 0)       # the older one
+            await until(lambda: page.chart.sweep.get("points") == older)
+            await key(Qt.Key.Key_F4)                       # 20m: a position, no curve
+            await until(lambda: len(page.recent) == 1 and not page.chart.sweep)
         finally:
             await link.close()
 

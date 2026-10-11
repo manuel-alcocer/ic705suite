@@ -13,6 +13,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QGridLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -61,6 +62,12 @@ from ic705suite.station.links import Link
 from ic705suite.ui.widgets import ChoiceScreen, NameScreen
 
 
+# An entry without its points: measured before the history kept the curves (v0.3.1), or a
+# position saved on its own.
+NO_CURVE = N_("No curve kept for this one (measured before version 0.3.1, or a position "
+              "saved without a sweep).")
+
+
 def style_colour(style: str) -> str:
     """advice()'s rich styles, in the theme."""
     return {"bold red": theme.RED, "bold yellow": theme.YELLOW,
@@ -75,6 +82,7 @@ class SweepChart(QWidget):
         super().__init__(parent)
         self.sweep: dict = {}
         self.target: int | None = None
+        self.empty_text = N_("Choose a band and start a sweep.")
         self.setMinimumHeight(220)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
@@ -89,8 +97,8 @@ class SweepChart(QWidget):
         points = self.sweep.get("points") or []
         if not points:
             p.setPen(QColor(theme.DIM))
-            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       _("Choose a band and start a sweep."))
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+                       _(self.empty_text))
             return
         is_swr = self.sweep.get("kind") == "swr"
         values = [pt["v"] for pt in points]
@@ -164,12 +172,15 @@ class SwrPage(Page):
         self.bands: list[dict] = []
         self.state: dict = {}
         self.antenna: dict = {}
+        self.recent: list[dict] = []        # the chosen row's history, newest first
+        self.shown: dict = {}               # the saved sweep drawn on the right, if any
+        self._finished = None
         self._build()
 
     def _build(self) -> None:
         self.status = StatusLine(self.link.description)
         self.bands_frame = Frame(_("Band"))
-        self.table = self.bands_frame.add(Table(0, 6), 1)
+        self.table = self.bands_frame.add(Table(0, 6))
         self.table.setHorizontalHeaderLabels([_("Key"), _("Band"), _("Target"), _("Position"),
                                               _("Resonance"), _("SWR")])
         self.table.right_align(2, 3, 4, 5)
@@ -180,8 +191,25 @@ class SwrPage(Page):
         self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.table.setShowGrid(False)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.table.currentCellChanged.connect(lambda *_a: self._show_sweep())
-        actions = QHBoxLayout()
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.table.currentCellChanged.connect(lambda *_a: self._band_changed())
+        # Below the bands, the chosen one's history: a click draws its curve on the right,
+        # a double click opens it (photo, position, note).
+        self.recent_title = self.bands_frame.add(QLabel())
+        self.recent_title.setObjectName("heading")
+        self.recent_table = self.bands_frame.add(Table(0, 6), 1)
+        self.recent_table.setHorizontalHeaderLabels([_("Date"), _("What"), _("Position"),
+                                                     _("Resonance"), _("Best"), ""])
+        self.recent_table.right_align(2, 3, 4)
+        _setup_rows(self.recent_table)
+        self.recent_table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.recent_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch)
+        self.recent_table.cellClicked.connect(lambda row, _c: self.run_worker(
+            self._show_saved(self.recent[row]["id"])))
+        self.recent_table.cellDoubleClicked.connect(lambda row, _c: self.push_overlay(
+            EntryView(self, self.recent[row]["id"], row_label(self._band() or {"name": ""}))))
+        actions = QGridLayout()
         for key, label, action in (("N", N_("Noise sweep (RX)"),
                                     lambda: self.action_sweep("noise")),
                                    ("S", N_("SWR sweep (TX)"), lambda: self.action_sweep("swr")),
@@ -194,7 +222,8 @@ class SwrPage(Page):
             button = QPushButton(f"{key}  {_(label)}")
             button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             button.clicked.connect(lambda _c=False, a=action: self._run(a))
-            actions.addWidget(button)
+            index = actions.count()
+            actions.addWidget(button, index // 4, index % 4)     # two rows: a narrow column
         self.bands_frame.body.addLayout(actions)
 
         self.sweep_frame = Frame(_("Antenna"))
@@ -214,6 +243,7 @@ class SwrPage(Page):
         top = QHBoxLayout()
         top.addWidget(self.bands_frame, 2)
         top.addWidget(self.sweep_frame, 3)
+        self.bands_frame.setMinimumWidth(420)
         box = QVBoxLayout(self)
         box.setContentsMargins(6, 0, 6, 0)
         box.setSpacing(6)
@@ -273,6 +303,9 @@ class SwrPage(Page):
                 self.table.setItem(i, column, item)
         if self.bands:
             self.table.selectRow(min(row, len(self.bands) - 1))
+        # As tall as its rows: the rest of the column is the history's.
+        self.table.setFixedHeight(self.table.horizontalHeader().height() + 4
+                                  + sum(self.table.rowHeight(i) for i in range(len(self.bands))))
         self.sweep_frame.set_title(f"{_('Antenna')} · {self.antenna.get('name', '')}")
 
     # ---- events -------------------------------------------------------------------------
@@ -290,6 +323,14 @@ class SwrPage(Page):
         if "sweep" not in state:
             return
         self.state = state
+        sweep = state["sweep"]
+        if sweep.get("running"):
+            self.shown = {}                  # a sweep under way takes the chart
+        finished = sweep.get("finished_at")
+        if finished and finished != self._finished:
+            if self._finished is not None:   # just finished: it is in the history now
+                self.run_worker(self._load_recent(), group="recent")
+            self._finished = finished
         self._show_state()
 
     def retheme(self) -> None:
@@ -328,13 +369,101 @@ class SwrPage(Page):
         self.notes.setText("<br>".join(notes))
         self._show_sweep()
 
+    def _live_here(self, sweep: dict, band: dict | None) -> bool:
+        """Whether the sweep in the core is the chosen row's (its band and preset)."""
+        if not sweep.get("kind") or band is None:
+            return False
+        return sweep.get("running") or (
+            sweep.get("band") == band.get("band", band["name"])
+            and (sweep.get("preset") or None) == (band.get("preset") or None))
+
+    def restore_focus(self) -> None:
+        """Back from a screen on top (an entry opened from the history below the bands)."""
+        super().restore_focus()
+        if self.bands:
+            self.run_worker(self._load_recent(), group="recent")
+
+    def _band_changed(self) -> None:
+        self.shown = {}
+        self._show_sweep()
+        self.run_worker(self._load_recent(), group="recent")
+
+    async def _load_recent(self) -> None:
+        """The chosen row's history below the bands; with no sweep of its own in the core,
+        its latest saved curve on the right."""
+        band = self._band()
+        if band is None:
+            return
+        reply = await self.link.call("swr.history", band=band.get("band", band["name"]))
+        if self._band() is not band:
+            return
+        self.recent = mine(reply.get("history", []), band)
+        self.recent_title.setText(_("History of {band}").format(band=row_label(band)))
+        self.recent_table.setRowCount(len(self.recent))
+        for i, entry in enumerate(self.recent):
+            cells = (entry["ts"][5:16], kind_text(entry), coil_text(entry),
+                     bands.format_frequency(entry["resonance"]) if entry.get("resonance")
+                     else "", best_text(entry), marks(entry))
+            for column, text in enumerate(cells):
+                self.recent_table.setItem(i, column, QTableWidgetItem(text))
+        if not self.shown and not self._live_here(self.state.get("sweep") or {}, band):
+            for entry in self.recent[:8]:
+                if entry.get("kind") in ("swr", "noise"):
+                    await self._show_saved(entry["id"], select=False)
+                    break
+
+    async def _show_saved(self, entry_id: int, select: bool = True) -> None:
+        reply = await self.link.call("swr.entry", id=entry_id)
+        entry = reply.get("entry")
+        if not entry:
+            return
+        self.shown = entry
+        if select:
+            ids = [e["id"] for e in self.recent]
+            if entry_id in ids:
+                self.recent_table.selectRow(ids.index(entry_id))
+        self._show_sweep()
+
+    def _show_saved_entry(self, band: dict | None) -> None:
+        e = self.shown
+        a = e.get("analysis") or {}
+        lines = [span(f"{kind_text(e)} · {e.get('band', '')} · {e['ts'][:16]}", theme.CYAN,
+                      True) + span("  " + _("saved"), theme.DIM)]
+        facts = []
+        if e.get("resonance"):
+            facts.append(span(f"{_('Resonance')} ", theme.DIM)
+                         + span(f"{bands.format_frequency(e['resonance'])} MHz", theme.TEXT,
+                                True))
+        if e.get("best") is not None:
+            facts.append(span(f"{_('Noise peak') if e['kind'] == 'noise' else _('Lowest SWR')} ",
+                              theme.DIM) + span(best_text(e), theme.TEXT, True))
+        if a.get("delta_khz") is not None and e.get("resonance"):
+            facts.append(span(f"{_('Off target')} ", theme.DIM)
+                         + span(f"{a['delta_khz']:+.0f} kHz", theme.TEXT, True))
+        if e.get("coil") is not None:
+            facts.append(span(f"{_('Position')} ", theme.DIM)
+                         + span(coil_text(e), theme.TEXT, True))
+        if facts:
+            lines.append("   ".join(facts))
+        if e.get("note"):
+            lines.append(span(e["note"], theme.TEXT))
+        self.verdict.setText("<br>".join(lines))
+        self.chart.empty_text = NO_CURVE
+        self.chart.set_sweep(e if e.get("points") else {},
+                             e.get("target") or (band["target"] if band else None))
+
     def _show_sweep(self) -> None:
         sweep = (self.state or {}).get("sweep") or {}
         band = self._band()
-        if not sweep.get("kind"):
+        if not self._live_here(sweep, band):
+            if self.shown:
+                self._show_saved_entry(band)
+                return
             self.verdict.setText(span(_("Choose a band and start a sweep."), theme.DIM))
+            self.chart.empty_text = N_("Choose a band and start a sweep.")
             self.chart.set_sweep({}, band["target"] if band else None)
             return
+        self.shown = {}
         points = sweep.get("points") or []
         is_swr = sweep["kind"] == "swr"
         title = _("SWR sweep") if is_swr else _("Noise sweep")
@@ -395,6 +524,8 @@ class SwrPage(Page):
         self.push_overlay(view)
         await view.closed
         await self._fill_bands()          # a position changed or deleted moves the saved one
+        self.shown = {}
+        await self._load_recent()
 
     def action_band(self, index: int) -> None:
         if 0 <= index < len(self.bands):
@@ -835,13 +966,22 @@ class HistoryView(Overlay):
         self.entries: list[dict] = []
         self.closed = asyncio.get_event_loop().create_future()
         self.frame = Frame(_("History of {band}").format(band=self.label))
-        self.table = self.frame.add(Table(0, 6), 1)
+        self.table = Table(0, 6)
         self.table.setHorizontalHeaderLabels([_("Date"), _("What"), _("Position"),
                                               _("Resonance"), _("Best"), ""])
         self.table.right_align(2, 3, 4)
         _setup_rows(self.table)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.cellDoubleClicked.connect(lambda *_a: self.action_open())
+        # The chosen row's curve beside the list, without opening it.
+        self.preview = SweepChart()
+        self.preview.empty_text = NO_CURVE
+        self.preview.setMinimumWidth(320)
+        row = QHBoxLayout()
+        row.addWidget(self.table, 3)
+        row.addWidget(self.preview, 2)
+        self.frame.body.addLayout(row, 1)
+        self.table.currentCellChanged.connect(lambda *_a: self.run_worker(self._preview()))
         self.notes = self.frame.add(QLabel())
         self.notes.setTextFormat(Qt.TextFormat.RichText)
         _buttons(self.frame, (("Enter", N_("details"), self.action_open),
@@ -883,6 +1023,16 @@ class HistoryView(Overlay):
     def _chosen(self) -> dict | None:
         row = self.table.currentRow()
         return self.entries[row] if 0 <= row < len(self.entries) else None
+
+    async def _preview(self) -> None:
+        entry = self._chosen()
+        if entry is None:
+            self.preview.set_sweep({}, None)
+            return
+        reply = await self.link.call("swr.entry", id=entry["id"])
+        full = reply.get("entry") or {}
+        if self._chosen() is entry:              # still the one chosen
+            self.preview.set_sweep(full if full.get("points") else {}, full.get("target"))
 
     # ---- keys (the terminal's HistoryScreen actions) ----
 
@@ -948,6 +1098,7 @@ class EntryView(Overlay):
         side.addWidget(self.photo, 1)
         body.addLayout(side, 2)
         self.chart = SweepChart()
+        self.chart.empty_text = NO_CURVE
         body.addWidget(self.chart, 3)
         self.frame.body.addLayout(body, 1)
         self.message = self.frame.add(QLabel())
@@ -976,7 +1127,6 @@ class EntryView(Overlay):
         self.entry = entry = reply["entry"]
         self.facts.setText(rich_html(details_facts(entry)))
         self.chart.set_sweep(entry if entry.get("points") else {}, entry.get("target"))
-        self.chart.setVisible(bool(entry.get("points")))
         if photo:
             await self._load_photo()
 

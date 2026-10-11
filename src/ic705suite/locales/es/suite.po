@@ -699,3 +699,9 @@ msgstr "Qué envía cada macro"
 
 msgid "The phone page can switch it on with the password."
 msgstr "La página del móvil puede encenderlo con la contraseña."
+
+msgid "No curve kept for this one (measured before version 0.3.1, or a position saved without a sweep)."
+msgstr "Sin curva guardada (medición anterior a la versión 0.3.1, o una posición guardada sin barrido)."
+
+msgid "saved"
+msgstr "guardado"
