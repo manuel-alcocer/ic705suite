@@ -167,6 +167,7 @@ def run_gui(link: Link | None, config: Config, problem: str = "",
         window = MainWindow(link, config, problem, start_app, scp)
         window.show()
         _signals(window)
+        log.info("graphical client ready")       # Ctrl+C handled from here on
         return loop.run_until_complete(_run(window, link, owns_link=start_app is None))
     finally:
         # The logbook's queries run in threads: let them end before Qt goes.
