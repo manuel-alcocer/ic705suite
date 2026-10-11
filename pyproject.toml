@@ -44,6 +44,28 @@ path = "src/ic705suite/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/ic705suite"]
 
+# Releases: python-semantic-release, run by .github/workflows/release.yml once the tests pass
+# on main. It reads the Conventional Commits since the last tag (feat: a minor version, fix: and
+# perf: a patch, "!" or BREAKING CHANGE: a major one, a minor one while at 0.x), writes the
+# version here and in CHANGELOG.md, commits, tags vX.Y.Z and pushes.
+[tool.semantic_release]
+version_variables = ["src/ic705suite/__init__.py:__version__"]
+tag_format = "v{version}"
+commit_parser = "conventional"
+commit_message = "chore(release): {version}"
+allow_zero_version = true
+major_on_zero = false
+build_command = ""                 # the release workflow builds, on Linux and Windows
+
+[tool.semantic_release.branches.main]
+match = "main"
+
+[tool.semantic_release.changelog]
+exclude_commit_patterns = ['chore\(release\):.*']
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

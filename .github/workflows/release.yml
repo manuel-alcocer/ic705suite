@@ -1,44 +1,111 @@
 name: Release
 
-# Builds the self-contained Linux and Windows executables of a tag, packs
-# each with its installer and publishes everything as a GitHub release.
+# Once the tests pass on main, python-semantic-release reads the Conventional
+# Commits since the last tag. When one calls for a release (feat: a minor
+# version, fix: or perf: a patch, "!" or BREAKING CHANGE: a major one, a minor
+# one while at 0.x) it writes the version into src/ic705suite/__init__.py and
+# CHANGELOG.md, commits "chore(release): X.Y.Z", tags vX.Y.Z and pushes. Then
+# the Linux and Windows executables of that tag are built, checked, packed with
+# their installers and published as its GitHub release. The settings live in
+# pyproject.toml ([tool.semantic_release]).
 on:
-  push:
-    tags: ["v*"]
-  # By hand, to retry a release that failed halfway.
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+    branches: [main]
+  # By hand: a release from main now, or (with a tag) build and publish an
+  # existing tag again, after a release that failed halfway.
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to publish (for example v0.2.0)"
-        required: true
+        description: "Existing tag to publish again (for example v0.2.0); empty for a new release from main"
+        required: false
+        default: ""
 
 permissions:
   contents: write
 
+# One release at a time, never cancelled halfway.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   meta:
     name: Version
+    # After tests that passed on a push to main (not on a pull request).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     outputs:
+      released: ${{ steps.meta.outputs.released }}
       tag: ${{ steps.meta.outputs.tag }}
       version: ${{ steps.meta.outputs.version }}
     steps:
-      - name: Tag and version
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          # The whole history and its tags: the commits since the last release.
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v10.2.0
+
+      # The tests ran on one commit; releasing a newer main would publish
+      # untested code. Its own test run will release it.
+      - name: The tested commit is still the tip of main
+        id: tip
+        if: github.event_name == 'workflow_run'
+        env:
+          TESTED: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$TESTED" ]; then
+            echo "::notice::main has moved on since $TESTED; its own test run will release"
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Next version, changelog, commit and tag
+        id: release
+        if: steps.tip.outputs.stale != 'true' && inputs.tag == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # The GitHub release itself is made by the publish job, with the files.
+          uvx --from python-semantic-release==10.7.0 semantic-release version --no-vcs-release
+
+      - name: What to build
         id: meta
         env:
           INPUT_TAG: ${{ inputs.tag }}
+          RELEASED: ${{ steps.release.outputs.released }}
+          NEW_TAG: ${{ steps.release.outputs.tag }}
         run: |
-          tag="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          tag="$INPUT_TAG"
+          if [ -z "$tag" ] && [ "$RELEASED" = true ]; then tag="$NEW_TAG"; fi
+          if [ -z "$tag" ]; then
+            echo "::notice::No commit since the last release calls for a new one"
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           case "$tag" in
             v[0-9]*) ;;
             *) echo "::error::Not a version tag: $tag"; exit 1 ;;
           esac
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          git rev-parse -q --verify "refs/tags/$tag" >/dev/null ||
+            { echo "::error::No such tag: $tag"; exit 1; }
+          {
+            echo "released=true"
+            echo "tag=$tag"
+            echo "version=${tag#v}"
+          } >> "$GITHUB_OUTPUT"
 
   linux:
     name: Linux executable and installer
     needs: meta
+    if: needs.meta.outputs.released == 'true'
     # Pinned: the binary needs the glibc it was built with or newer, so an
     # older image runs on more distributions.
     runs-on: ubuntu-24.04
@@ -110,6 +177,7 @@ jobs:
   windows:
     name: Windows executable and installer
     needs: meta
+    if: needs.meta.outputs.released == 'true'
     runs-on: windows-latest
     defaults:
       run:
@@ -177,6 +245,7 @@ jobs:
   python-package:
     name: Python package
     needs: meta
+    if: needs.meta.outputs.released == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -209,10 +278,21 @@ jobs:
           cd release && sha256sum * > SHA256SUMS.txt
           ls -lh
 
+      # What changed (this version's part of CHANGELOG.md, as python-semantic-release
+      # wrote it), then how to install.
+      - name: Release notes
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          awk -v head="## v$VERSION " 'index($0, head) == 1 { found = 1; next }
+                                       found && /^## / { exit }
+                                       found' CHANGELOG.md > notes.md
+          { cat notes.md; echo; cat packaging/release-notes.md; } > body.md
+          cat body.md
+
       - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.meta.outputs.tag }}
           name: ${{ needs.meta.outputs.tag }}
           files: release/*
-          body_path: packaging/release-notes.md
-          generate_release_notes: true
+          body_path: body.md

@@ -230,12 +230,31 @@ python -m ic705suite.apps.cw.bench     # CW decoder benchmark (character error r
 The tests run on Linux and Windows for every push and pull request
 (`.github/workflows/ci.yml`).
 
-Releases: pushing a tag `vX.Y.Z` (the same number as `src/ic705suite/__init__.py`) runs
-`.github/workflows/release.yml`, which, on Linux and on Windows, tests, builds the executable
-with PyInstaller (`packaging/pyinstaller/ic705suite.spec`), checks that it starts with the
-simulator (`packaging/windows/smoke.py` on Windows), packs it with its installer
-(`packaging/linux/install.sh`, `packaging/windows/install.ps1`), tries installing and
-uninstalling it and publishes the release. By hand:
+Releases are made by python-semantic-release (`.github/workflows/release.yml`) when the
+tests pass on `main`, so commit messages follow [Conventional Commits](https://www.conventionalcommits.org/),
+with the area as scope:
+
+```
+feat(cw): skimmer marks stations calling CQ          -> minor version (x.Y.z)
+fix(windows): the server stops cleanly on Ctrl+C     -> patch version (x.y.Z)
+feat(rig)!: ... / BREAKING CHANGE: in the body       -> major version (minor while at 0.x)
+docs: ... / test: ... / ci: ... / chore: ... / refactor: ...   -> no release
+```
+
+It writes the version into `src/ic705suite/__init__.py` and `CHANGELOG.md`, commits
+`chore(release): X.Y.Z`, tags `vX.Y.Z` and pushes. Then, on Linux and on Windows, the
+workflow tests, builds the executable with PyInstaller (`packaging/pyinstaller/ic705suite.spec`),
+checks that it starts with the simulator (`packaging/windows/smoke.py` on Windows), packs it
+with its installer (`packaging/linux/install.sh`, `packaging/windows/install.ps1`), tries
+installing and uninstalling it and publishes the release, its notes taken from the changelog.
+Run by hand (Actions > Release) it releases `main` at once, or, given a tag, builds and
+publishes that tag again. What the next version would be:
+
+```sh
+uvx --from python-semantic-release==10.7.0 semantic-release --noop version --print
+```
+
+Building by hand:
 
 ```sh
 uv sync --extra postgres && uv pip install pyinstaller
