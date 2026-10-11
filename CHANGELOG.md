@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.10.0 (2026-10-11)
+
+### Features
+
+- **packet**: The IC-705 over WiFi as the packet radio, with Direwolf here
+  ([`5ab9d1f`](https://github.com/manuel-alcocer/ic705suite/commit/5ab9d1fcfcb4b754ca900beb1b5c52b926fba4d1))
+
+
 ## v0.9.0 (2026-10-11)
 
 ### Features
