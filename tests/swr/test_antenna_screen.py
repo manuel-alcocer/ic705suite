@@ -94,3 +94,56 @@ def test_remote_control_switch(tmp_path, monkeypatch):
             await link.close()
 
     asyncio.run(run())
+
+
+def test_presets_from_the_keyboard(tmp_path, monkeypatch):
+    """P: a preset (name, band, target) joins the list after the bands, ↓ reaches it, its
+    position is its own, and a noise sweep aims at its target."""
+    from ic705suite.apps.swr.antennas import PresetScreen
+    from ic705suite.apps.swr.app import SwrApp
+    from ic705suite.ui.widgets import ChoiceScreen
+
+    monkeypatch.setattr(service_module, "LEGACY_HISTORY", tmp_path / "none.json")
+
+    def typed(text):
+        names = {" ": "space", "-": "minus", ".": "full_stop"}
+        return [names.get(c, c) for c in text]
+
+    async def run():
+        link = LocalLink(None, Config(connection="sim", swr_web=False,
+                                      database_url=f"sqlite:///{tmp_path / 'suite.db'}"))
+        app = SwrApp(link, owns_link=False)
+        history = link.core.swr.history
+        try:
+            async with app.run_test(size=(140, 40)) as pilot:
+                await pilot.pause(1.5)
+                bands = len(app.bands)
+                await pilot.press("p")
+                await pilot.pause(0.3)
+                assert isinstance(app.screen, PresetScreen)
+                await pilot.press("n", *typed("SSB casa"), "enter")
+                await pilot.pause(0.3)
+                assert isinstance(app.screen, ChoiceScreen)
+                await pilot.press("enter")                          # the first band: 40m
+                await pilot.pause(0.3)
+                await pilot.press(*["backspace"] * 12, *typed("7.150"), "enter")
+                await pilot.pause(0.3)
+                assert [(p["name"], p["band"], p["target"]) for p in history.presets()] == \
+                    [("SSB casa", "40m", 7_150_000)]
+                await pilot.press("escape")
+                await pilot.pause(0.3)
+                assert len(app.bands) == bands + 1 and app.bands[-1]["name"] == "SSB casa"
+                # ↓ past the bands: the preset; C saves its own position.
+                await pilot.press(*["down"] * bands, "c", *typed("14.5"), "enter")
+                await pilot.pause(0.3)
+                settings = history.settings()
+                assert settings["preset:1"]["coil"] == 14.5 and "40m" not in settings
+                await pilot.press("n")                              # a noise sweep, at 7.150
+                await pilot.pause(0.5)
+                sweep = link.core.swr.sweep
+                assert sweep.preset == 1 and sweep.target == 7_150_000 and sweep.band == "40m"
+                await pilot.press("escape")
+        finally:
+            await link.close()
+
+    asyncio.run(run())

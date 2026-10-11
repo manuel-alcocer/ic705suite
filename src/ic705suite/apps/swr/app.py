@@ -19,24 +19,37 @@ from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui import glyphs
 from ic705suite.ui.widgets import ChoiceScreen, NameScreen, clock_footer, css
 
-HINT = N_("F2-F9 Band · A Antennas · R Remote control · N Noise sweep (RX) · S SWR sweep (TX) · "
-          "C Save position · Esc Stop/Back")
-SHORT_HINT = N_("F2-F9 Band · R Remote · N Noise · S SWR · Esc Back")
+HINT = N_("F2-F9 Band · ↑↓ Band or preset · P Presets · A Antennas · R Remote control · "
+          "N Noise sweep (RX) · S SWR sweep (TX) · C Save position · Esc Stop/Back")
+SHORT_HINT = N_("F2-F9 Band · ↑↓ · P Presets · N Noise · S SWR · Esc Back")
 BAR = 40
 
 
 def noise_request(band: dict) -> dict:
-    """Off-air listening may go beyond the band edges: widen by half the range each side."""
+    """Off-air listening may go beyond the band edges: widen by half the range each side.
+    `band` is a row of the list: a band, or a preset (its band, its own target)."""
     half = (band["end"] - band["start"]) // 2
     start, stop = max(band["start"] - half, 1_000_000), band["end"] + half
     step = max(band["step"], round((stop - start) / 40 / 1000) * 1000)
-    return {"kind": "noise", "band": band["name"], "target": band["target"],
-            "start": start, "stop": stop, "step": step}
+    return {"kind": "noise", "band": band.get("band", band["name"]), "target": band["target"],
+            "start": start, "stop": stop, "step": step, "preset": band.get("preset")}
 
 
 def swr_request(band: dict) -> dict:
-    return {"kind": "swr", "band": band["name"], "target": band["target"],
-            "start": band["start"], "stop": band["end"], "step": band["step"]}
+    return {"kind": "swr", "band": band.get("band", band["name"]), "target": band["target"],
+            "start": band["start"], "stop": band["end"], "step": band["step"],
+            "preset": band.get("preset")}
+
+
+def row_label(row: dict) -> str:
+    """A band by its name; a preset by its name and its band."""
+    return f"{row['name']} ({row['band']})" if row.get("preset") else row["name"]
+
+
+def saved_setting(settings: dict, row: dict) -> dict:
+    from ic705suite.apps.swr.service import setting_key
+
+    return settings.get(setting_key(row.get("band", row["name"]), row.get("preset")), {})
 
 
 def advice(sweep: dict) -> tuple[str, str, str]:
@@ -174,8 +187,11 @@ class SwrApp(App[int]):
         Binding("c", "final", show=False),
         Binding("a", "antennas", show=False),
         Binding("r", "remote", show=False),
-        # One function key per band (the list order): no cursor keys.
+        # One function key per band (the list order); ↑↓ go through the bands and presets.
         *(Binding(f"f{n}", f"band({n - 2})", show=False, priority=True) for n in range(2, 10)),
+        Binding("up", "move(-1)", show=False),
+        Binding("down", "move(1)", show=False),
+        Binding("p", "presets", show=False),
         Binding("escape", "back", show=False),
         Binding("ctrl+q", "leave", show=False, priority=True),
     ]
@@ -184,7 +200,7 @@ class SwrApp(App[int]):
         super().__init__()
         self.link = link
         self.owns_link = owns_link
-        self.bands: list[dict] = []
+        self.bands: list[dict] = []        # the bands, then the presets: the list's rows
         self.state: dict = {}
         self.antenna: dict = {}
 
@@ -212,7 +228,7 @@ class SwrApp(App[int]):
     async def _start(self) -> None:
         try:
             await self.link.connect()
-            self.bands = (await self.link.call("swr.bands")).get("bands", [])
+            await self._load_rows()
             self._apply_state(await self.link.call("swr.state"))
         except Exception as exc:  # noqa: BLE001 - shown on screen
             self._message("error", _("cannot connect: {error}").format(error=exc))
@@ -224,8 +240,12 @@ class SwrApp(App[int]):
         if rig_band in names:
             table.move_cursor(row=names.index(rig_band))
 
+    async def _load_rows(self) -> None:
+        self.bands = (await self.link.call("swr.bands")).get("bands", []) + \
+            (await self.link.call("swr.presets")).get("presets", [])
+
     async def _fill_bands(self) -> None:
-        """The bands with the active antenna's saved setting on each."""
+        """The bands and presets with the active antenna's saved setting on each."""
         reply = await self.link.call("swr.antennas")
         self.antenna = next((a for a in reply.get("antennas", []) if a["active"]), {})
         settings = self.antenna.get("settings", {})
@@ -233,8 +253,9 @@ class SwrApp(App[int]):
         row = table.cursor_row if table.row_count else 0
         table.clear()
         for i, band in enumerate(self.bands):
-            saved = settings.get(band["name"], {})
-            table.add_row(f"F{i + 2}", band["name"], bands.format_frequency(band["target"]),
+            saved = saved_setting(settings, band)
+            key = f"F{i + 2}" if i < 8 and not band.get("preset") else ""
+            table.add_row(key, row_label(band), bands.format_frequency(band["target"]),
                           f"{saved['coil']:g}" if saved else "",
                           bands.format_frequency(saved["resonance"]) if saved.get("resonance")
                           else "",
@@ -275,6 +296,11 @@ class SwrApp(App[int]):
         if 0 <= index < len(self.bands):
             self.query_one("#bands", DataTable).move_cursor(row=index)
 
+    def action_move(self, step: int) -> None:
+        table = self.query_one("#bands", DataTable)
+        if self.bands:
+            table.move_cursor(row=max(0, min(len(self.bands) - 1, table.cursor_row + step)))
+
     def _band(self) -> dict | None:
         table = self.query_one("#bands", DataTable)
         if not self.bands or not 0 <= table.cursor_row < len(self.bands):
@@ -302,9 +328,9 @@ class SwrApp(App[int]):
         band = self._band()
         if band is None:
             return
-        saved = self.antenna.get("settings", {}).get(band["name"], {})
+        saved = saved_setting(self.antenna.get("settings", {}), band)
         coil = await self.push_screen_wait(NameScreen(
-            _("Position on {band}").format(band=band["name"]),
+            _("Position on {band}").format(band=row_label(band)),
             _("Which number did the coil (or adjustment) of {antenna} end on?").format(
                 antenna=self.antenna.get("name", _("the antenna"))),
             value=f"{saved['coil']:g}" if saved else "",
@@ -312,12 +338,13 @@ class SwrApp(App[int]):
                         "Esc cancels")))
         if not coil:
             return
-        result = await self.link.call("swr.final", coil=coil, band=band["name"])
+        result = await self.link.call("swr.final", coil=coil, band=band.get("band", band["name"]),
+                                      preset=band.get("preset"))
         if result.get("error"):
             self._message("error", result["error"])
             return
         self._message("info", _("position {coil} saved for {band}").format(
-            coil=result["entry"]["coil"], band=result["entry"]["band"]))
+            coil=result["entry"]["coil"], band=row_label(band)))
         await self._fill_bands()
 
     def action_remote(self) -> None:
@@ -338,6 +365,16 @@ class SwrApp(App[int]):
             _("Remote control"), warning, [("on", _("Switch it on")), ("no", _("Leave it off"))]))
         if answer == "on":
             self._apply_state(await self.link.call("swr.remote", on=True))
+
+    def action_presets(self) -> None:
+        self.run_worker(self._presets(), exclusive=True, group="presets")
+
+    async def _presets(self) -> None:
+        from ic705suite.apps.swr.antennas import PresetScreen
+
+        await self.push_screen_wait(PresetScreen(self.link))
+        await self._load_rows()
+        await self._fill_bands()
 
     def action_antennas(self) -> None:
         self.run_worker(self._antennas(), exclusive=True, group="antennas")

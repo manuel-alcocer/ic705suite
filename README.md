@@ -150,6 +150,8 @@ turns an option (double click edits it), a click on a band scope tunes there and
 the scope or on the frequency digits tunes by the step; the macros and the Antenna actions
 have buttons; sweeps are drawn as a chart. It works with a local core or `--connect` to a
 server, like the terminal client; the installers add a menu entry (Start menu on Windows).
+Dark or light: `[ui] theme = "dark" | "light" | "auto"` (auto, the default, follows the
+desktop), `--theme` for one run, or `ic705suite --configure`; the waterfalls stay dark.
 
 ### Core on a Raspberry Pi, client here
 
@@ -219,7 +221,11 @@ with a CONTEST badge. While it is
 open the radio is kept in CW. Leaving it returns to the dashboard; the channels stay in the
 core and leaving the suite offers to archive them.
 
-**Antenna (F5).** F2–F9 choose the band; **N** noise sweep (receive only), **S** SWR sweep
+**Antenna (F5).** F2–F9 choose the band, ↑↓ go through the bands and the presets; **P** lists
+the presets: your own targets, each a name, a band and a frequency in it ("SSB at home", 40 m,
+7.150), swept on its band aiming at its frequency and keeping its own saved coil position (N, E
+and D add, edit and delete them; the phone page shows them too). **N** noise sweep (receive
+only), **S** SWR sweep
 (RTTY carrier at `max_power`, 2 s PTT watchdog, settings restored afterwards). An SWR sweep
 needs both `--tx` and the **remote control** switched on with **R** in this application: it is
 off whenever the suite starts and only this application can switch it on (it asks first).

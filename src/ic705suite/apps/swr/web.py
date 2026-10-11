@@ -60,7 +60,8 @@ async def route(service: SwrService, method: str, target: str, body: bytes) -> b
         if path == "/api/state":
             return _json(service.state())
         if path == "/api/bands":
-            return _json(service.bands())
+            # The bands, then the operator's presets (with their band and "preset", their id).
+            return _json(service.bands() + service.presets())
         if path == "/api/antennas":
             return _json(service.antennas())
         if path == "/api/history":
@@ -82,7 +83,7 @@ async def route(service: SwrService, method: str, target: str, body: bytes) -> b
         if path == "/api/final":
             data = json.loads(body or b"{}")
             return _json(service.save_final(data.get("coil", ""), data.get("band", ""),
-                                            data.get("note", "")))
+                                            data.get("note", ""), data.get("preset")))
         if path == "/api/antenna":
             # Choose the active antenna (the page does not create or edit them).
             service.history.select_antenna(int(json.loads(body or b"{}")["id"]))

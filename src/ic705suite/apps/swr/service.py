@@ -34,7 +34,7 @@ from ic705suite import db
 from ic705suite.apps.swr.analysis import COIL_SIGN, DEFAULT_KHZ_PER_UNIT, analyze
 from ic705suite.config import Config
 from ic705suite.i18n import N_
-from ic705suite.rig.bands import band_for, find_band, format_frequency
+from ic705suite.rig.bands import band_for, find_band, format_frequency, parse_frequency
 from ic705suite.rig.base import FEATURE_SWR_METER, RigError
 from ic705suite.rig.transport import TransportError
 from ic705suite.station.station import Station
@@ -85,8 +85,24 @@ antennas_table = sa.Table(
 )
 
 
+# The operator's own targets (a name, a band, a frequency), besides the bands' default ones:
+# "SSB at home" 7.150 on 40 m. Each keeps its own saved position of the adjustment.
+presets_table = sa.Table(
+    "swr_presets", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("name", sa.String(80), nullable=False, unique=True),
+    sa.Column("band", sa.String(10), nullable=False),
+    sa.Column("target", sa.Integer, nullable=False),
+)
+
+
 class SweepError(Exception):
     pass
+
+
+def setting_key(band: str, preset: int | None = None) -> str:
+    """Where a saved position belongs: a band, or a preset ("preset:3")."""
+    return f"preset:{preset}" if preset else band
 
 
 @dataclass
@@ -95,6 +111,7 @@ class Sweep:
     running: bool = False
     band: str = ""
     target: int = 0
+    preset: int | None = None  # the preset swept, if one was
     total: int = 0
     points: list[dict] = field(default_factory=list)
     analysis: dict | None = None
@@ -219,12 +236,45 @@ class HistoryStore:
                              .values(active=True))
 
     def settings(self, antenna_id: int | None = None) -> dict[str, dict]:
-        """Where the antenna was left on each band: the latest saved position per band."""
+        """Where the antenna was left on each band and preset: the latest saved position of
+        each, by setting_key()."""
         out: dict[str, dict] = {}
         for entry in self.entries(antenna_id=antenna_id):
             if entry.get("kind") == "final":
-                out[entry["band"]] = entry
+                out[setting_key(entry["band"], entry.get("preset"))] = entry
         return out
+
+    # ---- presets ----
+
+    def presets(self) -> list[dict]:
+        with self.engine.connect() as conn:
+            rows = conn.execute(sa.select(presets_table).order_by(presets_table.c.id))
+            return [{"id": r.id, "name": r.name, "band": r.band, "target": r.target}
+                    for r in rows]
+
+    def save_preset(self, name: str, band: str, target: int,
+                    preset_id: int | None = None) -> dict:
+        name = name.strip()
+        if not name:
+            raise SweepError("the preset needs a name")
+        with self.engine.begin() as conn:
+            clash = conn.execute(sa.select(presets_table.c.id)
+                                 .where(presets_table.c.name == name)).scalar()
+            if clash is not None and clash != preset_id:
+                raise SweepError(f"there is already a preset called {name}")
+            values = {"name": name, "band": band, "target": int(target)}
+            if preset_id is None:
+                preset_id = conn.execute(presets_table.insert().values(**values)) \
+                    .inserted_primary_key[0]
+            else:
+                conn.execute(presets_table.update().where(presets_table.c.id == preset_id)
+                             .values(**values))
+        return {"id": preset_id, **values}
+
+    def delete_preset(self, preset_id: int) -> None:
+        """The preset goes; its sweeps stay in its band's history."""
+        with self.engine.begin() as conn:
+            conn.execute(presets_table.delete().where(presets_table.c.id == preset_id))
 
     def _import(self, path: Path) -> None:
         with self.engine.begin() as conn:
@@ -355,8 +405,9 @@ class SwrService:
                 raise SweepError("SWR sweep must stay inside one amateur band")
         target = int(req.get("target") or (start + stop) // 2)
         power = max(1, min(self.max_power, int(req.get("power") or self.max_power)))
+        preset = int(req["preset"]) if req.get("preset") else None
         self.sweep = Sweep(kind=kind, running=True, band=req.get("band") or (band.name if band else ""),
-                           target=target, total=len(freqs))
+                           target=target, preset=preset, total=len(freqs))
         self._version += 1
         self._task = asyncio.create_task(self._run_sweep(freqs, power))
 
@@ -473,13 +524,18 @@ class SwrService:
         sweep.analysis = result.to_dict()
         if not result.confident:
             return
-        self.history.add({"ts": _now(), "band": sweep.band, "kind": sweep.kind,
-                          "target": sweep.target, "resonance": result.resonance,
-                          "best": result.best_value, "at_edge": result.at_edge})
+        entry = {"ts": _now(), "band": sweep.band, "kind": sweep.kind,
+                 "target": sweep.target, "resonance": result.resonance,
+                 "best": result.best_value, "at_edge": result.at_edge}
+        if sweep.preset:
+            entry["preset"] = sweep.preset
+        self.history.add(entry)
 
-    def save_final(self, coil_text: str, band: str = "", note: str = "") -> dict:
-        """Record where the coil (or adjustment) ended up on a band, for the active antenna:
-        with the last SWR sweep's results when that sweep was on this band, else alone."""
+    def save_final(self, coil_text: str, band: str = "", note: str = "",
+                   preset: int | None = None) -> dict:
+        """Record where the coil (or adjustment) ended up on a band, or for a preset, for the
+        active antenna: with the last SWR sweep's results when that sweep was for the same
+        band and preset, else alone."""
         coil = float(str(coil_text).strip().replace(",", "."))
         sweep = self.sweep
         if sweep.running:
@@ -488,10 +544,13 @@ class SwrService:
         if not band:
             raise SweepError("which band?")
         entry = {"ts": _now(), "band": band, "kind": "final", "coil": coil}
+        if preset:
+            entry["preset"] = int(preset)
         if note.strip():
             entry["note"] = note.strip()
         a = sweep.analysis
-        if a and sweep.kind == "swr" and sweep.band == band and not sweep.error:
+        if a and sweep.kind == "swr" and sweep.band == band and sweep.preset == (
+                int(preset) if preset else None) and not sweep.error:
             entry.update({"target": sweep.target, "resonance": a["resonance"],
                           "best": a["best_value"], "at_edge": a["at_edge"], "tuned": a["tuned"],
                           "swr_at_target": a.get("swr_at_target")})
@@ -513,6 +572,7 @@ class SwrService:
                 "allow_tx": self.allow_tx, "remote": self.remote, "max_power": self.max_power, "port": self.port,
                 "frequency": st.frequency, "mode": st.mode,
                 "sweep": {"kind": s.kind, "running": s.running, "band": s.band, "target": s.target,
+                          "preset": s.preset,
                           "total": s.total, "points": s.points,
                           "analysis": s.analysis, "warning": s.warning, "error": s.error,
                           "finished_at": s.finished_at}}
@@ -533,9 +593,34 @@ class SwrService:
         for name, target, step in TUNE_BANDS:
             band = find_band(name)
             end = min(band.end, TEN_METRE_SWEEP_END) if name == "10m" else band.end
-            out.append({"name": name, "start": band.start, "end": end, "target": target,
-                        "step": step})
+            out.append({"name": name, "band": name, "start": band.start, "end": end,
+                        "target": target, "step": step})
         return out
+
+    def presets(self) -> list[dict]:
+        """The presets as rows like the bands': their band's edges and step, their own name
+        and target, and "preset" (their id)."""
+        by_name = {b["name"]: b for b in self.bands()}
+        return [{**by_name[p["band"]], "name": p["name"], "target": p["target"],
+                 "preset": p["id"]}
+                for p in self.history.presets() if p["band"] in by_name]
+
+    def save_preset(self, params: dict) -> dict:
+        band = next((b for b in self.bands() if b["name"] == params.get("band")), None)
+        if band is None:
+            raise SweepError("choose one of the antenna's bands")
+        target = params.get("target")
+        if isinstance(target, str):
+            target = parse_frequency(target)
+        whole = find_band(band["name"])
+        if not target or not whole.start <= int(target) <= whole.end:
+            raise SweepError(f"the target must be inside {band['name']} "
+                             f"({whole.start / 1e6:.3f}-{whole.end / 1e6:.3f} MHz)")
+        preset_id = params.get("id")
+        self.history.save_preset(str(params.get("name", "")), band["name"], int(target),
+                                 int(preset_id) if preset_id is not None else None)
+        self._version += 1
+        return {"presets": self.presets()}
 
     async def call(self, method: str, params: dict) -> dict:
         """The "swr.*" calls of the core protocol (the TUI uses them; the web page uses HTTP)."""
@@ -557,7 +642,15 @@ class SwrService:
                 return self.state()
             if method == "final":
                 return {"entry": self.save_final(params.get("coil", ""), params.get("band", ""),
-                                                 params.get("note", ""))}
+                                                 params.get("note", ""), params.get("preset"))}
+            if method == "presets":
+                return {"presets": self.presets()}
+            if method == "preset.save":
+                return self.save_preset(params)
+            if method == "preset.delete":
+                self.history.delete_preset(int(params["id"]))
+                self._version += 1
+                return {"presets": self.presets()}
             if method == "antennas":
                 return self.antennas()
             if method == "antenna.select":

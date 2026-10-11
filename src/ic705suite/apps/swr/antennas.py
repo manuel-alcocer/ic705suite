@@ -156,3 +156,125 @@ class AntennaScreen(ModalScreen[None]):
             self._message(reply["error"])
             return
         await self._load()
+
+
+class PresetScreen(ModalScreen[None]):
+    """The operator's presets: a name, a band and a target frequency, swept and saved apart
+    from the band's own. ↑↓ choose · N new · E edit · D delete · Esc back."""
+
+    BINDINGS = [
+        Binding("escape", "dismiss", show=False),
+        Binding("n", "new", show=False),
+        Binding("e", "edit", show=False),
+        Binding("d", "delete", show=False),
+    ]
+
+    def __init__(self, link: Link) -> None:
+        super().__init__()
+        self.link = link
+        self.presets: list[dict] = []
+        self.bands: list[dict] = []
+
+    def compose(self) -> ComposeResult:
+        with Vertical(classes="modal wide") as box:
+            box.border_title = _("Presets")
+            yield DataTable(id="presets", cursor_type="row", zebra_stripes=False)
+            yield Static(id="preset-notes", classes="modal-subtitle")
+            yield Static(_("↑↓ choose · N new · E edit · D delete · Esc back"),
+                         classes="modal-help")
+
+    async def on_mount(self) -> None:
+        table = self.query_one(DataTable)
+        table.add_columns(_("Preset"), _("Band"), _("Target"))
+        table.styles.height = "auto"
+        table.styles.max_height = 14
+        self.bands = (await self.link.call("swr.bands")).get("bands", [])
+        await self._load()
+        table.focus()
+
+    async def _load(self, keep: int | None = None) -> None:
+        from ic705suite.rig.bands import format_frequency
+
+        self.presets = (await self.link.call("swr.presets")).get("presets", [])
+        table = self.query_one(DataTable)
+        table.clear()
+        row = 0
+        for i, preset in enumerate(self.presets):
+            table.add_row(Text(preset["name"], style="bold"), preset["band"],
+                          format_frequency(preset["target"]))
+            if preset["preset"] == keep:
+                row = i
+        if self.presets:
+            table.move_cursor(row=row)
+        self.query_one("#preset-notes", Static).update(
+            Text(_("A preset sweeps its band aiming at its own frequency, and keeps its own "
+                   "position of the adjustment (C)."), style="dim") if self.presets else
+            Text(_("No presets yet: N makes one (a name, a band, a target frequency)."),
+                 style="dim"))
+
+    def _chosen(self) -> dict | None:
+        table = self.query_one(DataTable)
+        if 0 <= table.cursor_row < len(self.presets):
+            return self.presets[table.cursor_row]
+        return None
+
+    def _message(self, text: str) -> None:
+        self.query_one("#preset-notes", Static).update(Text(text, style="bold red"))
+
+    def action_new(self) -> None:
+        self.run_worker(self._edit(None), exclusive=True)
+
+    def action_edit(self) -> None:
+        preset = self._chosen()
+        if preset is not None:
+            self.run_worker(self._edit(preset), exclusive=True)
+
+    async def _edit(self, preset: dict | None) -> None:
+        from ic705suite.rig.bands import format_frequency
+
+        title = _("Edit preset") if preset else _("New preset")
+        name = await self.app.push_screen_wait(NameScreen(
+            title, _("Name (what it is for: SSB at home, the FT8 corner...)"),
+            value=preset["name"] if preset else "",
+            help_text=_("Enter goes on · Esc cancels")))
+        if not name or not name.strip():
+            return
+        band = await self.app.push_screen_wait(ChoiceScreen(
+            title, _("Which band?"), [(b["name"], b["name"]) for b in self.bands]))
+        if not band:
+            return
+        default = preset["target"] if preset and preset["band"] == band else \
+            next(b["target"] for b in self.bands if b["name"] == band)
+        target = await self.app.push_screen_wait(NameScreen(
+            title, _("Target frequency on {band} (MHz, e.g. 7.150)").format(band=band),
+            value=format_frequency(default), help_text=_("Enter saves · Esc cancels")))
+        if not target or not target.strip():
+            return
+        params = {"name": name, "band": band, "target": target.strip()}
+        if preset:
+            params["id"] = preset["preset"]
+        reply = await self.link.call("swr.preset.save", **params)
+        if reply.get("error"):
+            self._message(reply["error"])
+            return
+        saved = next((p for p in reply.get("presets", []) if p["name"] == name.strip()), None)
+        await self._load(keep=saved["preset"] if saved else None)
+
+    def action_delete(self) -> None:
+        preset = self._chosen()
+        if preset is not None:
+            self.run_worker(self._delete(preset), exclusive=True)
+
+    async def _delete(self, preset: dict) -> None:
+        answer = await self.app.push_screen_wait(ChoiceScreen(
+            _("Delete preset"),
+            _("Delete the preset {name}? Its sweeps stay in the history of {band}.").format(
+                name=preset["name"], band=preset["band"]),
+            [("no", _("Keep it")), ("yes", _("Delete"))]))
+        if answer != "yes":
+            return
+        reply = await self.link.call("swr.preset.delete", id=preset["preset"])
+        if reply.get("error"):
+            self._message(reply["error"])
+            return
+        await self._load()

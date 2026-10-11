@@ -32,7 +32,8 @@
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
           padding: 14px; margin-bottom: 12px; }
   .bands { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .bands button { padding: 10px 0; border-radius: 10px; border: 1px solid var(--line);
+  .bands button { padding: 10px 4px; border-radius: 10px; border: 1px solid var(--line);
+                  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
                   background: transparent; color: var(--fg); font-size: 16px; font-weight: 600; }
   .bands button.sel { background: var(--accent); border-color: var(--accent); color: #fff; }
   .row { display: flex; gap: 10px; margin-top: 12px; }
@@ -181,7 +182,7 @@ function showError(text) {
 
 function selectBand(b) {
   band = b;
-  document.querySelectorAll("#bands button").forEach(x => x.classList.toggle("sel", x.dataset.b === b.name));
+  document.querySelectorAll("#bands button").forEach(x => x.classList.toggle("sel", bands[x.dataset.i] === b));
   $("target").value = mhz(b.target);
   $("start").value = mhz(b.start);
   $("stop").value = mhz(b.end);
@@ -192,8 +193,9 @@ function selectBand(b) {
 
 async function loadHistory() {
   if (!band) return;
-  const rows = await api("/api/history?band=" + band.name).catch(() => []);
-  const finals = rows.filter(h => h.kind === "final");
+  // A preset is swept on its band; its saved positions are its own.
+  const rows = await api("/api/history?band=" + (band.band || band.name)).catch(() => []);
+  const finals = rows.filter(h => h.kind === "final" && (h.preset || null) === (band.preset || null));
   $("histCard").classList.toggle("hidden", finals.length === 0);
   $("hist").innerHTML = finals.slice().reverse().map(h => `<tr><td>${h.ts.slice(5, 16)}</td>
     <td>${String(h.coil).replace(".", ",")}</td>
@@ -202,7 +204,8 @@ async function loadHistory() {
 }
 
 function sweepRequest(kind) {
-  const req = { kind, band: band.name, target: toHz($("target").value), 
+  const req = { kind, band: band.band || band.name, preset: band.preset || undefined,
+                target: toHz($("target").value), 
                 start: toHz($("start").value), stop: toHz($("stop").value),
                 step: Math.round(parseFloat($("step").value.replace(",", ".")) * 1000),
                 power: parseInt($("power").value, 10) || undefined };
@@ -404,9 +407,11 @@ async function init() {
     } catch (e) { showError(e.message); }
   });
   bands = await api("/api/bands");
-  $("bands").innerHTML = bands.map(b => `<button data-b="${b.name}">${b.name.replace("m", "")}</button>`).join("");
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  $("bands").innerHTML = bands.map((b, i) => `<button data-i="${i}" title="${esc(b.preset ? b.band + " " + mhz(b.target) : b.name)}">${
+    esc(b.preset ? b.name : b.name.replace("m", ""))}</button>`).join("");
   $("bands").addEventListener("click", e => {
-    const b = bands.find(x => x.name === e.target.dataset.b);
+    const b = bands[e.target.dataset.i];
     if (b) selectBand(b);
   });
   const saved = stored();
@@ -422,7 +427,8 @@ async function init() {
   $("btnSave").addEventListener("click", async () => {
     showError("");
     try {
-      const e = await api("/api/final", { coil: $("coil").value, band: band.name });
+      const e = await api("/api/final", { coil: $("coil").value, band: band.band || band.name,
+                                          preset: band.preset || undefined });
       savedFor = state.sweep.finished_at;
       $("savedMsg").textContent = e.resonance
         ? `Guardado: bobina ${String(e.coil).replace(".", ",")} → resonancia ${mhz(e.resonance)} MHz, ROE ${e.best.toFixed(2)}.`

@@ -23,8 +23,17 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ic705suite.apps.swr.antennas import SIGNS, AntennaScreen, settings_text
-from ic705suite.apps.swr.app import HINT, SHORT_HINT, SwrApp, advice, noise_request, swr_request
+from ic705suite.apps.swr.antennas import SIGNS, AntennaScreen, PresetScreen, settings_text
+from ic705suite.apps.swr.app import (
+    HINT,
+    SHORT_HINT,
+    SwrApp,
+    advice,
+    noise_request,
+    row_label,
+    saved_setting,
+    swr_request,
+)
 from ic705suite.gui import theme
 from ic705suite.gui.page import Overlay, Page, ask_text, choose
 from ic705suite.gui.widgets import Footer, Frame, StatusLine, Table, badge, esc, span
@@ -33,7 +42,11 @@ from ic705suite.rig import bands
 from ic705suite.station.links import Link
 from ic705suite.ui.widgets import ChoiceScreen, NameScreen
 
-STYLE_COLOURS = {"bold red": theme.RED, "bold yellow": theme.YELLOW, "bold green": theme.GREEN}
+
+def style_colour(style: str) -> str:
+    """advice()'s rich styles, in the theme."""
+    return {"bold red": theme.RED, "bold yellow": theme.YELLOW,
+            "bold green": theme.GREEN}.get(style, theme.TEXT)
 
 
 class SweepChart(QWidget):
@@ -79,11 +92,13 @@ class SweepChart(QWidget):
         p.setFont(theme.mono(8))
         grid = QPen(QColor(theme.BORDER), 1)
         if is_swr:                      # the zones: good, fair, poor
-            zones = ((1.0, 1.5, "#123d24"), (1.5, 2.0, "#3d3712"), (2.0, hi, "#3d1616"))
+            zones = ((1.0, 1.5, theme.GREEN), (1.5, 2.0, theme.YELLOW), (2.0, hi, theme.RED))
             for a, b, colour in zones:
                 if b > a:
+                    tint = QColor(colour)
+                    tint.setAlpha(45)
                     p.fillRect(QRectF(left, y_of(min(b, hi)), width, y_of(a) - y_of(min(b, hi))),
-                               QColor(colour))
+                               tint)
         for i in range(5):
             v = lo + span_v * i / 4
             y = y_of(v)
@@ -152,6 +167,7 @@ class SwrPage(Page):
                                     lambda: self.action_sweep("noise")),
                                    ("S", N_("SWR sweep (TX)"), lambda: self.action_sweep("swr")),
                                    ("C", N_("Save position"), self.action_final),
+                                   ("P", N_("Presets"), self.action_presets),
                                    ("A", N_("Antennas"), self.action_antennas),
                                    ("R", N_("Remote control"), self.action_remote),
                                    ("Esc", N_("Stop/Back"), self.action_back)):
@@ -202,7 +218,7 @@ class SwrPage(Page):
     async def _start(self) -> None:
         try:
             await self.link.connect()
-            self.bands = (await self.link.call("swr.bands")).get("bands", [])
+            await self._load_rows()
             self._apply_state(await self.link.call("swr.state"))
         except Exception as exc:  # noqa: BLE001 - shown on screen
             self._message("error", _("cannot connect: {error}").format(error=exc))
@@ -213,6 +229,11 @@ class SwrPage(Page):
         if rig_band in names:
             self.table.selectRow(names.index(rig_band))
 
+    async def _load_rows(self) -> None:
+        """The bands, then the operator's presets: the list's rows."""
+        self.bands = (await self.link.call("swr.bands")).get("bands", []) + \
+            (await self.link.call("swr.presets")).get("presets", [])
+
     async def _fill_bands(self) -> None:
         reply = await self.link.call("swr.antennas")
         self.antenna = next((a for a in reply.get("antennas", []) if a["active"]), {})
@@ -220,8 +241,9 @@ class SwrPage(Page):
         row = max(0, self.table.currentRow())
         self.table.setRowCount(len(self.bands))
         for i, band in enumerate(self.bands):
-            saved = settings.get(band["name"], {})
-            cells = (f"F{i + 2}", band["name"], bands.format_frequency(band["target"]),
+            saved = saved_setting(settings, band)
+            key = f"F{i + 2}" if i < 8 and not band.get("preset") else ""
+            cells = (key, row_label(band), bands.format_frequency(band["target"]),
                      f"{saved['coil']:g}" if saved else "",
                      bands.format_frequency(saved["resonance"]) if saved.get("resonance") else "",
                      f"{saved['best']:.2f}" if saved.get("best") is not None else "")
@@ -295,7 +317,7 @@ class SwrPage(Page):
                     else "")]
         if not sweep.get("running"):
             verdict, style, words = advice(sweep)
-            lines.append(span(verdict, STYLE_COLOURS.get(style, theme.TEXT), True))
+            lines.append(span(verdict, style_colour(style), True))
             if words:
                 lines.append(span(words, theme.TEXT))
             a = sweep.get("analysis")
@@ -309,9 +331,7 @@ class SwrPage(Page):
                              + span(f"   {_('Off target')} ", theme.DIM)
                              + span(f"{a['delta_khz']:+.0f} kHz", theme.TEXT, True))
         self.verdict.setText("<br>".join(lines))
-        target = next((b["target"] for b in self.bands if b["name"] == sweep.get("band")),
-                      band["target"] if band else None)
-        self.chart.set_sweep(sweep, target)
+        self.chart.set_sweep(sweep, sweep.get("target") or (band["target"] if band else None))
 
     def _message(self, kind: str, text: str) -> None:
         self.message.setText(span(" " + text[:200], theme.RED if kind == "error" else theme.CYAN,
@@ -322,6 +342,21 @@ class SwrPage(Page):
         return self.bands[row] if self.bands and 0 <= row < len(self.bands) else None
 
     # ---- keys (the terminal's actions) ---------------------------------------------------------
+
+    def action_move(self, step: int) -> None:
+        if self.bands:
+            row = max(0, min(len(self.bands) - 1, self.table.currentRow() + step))
+            self.table.selectRow(row)
+
+    def action_presets(self) -> None:
+        self.run_worker(self._presets())
+
+    async def _presets(self) -> None:
+        view = PresetsView(self)
+        self.push_overlay(view)
+        await view.closed
+        await self._load_rows()
+        await self._fill_bands()
 
     def action_band(self, index: int) -> None:
         if 0 <= index < len(self.bands):
@@ -348,9 +383,9 @@ class SwrPage(Page):
         band = self._band()
         if band is None:
             return
-        saved = self.antenna.get("settings", {}).get(band["name"], {})
+        saved = saved_setting(self.antenna.get("settings", {}), band)
         coil = await self.push_screen_wait(NameScreen(
-            _("Position on {band}").format(band=band["name"]),
+            _("Position on {band}").format(band=row_label(band)),
             _("Which number did the coil (or adjustment) of {antenna} end on?").format(
                 antenna=self.antenna.get("name", _("the antenna"))),
             value=f"{saved['coil']:g}" if saved else "",
@@ -358,12 +393,13 @@ class SwrPage(Page):
                         "Esc cancels")))
         if not coil:
             return
-        result = await self.link.call("swr.final", coil=coil, band=band["name"])
+        result = await self.link.call("swr.final", coil=coil, band=band.get("band", band["name"]),
+                                      preset=band.get("preset"))
         if result.get("error"):
             self._message("error", result["error"])
             return
         self._message("info", _("position {coil} saved for {band}").format(
-            coil=result["entry"]["coil"], band=result["entry"]["band"]))
+            coil=result["entry"]["coil"], band=row_label(band)))
         await self._fill_bands()
 
     def action_remote(self) -> None:
@@ -572,3 +608,142 @@ class AntennasView(Overlay):
             return
         await self._load()
 
+
+
+class PresetsView(Overlay):
+    """The operator's presets (the terminal's PresetScreen): a name, a band and a target
+    frequency each; the same keys, plus the mouse and buttons."""
+
+    TUI = PresetScreen
+
+    def __init__(self, page: SwrPage) -> None:
+        super().__init__(page)
+        self.link = page.link
+        self.presets: list[dict] = []
+        self.bands: list[dict] = []
+        self.closed = asyncio.get_event_loop().create_future()
+        self.frame = Frame(_("Presets"))
+        self.table = self.frame.add(Table(0, 3), 1)
+        self.table.setHorizontalHeaderLabels([_("Preset"), _("Band"), _("Target")])
+        self.table.verticalHeader().hide()
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setShowGrid(False)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.cellDoubleClicked.connect(lambda *_a: self.action_edit())
+        self.notes = self.frame.add(QLabel())
+        self.notes.setTextFormat(Qt.TextFormat.RichText)
+        self.notes.setWordWrap(True)
+        buttons = QHBoxLayout()
+        for key, label, action in (("N", N_("new"), self.action_new),
+                                   ("E", N_("edit"), self.action_edit),
+                                   ("D", N_("delete"), self.action_delete),
+                                   ("Esc", N_("back"), self.action_dismiss)):
+            button = QPushButton(f"{key}  {_(label)}")
+            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            button.clicked.connect(lambda _c=False, a=action: a())
+            buttons.addWidget(button)
+        buttons.addStretch(1)
+        self.frame.body.addLayout(buttons)
+        box = QVBoxLayout(self)
+        box.setContentsMargins(60, 40, 60, 40)
+        box.addWidget(self.frame)
+
+    def start(self) -> None:
+        self.table.setFocus()
+        self.run_worker(self._start())
+
+    async def _start(self) -> None:
+        self.bands = (await self.link.call("swr.bands")).get("bands", [])
+        await self._load()
+
+    async def _load(self, keep: int | None = None) -> None:
+        self.presets = (await self.link.call("swr.presets")).get("presets", [])
+        self.table.setRowCount(len(self.presets))
+        row = 0
+        for i, preset in enumerate(self.presets):
+            cells = (preset["name"], preset["band"], bands.format_frequency(preset["target"]))
+            for column, text in enumerate(cells):
+                self.table.setItem(i, column, QTableWidgetItem(text))
+            if preset["preset"] == keep:
+                row = i
+        self.table.resizeColumnToContents(0)
+        if self.presets:
+            self.table.selectRow(row)
+        self.notes.setText(span(
+            _("A preset sweeps its band aiming at its own frequency, and keeps its own "
+              "position of the adjustment (C).") if self.presets else
+            _("No presets yet: N makes one (a name, a band, a target frequency)."), theme.DIM))
+
+    def _chosen(self) -> dict | None:
+        row = self.table.currentRow()
+        return self.presets[row] if 0 <= row < len(self.presets) else None
+
+    def _message(self, text: str) -> None:
+        self.notes.setText(span(text, theme.RED, True))
+
+    # ---- keys (the terminal's PresetScreen actions) ----
+
+    def action_dismiss(self) -> None:
+        self.page.pop_overlay()
+        if not self.closed.done():
+            self.closed.set_result(None)
+
+    def action_pop_screen(self) -> None:
+        self.action_dismiss()
+
+    def action_new(self) -> None:
+        self.run_worker(self._edit(None))
+
+    def action_edit(self) -> None:
+        preset = self._chosen()
+        if preset is not None:
+            self.run_worker(self._edit(preset))
+
+    async def _edit(self, preset: dict | None) -> None:
+        title = _("Edit preset") if preset else _("New preset")
+        name = await ask_text(self, title,
+                              _("Name (what it is for: SSB at home, the FT8 corner...)"), "",
+                              preset["name"] if preset else "")
+        if not name or not name.strip():
+            return
+        band = await choose(self, title, _("Which band?"),
+                            [(b["name"], b["name"]) for b in self.bands])
+        if not band:
+            return
+        default = preset["target"] if preset and preset["band"] == band else \
+            next(b["target"] for b in self.bands if b["name"] == band)
+        target = await ask_text(self, title,
+                                _("Target frequency on {band} (MHz, e.g. 7.150)").format(
+                                    band=band), "", bands.format_frequency(default))
+        if not target or not target.strip():
+            return
+        params = {"name": name, "band": band, "target": target.strip()}
+        if preset:
+            params["id"] = preset["preset"]
+        reply = await self.link.call("swr.preset.save", **params)
+        if reply.get("error"):
+            self._message(reply["error"])
+            return
+        saved = next((p for p in reply.get("presets", []) if p["name"] == name.strip()), None)
+        await self._load(keep=saved["preset"] if saved else None)
+
+    def action_delete(self) -> None:
+        preset = self._chosen()
+        if preset is not None:
+            self.run_worker(self._delete(preset))
+
+    async def _delete(self, preset: dict) -> None:
+        answer = await choose(
+            self, _("Delete preset"),
+            _("Delete the preset {name}? Its sweeps stay in the history of {band}.").format(
+                name=preset["name"], band=preset["band"]),
+            [("no", _("Keep it")), ("yes", _("Delete"))])
+        if answer != "yes":
+            return
+        reply = await self.link.call("swr.preset.delete", id=preset["preset"])
+        if reply.get("error"):
+            self._message(reply["error"])
+            return
+        await self._load()

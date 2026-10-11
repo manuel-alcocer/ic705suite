@@ -198,9 +198,12 @@ async def _wait(dialog: QDialog) -> None:
     dialog.finished.connect(lambda _code: done.done() or done.set_result(None))
     dialog.open()
     await done
-    if before is not None and before.isVisible():
-        before.window().activateWindow()       # not every window manager gives it back
-        before.setFocus()
+    # Back where it was; or, when nothing had it (one dialog right after another), to what
+    # the dialog was opened over.
+    target = before if before is not None and before.isVisible() else dialog.parentWidget()
+    if target is not None and target.isVisible():
+        target.window().activateWindow()       # not every window manager gives it back
+        target.setFocus()
 
 
 async def choose(parent: QWidget, title: str, message: str,

@@ -498,3 +498,45 @@ msgstr "el móvil puede barrer; barridos de ROE permitidos"
 
 msgid "the phone only watches; no SWR sweeps"
 msgstr "el móvil solo mira; sin barridos de ROE"
+
+msgid "F2-F9 Band · ↑↓ Band or preset · P Presets · A Antennas · R Remote control · N Noise sweep (RX) · S SWR sweep (TX) · C Save position · Esc Stop/Back"
+msgstr "F2-F9 Banda · ↑↓ Banda o preset · P Presets · A Antenas · R Control remoto · N Barrido de ruido (RX) · S Barrido de ROE (TX) · C Guardar posición · Esc Parar/Volver"
+
+msgid "F2-F9 Band · ↑↓ · P Presets · N Noise · S SWR · Esc Back"
+msgstr "F2-F9 Banda · ↑↓ · P Presets · N Ruido · S ROE · Esc Volver"
+
+msgid "Presets"
+msgstr "Presets"
+
+msgid "Preset"
+msgstr "Preset"
+
+msgid "↑↓ choose · N new · E edit · D delete · Esc back"
+msgstr "↑↓ elegir · N nuevo · E editar · D borrar · Esc volver"
+
+msgid "A preset sweeps its band aiming at its own frequency, and keeps its own position of the adjustment (C)."
+msgstr "Un preset barre su banda apuntando a su propia frecuencia, y guarda su propia posición del ajuste (C)."
+
+msgid "No presets yet: N makes one (a name, a band, a target frequency)."
+msgstr "Todavía no hay presets: N crea uno (un nombre, una banda y una frecuencia objetivo)."
+
+msgid "Edit preset"
+msgstr "Editar preset"
+
+msgid "New preset"
+msgstr "Nuevo preset"
+
+msgid "Name (what it is for: SSB at home, the FT8 corner...)"
+msgstr "Nombre (para qué es: SSB en casa, el rincón de FT8...)"
+
+msgid "Which band?"
+msgstr "¿Qué banda?"
+
+msgid "Target frequency on {band} (MHz, e.g. 7.150)"
+msgstr "Frecuencia objetivo en {band} (MHz, p. ej. 7.150)"
+
+msgid "Delete preset"
+msgstr "Borrar preset"
+
+msgid "Delete the preset {name}? Its sweeps stay in the history of {band}."
+msgstr "¿Borrar el preset {name}? Sus barridos se quedan en el historial de {band}."

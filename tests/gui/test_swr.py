@@ -54,3 +54,42 @@ def test_antenna_keys_as_in_the_terminal(tmp_path, run, monkeypatch):
             await link.close()
 
     run(scenario())
+
+
+def test_presets_as_in_the_terminal(tmp_path, run, monkeypatch):
+    """P: a preset (name, band, target) is made in the dialogs and joins the list; ↓ reaches
+    it; a noise sweep aims at its target."""
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+
+    async def scenario():
+        from PySide6.QtWidgets import QLineEdit
+
+        win, link = await window(tmp_path, start_app="swr")
+        page = win.page
+        try:
+            await until(lambda: page.bands and page.state)
+            bands = len(page.bands)
+            await key(Qt.Key.Key_P)
+            await until(lambda: page.overlay is not None)
+            await key(Qt.Key.Key_N)
+            await until(lambda: QApplication.activeModalWidget() is not None)
+            QApplication.activeModalWidget().findChild(QLineEdit).setText("SSB casa")
+            await key(Qt.Key.Key_Return)
+            await answer("40m")
+            await until(lambda: QApplication.activeModalWidget() is not None)
+            QApplication.activeModalWidget().findChild(QLineEdit).setText("7.150")
+            await key(Qt.Key.Key_Return)
+            await until(lambda: page.overlay.presets)
+            await key(Qt.Key.Key_Escape)
+            await until(lambda: page.overlay is None and len(page.bands) == bands + 1)
+            for _ in range(bands):
+                await key(Qt.Key.Key_Down)
+            assert page._band()["name"] == "SSB casa"
+            await key(Qt.Key.Key_N)
+            await until(lambda: (page.state.get("sweep") or {}).get("preset") == 1)
+            assert page.state["sweep"]["target"] == 7_150_000
+            await key(Qt.Key.Key_Escape)
+        finally:
+            await link.close()
+
+    run(scenario())
