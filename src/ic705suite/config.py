@@ -41,7 +41,8 @@ TEMPLATE = """\
 [rig]
 # Radio model: "ic705" (more models to come)
 model = "ic705"
-# How to reach it: "lan" (WiFi/Ethernet), "usb" (next version) or "sim" (built-in simulator)
+# How to reach it: "lan" (WiFi/Ethernet), "usb" (next version), "sim" (built-in simulator)
+# or "none" (no radio: a core that serves packet only, e.g. a Raspberry Pi with a Digirig)
 connection = "lan"
 # IP address of the IC-705 (MENU > SET > WLAN Set > Connection Status shows it)
 host = "192.168.1.50"
@@ -101,6 +102,10 @@ max_power = 30
 
 [packet]
 # Packet radio (F7): the suite's client over a Direwolf TNC.
+# core = "raspberrypi.local:7373": packet runs on that machine's core (ic705suite --serve,
+#   e.g. a Raspberry Pi with the Digirig and the BBS) and F7 opens it there, while the rest
+#   of the suite stays on this one; core_token is its [server] token (default: [client]
+#   token). The settings below are then that machine's, not these.
 # tnc = "agwpe": a Direwolf already running, here or on another machine (e.g. a Raspberry
 #   Pi with a Digirig), reached by its AGWPE port (AGWPORT): host and tcp_port.
 # tnc = "direwolf": the suite starts its own Direwolf on this machine, with the sound card
@@ -197,6 +202,8 @@ class Config:
     packet_txdelay: int = 30
     packet_direwolf: str = ""
     packet_bbs: bool = False
+    packet_core: str = ""            # "host:port" of the core packet runs on ("" = this one)
+    packet_core_token: str = ""
     packet_bbs_call: str = ""        # "" = the station callsign -1
     packet_client: bool = True
     # [ui] [server] [client]
@@ -267,6 +274,8 @@ def load_config(path: Path | None = None) -> Config:
         cfg.packet_txdelay = int(packet.get("txdelay", cfg.packet_txdelay))
         cfg.packet_direwolf = str(packet.get("direwolf", cfg.packet_direwolf))
         cfg.packet_bbs = bool(packet.get("bbs", cfg.packet_bbs))
+        cfg.packet_core = str(packet.get("core", cfg.packet_core))
+        cfg.packet_core_token = str(packet.get("core_token", cfg.packet_core_token))
         cfg.packet_bbs_call = str(packet.get("bbs_call", cfg.packet_bbs_call)).upper()
         cfg.packet_client = bool(packet.get("client", cfg.packet_client))
         server, client = data.get("server", {}), data.get("client", {})

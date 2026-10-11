@@ -37,6 +37,10 @@ def open_rig(config, transport: Transport | None = None) -> Rig:
 
 def _transport(model: RigModel, config) -> Transport:
     connection = config.connection or model.connections[0]
+    if connection == "none":
+        from ic705suite.rig.transport import NoRadio
+
+        return NoRadio(config.sample_rate)
     if connection not in model.connections:
         raise ValueError(f"{model.name} cannot connect over {connection}")
     if model.family == "icom":

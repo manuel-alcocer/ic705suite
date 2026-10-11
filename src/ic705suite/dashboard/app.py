@@ -383,7 +383,7 @@ class DashboardApp(PanelKeys, ChannelSaving, App[str]):
                 desc = Text(_("coming soon") + " · ", style="italic yellow") + desc
             elif not app["available"]:
                 desc = Text(_("this rig cannot") + " · ", style="italic") + desc
-            elif app["needs_rig"] and self.link is None:
+            elif self._lacks_core(app):
                 desc = Text(_("needs the radio") + " · ", style="italic") + desc
             table.add_row(Text(app["key"], style="bold cyan"), name, desc)
         ids = [a["id"] for a in self.apps]
@@ -394,7 +394,13 @@ class DashboardApp(PanelKeys, ChannelSaving, App[str]):
             table.move_cursor(row=min(row, len(self.apps) - 1))
 
     def _usable(self, app: dict) -> bool:
-        return app["ready"] and app["available"] and (self.link is not None or not app["needs_rig"])
+        return app["ready"] and app["available"] and not self._lacks_core(app)
+
+    def _lacks_core(self, app: dict) -> bool:
+        """It runs on a core and there is none here (packet may use another machine's)."""
+        if app["id"] == "packet" and self.config.packet_core:
+            return False
+        return app["needs_rig"] and self.link is None
 
     # ---- actions ------------------------------------------------------------------------
 

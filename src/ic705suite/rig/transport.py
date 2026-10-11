@@ -59,3 +59,18 @@ class Transport(abc.ABC):
     def _emit_disconnect(self, reason: str) -> None:
         if self.on_disconnect:
             self.on_disconnect(reason)
+
+
+class NoRadio(Transport):
+    """[rig] connection = "none": a core with no radio (packet and its BBS only)."""
+
+    name = "none"
+
+    async def connect(self) -> None:
+        raise TransportError('no radio here ([rig] connection = "none")')
+
+    async def close(self) -> None:
+        pass
+
+    def send_civ(self, frame: bytes) -> None:
+        raise TransportError("no radio here")

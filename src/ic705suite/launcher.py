@@ -31,6 +31,16 @@ def start_link(link: Link) -> asyncio.Task:
     return asyncio.ensure_future(connect())
 
 
+def packet_link(config: Config) -> Link | None:
+    """The link to the core packet runs on, when it is not this one ([packet] core)."""
+    if not config.packet_core:
+        return None
+    from ic705suite.station.links import RemoteLink
+
+    return RemoteLink(config.packet_core, config.packet_core_token or config.client_token,
+                      "ic705suite packet")
+
+
 # Keyboard only, everywhere: the mouse is never captured, so the terminal keeps it for
 # selecting and copying text.
 
@@ -63,6 +73,9 @@ async def run_app(app_id: str, link: Link | None, config: Config, scp: set[str] 
     if app_id == "packet":
         from ic705suite.apps.packet.app import PacketApp
 
+        remote = packet_link(config)
+        if remote is not None:       # packet on another machine's core
+            return await PacketApp(remote, owns_link=True).run_async(mouse=False) or 0
         return await PacketApp(link, owns_link=standalone).run_async(mouse=False) or 0
     raise ValueError(f"unknown application {app_id}")
 

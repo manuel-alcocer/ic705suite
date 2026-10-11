@@ -285,7 +285,7 @@ def main(argv: list[str] | None = None) -> int:
                       "in the config", file=sys.stderr)
                 return 1
             link = RemoteLink(address, args.token or config.client_token)
-        elif app not in OFFLINE_APPS:
+        elif app not in OFFLINE_APPS and not (app == "packet" and config.packet_core):
             try:
                 link = LocalLink(transport, config)
             except ValueError as exc:   # no radio configured, unknown model...

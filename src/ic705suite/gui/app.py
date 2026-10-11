@@ -178,8 +178,11 @@ class MainWindow(QMainWindow):
             page = ViewPage(self, self.link, self.config, owns_link=standalone)
         elif app_id == "packet":
             from ic705suite.gui.packet import PacketPage
+            from ic705suite.launcher import packet_link
 
-            page = PacketPage(self, self.link, self.config, owns_link=standalone)
+            remote = packet_link(self.config)      # packet on another machine's core
+            page = PacketPage(self, remote or self.link, self.config,
+                              owns_link=standalone or remote is not None)
         elif app_id == "log":
             from ic705suite.gui.log import LogPage
 

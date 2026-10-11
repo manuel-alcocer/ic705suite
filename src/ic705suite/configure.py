@@ -20,7 +20,7 @@ from ic705suite import i18n
 from ic705suite.config import DEFAULT_PATH, TEMPLATE, Config, load_config, set_values
 from ic705suite.i18n import _
 
-CONNECTIONS = ("lan", "sim")
+CONNECTIONS = ("lan", "sim", "none")
 THEMES = ("dark", "light", "auto")
 CALLSIGN = re.compile(r"^[A-Z0-9]+(/[A-Z0-9]+)*$")
 MASK = "********"
@@ -254,7 +254,8 @@ def configure(path: Path | None = None, questions: Questions | None = None,
         i18n.set_language(config.language)
         config.callsign = q.text(_("Your callsign"), config.callsign, _callsign, upper=True)
         config.connection = q.choice(
-            _("How to reach the radio: lan (WiFi/Ethernet) or sim (simulator, no radio)"),
+            _("How to reach the radio: lan (WiFi/Ethernet), sim (simulator) or none (no radio: "
+              "a core for packet only)"),
             CONNECTIONS, config.connection if config.connection in CONNECTIONS else "lan")
         if config.connection == "lan":
             q.write(_("On the IC-705: MENU > SET > WLAN Set (Connection Status shows its "

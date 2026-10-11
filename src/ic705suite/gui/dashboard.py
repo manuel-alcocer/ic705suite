@@ -326,8 +326,13 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
     # ---- the applications ---------------------------------------------------------------------
 
     def _usable(self, app: dict) -> bool:
-        return app["ready"] and app["available"] and (self.link is not None
-                                                      or not app["needs_rig"])
+        return app["ready"] and app["available"] and not self._lacks_core(app)
+
+    def _lacks_core(self, app: dict) -> bool:
+        """It runs on a core and there is none here (packet may use another machine's)."""
+        if app["id"] == "packet" and self.config.packet_core:
+            return False
+        return app["needs_rig"] and self.link is None
 
     def _fill_apps(self) -> None:
         table = self.table
@@ -341,7 +346,7 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
                 description = f"{_('coming soon')} · {description}"
             elif not app["available"]:
                 description = f"{_('this rig cannot')} · {description}"
-            elif app["needs_rig"] and self.link is None:
+            elif self._lacks_core(app):
                 description = f"{_('needs the radio')} · {description}"
             cells = (app["key"], _(app["name"]).format(model=model), description)
             for column, text in enumerate(cells):

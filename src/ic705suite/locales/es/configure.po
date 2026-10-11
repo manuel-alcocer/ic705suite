@@ -33,8 +33,8 @@ msgstr "[s/N]"
 msgid "Your callsign"
 msgstr "Tu indicativo"
 
-msgid "How to reach the radio: lan (WiFi/Ethernet) or sim (simulator, no radio)"
-msgstr "Cómo llegar al equipo: lan (WiFi/Ethernet) o sim (simulador, sin equipo)"
+msgid "How to reach the radio: lan (WiFi/Ethernet), sim (simulator) or none (no radio: a core for packet only)"
+msgstr "Cómo llegar al equipo: lan (WiFi/Ethernet), sim (simulador) o none (sin equipo: un core solo para packet)"
 
 msgid "Transmission stays off until the antenna SWR is right for your bands."
 msgstr "Deja la transmisión apagada hasta que la ROE de la antena esté bien en tus bandas."

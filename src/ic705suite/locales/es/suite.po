@@ -1046,3 +1046,6 @@ msgstr "{call}: nadie conectado · {count} mensajes"
 
 msgid "↑↓ choose · Enter reads · K kills · U users/messages · Esc back"
 msgstr "↑↓ elegir · Intro lee · K borra · U usuarios/mensajes · Esc volver"
+
+msgid "no radio here: this core serves packet only"
+msgstr "aquí no hay equipo: este core solo sirve packet"

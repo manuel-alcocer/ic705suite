@@ -202,3 +202,17 @@ def test_packet_on_the_ic705(tmp_path, monkeypatch):
     assert "sudo modprobe snd-aloop" in said
     assert "Direwolf is not installed" not in said
     assert "EA7XYZ-4 on the IC-705 over WiFi" in said
+
+
+def test_a_core_with_no_radio_for_packet(tmp_path, monkeypatch):
+    from ic705suite.apps.packet import direwolf
+
+    monkeypatch.setattr(direwolf, "find_direwolf", lambda configured="": "/usr/bin/direwolf")
+    monkeypatch.setattr(direwolf, "find_devices", lambda: [direwolf.Device(
+        "plughw:Device,0", "/dev/ttyUSB0 RTS", "sound card Device + ttyUSB0")])
+    path = tmp_path / "config.toml"
+    script = Script("en", "ea7klx", "none", "", "", "direwolf", "", "", "", "", "y", "", "y")
+    assert configure.configure(path, script, language="en") == 0
+    config = load_config(path)
+    assert config.connection == "none" and config.packet_tnc == "direwolf"
+    assert config.packet_bbs and config.packet_bbs_call == "EA7KLX-1"

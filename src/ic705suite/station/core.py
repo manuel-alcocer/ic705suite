@@ -210,6 +210,11 @@ class Core:
         await self.swr.start()
         await self.packet.start()
         self._ticker = asyncio.create_task(self._tick())
+        if self.config.connection == "none":
+            # A core for packet only (a Raspberry Pi with a Digirig): nothing to look for.
+            self.hub.info(N_("no radio here: this core serves packet only"))
+            self.started = True
+            return
         reported = False
         while True:
             try:

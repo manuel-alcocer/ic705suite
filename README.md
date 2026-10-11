@@ -298,6 +298,17 @@ it with no radio between (as its sysop); **F12** is the sysop's page: the messag
 reads, K kills), U the users, and who is connected. A line starting with `/` that is not a
 command of the terminal goes to the station as typed while connected (a BBS's `/EX`).
 
+**Packet around the clock on another machine.** A Raspberry Pi with a Digirig can keep the
+BBS (and the terminal's sessions) on the air while the computer is off: there the core runs
+with no radio (`[rig] connection = "none"`) as a server (`ic705suite --serve`, e.g. a
+systemd service), with `[packet] tnc = "direwolf"`, `bbs = true` and `[server] token`. On
+the computer, `[packet] core = "raspberrypi.local:7373"` and `core_token` (that token) make
+F7 open packet there, terminal and graphical client alike, while the rest of the suite stays
+with the radio on the computer's own core (whose packet then stays off). On a Raspberry Pi
+OS of 32 bits, numpy and the like come best from its packages
+(`apt install python3-numpy python3-sqlalchemy python3-websockets python3-soundfile`) and
+the suite in a `python3 -m venv --system-site-packages` environment.
+
 ## Development
 
 ```sh

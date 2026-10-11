@@ -181,8 +181,8 @@ class PacketService:
 
     @property
     def configured(self) -> bool:
-        if not (self.client_on or self.bbs_on):
-            return False
+        if self.config.packet_core or not (self.client_on or self.bbs_on):
+            return False        # packet runs on another machine's core, or nothing to run
         if self.on_ic705:
             return self.station is not None
         if self.local:
