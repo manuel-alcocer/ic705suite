@@ -105,6 +105,8 @@ max_power = 30
 #   Pi with a Digirig), reached by its AGWPE port (AGWPORT): host and tcp_port.
 # tnc = "direwolf": the suite starts its own Direwolf on this machine, with the sound card
 #   and PTT below (ic705suite --configure finds a Digirig plugged in), AGWPE on tcp_port.
+# tnc = "ic705": the IC-705 over WiFi is the radio, with Direwolf here (Linux, with the
+#   snd-aloop virtual sound card); it transmits in FM-D (/qrg 144.800 in packet tunes it).
 # tnc = "agwpe"
 # host = "raspberrypi.local"
 # tcp_port = 8000
@@ -184,7 +186,7 @@ class Config:
     packet_tcp_port: int = 8000
     packet_mycall: str = ""          # "" = the station callsign
     packet_radio_port: int = 1
-    packet_tnc: str = "agwpe"        # agwpe (one already running) or direwolf (started here)
+    packet_tnc: str = "agwpe"        # agwpe (one running), direwolf (started here) or ic705
     packet_audio: str = ""
     packet_ptt: str = ""
     packet_txdelay: int = 30

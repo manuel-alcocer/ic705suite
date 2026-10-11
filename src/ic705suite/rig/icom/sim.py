@@ -32,11 +32,13 @@ DEFAULT_SETTINGS: dict[bytes, bytes] = {
     b"\x27\x14\x00": b"\x00", b"\x27\x15\x00": civ.encode_frequency(25_000),
     b"\x27\x16\x00": b"\x01", b"\x27\x17\x00": b"\x00", b"\x27\x19\x00": b"\x00\x00\x00",
     b"\x27\x1a\x00": b"\x01", b"\x27\x1d\x00": b"\x00",
+    # Menu items (1A 05): DATA OFF MOD and DATA1 MOD inputs (0 MIC, 1 USB, 2 MIC+USB, 3 WLAN).
+    b"\x1a\x05\x01\x18": b"\x00", b"\x1a\x05\x01\x19": b"\x01",
 }
 
 
 def _setting_prefix(body: bytes) -> bytes | None:
-    for length in (3, 2, 1):
+    for length in (4, 3, 2, 1):
         if body[:length] in DEFAULT_SETTINGS:
             return body[:length]
     return None
@@ -93,6 +95,7 @@ class SimTransport(Transport):
         self.smeter = 0
         self.data_mode = (0, 0)
         self.ptt = False
+        self.tx_audio_bytes = 0
         self.antenna_resonance = 7_100_000   # simulated antenna: SWR 1.1 here, rising away
         # Every other setting (levels, switches, scope) is kept by its command prefix.
         self.settings: dict[bytes, bytes] = dict(DEFAULT_SETTINGS)
@@ -115,6 +118,15 @@ class SimTransport(Transport):
     @property
     def transmitting(self) -> bool:
         return time.monotonic() < self._tx_until
+
+    #: Transmit audio arrives here (a test or a lab passes it on to another station).
+    can_send_audio = True
+    on_tx_audio = None
+
+    def send_audio(self, pcm: bytes) -> None:
+        self.tx_audio_bytes += len(pcm)
+        if self.on_tx_audio is not None:
+            self.on_tx_audio(pcm, self.ptt)
 
     async def connect(self) -> None:
         self.civ_address = civ.IC705_ADDR

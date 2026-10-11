@@ -39,9 +39,12 @@ from ic705suite.apps.packet.agwpe import (
 )
 from ic705suite.apps.packet.direwolf import Direwolf, config_text, find_direwolf
 from ic705suite.apps.packet.direwolf import Settings as DirewolfSettings
+from ic705suite.apps.packet.ic705 import Ic705Port
 from ic705suite.config import Config
 from ic705suite.i18n import N_
 from ic705suite.paths import data_dir
+from ic705suite.rig.base import RigError
+from ic705suite.rig.transport import TransportError
 
 log = logging.getLogger(__name__)
 
@@ -101,9 +104,10 @@ def parse_via(value: object) -> list[str]:
 
 
 class PacketService:
-    def __init__(self, config: Config, hub) -> None:
+    def __init__(self, config: Config, hub, station=None) -> None:
         self.config = config
         self.hub = hub
+        self.station = station          # the radio, for tnc = "ic705"
         self.channels = [Channel(n) for n in range(CHANNELS + 1)]   # 0: the monitor
         self.heard: dict[str, HeardStation] = {}
         self.frames = 0
@@ -116,8 +120,10 @@ class PacketService:
         self._task: asyncio.Task | None = None
         self._wake = asyncio.Event()
         self._changed = True
-        self.direwolf: Direwolf | None = None      # the one started here (tnc = "direwolf")
+        self.direwolf: Direwolf | None = None      # the one started here
         self.direwolf_missing = False
+        self.radio: Ic705Port | None = None        # the IC-705 as its radio (tnc = "ic705")
+        self.radio_problem = ""
 
     # ---- settings ------------------------------------------------------------------------
 
@@ -132,7 +138,11 @@ class PacketService:
     @property
     def local(self) -> bool:
         """Whether the core starts Direwolf itself (else it reaches one already running)."""
-        return self.config.packet_tnc == "direwolf"
+        return self.config.packet_tnc in ("direwolf", "ic705")
+
+    @property
+    def on_ic705(self) -> bool:
+        return self.config.packet_tnc == "ic705"
 
     @property
     def host(self) -> str:
@@ -140,6 +150,8 @@ class PacketService:
 
     @property
     def configured(self) -> bool:
+        if self.on_ic705:
+            return bool(self.mycall and self.station is not None)
         if self.local:
             return bool(self.config.packet_audio and self.mycall)
         return bool(self.config.packet_host and self.mycall)
@@ -150,8 +162,24 @@ class PacketService:
         if not self.configured or self._task is not None:
             return
         if self.local and self.direwolf is None:
+            if self.on_ic705 and not await self._start_radio():
+                return
             self._start_direwolf()
         self._task = asyncio.create_task(self._run())
+
+    async def _start_radio(self) -> bool:
+        port = Ic705Port(self.station, self.config, lambda msgid, **args: self._system(
+            0, msgid, **args), self._touch)
+        problem = port.problem()
+        if problem is not None:
+            msgid, args = problem
+            self.radio_problem = msgid.format(**args)
+            self._system(0, msgid, **args)
+            self._touch()
+            return False
+        await port.start()
+        self.radio = port
+        return True
 
     async def stop(self) -> None:
         task, self._task = self._task, None
@@ -164,6 +192,9 @@ class PacketService:
         direwolf, self.direwolf = self.direwolf, None
         if direwolf is not None:
             await direwolf.stop()
+        radio, self.radio = self.radio, None
+        if radio is not None:
+            await radio.stop()
 
     def _start_direwolf(self) -> None:
         program = find_direwolf(self.config.packet_direwolf)
@@ -174,9 +205,14 @@ class PacketService:
                                "installer) or set [packet] direwolf to the program"))
             return
         config = self.config
-        settings = DirewolfSettings(mycall=self.mycall, audio=config.packet_audio,
-                                    ptt=config.packet_ptt, txdelay=config.packet_txdelay,
-                                    agw_port=config.packet_tcp_port)
+        if self.radio is not None:
+            settings = DirewolfSettings(mycall=self.mycall, audio=self.radio.audio,
+                                        ptt=self.radio.ptt_line, txdelay=config.packet_txdelay,
+                                        agw_port=config.packet_tcp_port, arate=self.radio.rate)
+        else:
+            settings = DirewolfSettings(mycall=self.mycall, audio=config.packet_audio,
+                                        ptt=config.packet_ptt, txdelay=config.packet_txdelay,
+                                        agw_port=config.packet_tcp_port)
         self.direwolf = Direwolf(direwolf_command(program), data_dir() / "packet" /
                                  "direwolf.conf", config_text(settings), self._touch)
         self.direwolf.start()
@@ -388,7 +424,8 @@ class PacketService:
                     "registered": self.registered,
                     "rx": self._client.rx_bytes if self._client else 0,
                     "tx": self._client.tx_bytes if self._client else 0,
-                    "direwolf": self._direwolf_state()},
+                    "direwolf": self._direwolf_state(),
+                    "radio": self._radio_state()},
             "mycall": self.mycall,
             "radio_port": self.radio_port,
             "channels": [c.summary() for c in self.channels],
@@ -434,6 +471,15 @@ class PacketService:
                     raise PacketError(N_("Direwolf is not started by the suite here: "
                                          "[packet] tnc = \"direwolf\""))
                 self.direwolf.restart()
+            elif method == "qrg":
+                if self.radio is None:
+                    raise PacketError(N_("/qrg tunes the IC-705 when it is the packet radio: "
+                                         "[packet] tnc = \"ic705\""))
+                try:
+                    await self.radio.qrg(int(params["frequency"]))
+                except (RigError, TransportError) as exc:
+                    raise PacketError(N_("The IC-705 did not take it: {error}"),
+                                      error=str(exc)) from None
             elif method == "retry":
                 if not self.configured:
                     raise PacketError(N_("Packet is not set up: [packet] host in the "
@@ -450,6 +496,13 @@ class PacketService:
         return {"ok": True}
 
     # ---- helpers -------------------------------------------------------------------------
+
+    def _radio_state(self) -> dict | None:
+        if not self.on_ic705:
+            return None
+        if self.radio is None:
+            return {"keyed": False, "tx_bytes": 0, "refused": "", "problem": self.radio_problem}
+        return {**self.radio.state(), "problem": ""}
 
     def _direwolf_state(self) -> dict | None:
         if not self.local:

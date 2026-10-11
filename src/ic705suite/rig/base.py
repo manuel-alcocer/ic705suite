@@ -207,7 +207,7 @@ class Rig(abc.ABC):
 
     # ---- transmit and meters (antenna tuning) --------------------------------------------
 
-    async def ptt(self, on: bool) -> None:
+    async def ptt(self, on: bool, longest: float = 2.0) -> None:
         raise RigError(f"{self.model.name}: PTT is not supported")
 
     async def read_transmitting(self) -> bool:

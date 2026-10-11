@@ -178,7 +178,7 @@ class Core:
         self.station = Station(open_rig(config, transport), config, self.hub)
         self.session = Session(self.station, config, self.hub)
         self.swr = SwrService(self.station, config, self.hub)
-        self.packet = PacketService(config, self.hub)
+        self.packet = PacketService(config, self.hub, self.station)
         self._ticker: asyncio.Task | None = None
         self.started = False
 

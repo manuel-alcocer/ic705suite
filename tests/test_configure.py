@@ -184,3 +184,20 @@ def test_direwolf_here_with_the_digirig_found(tmp_path, monkeypatch):
     assert configure.configure(path, script, language="en") == 0
     config = load_config(path)
     assert config.packet_tnc == "direwolf" and config.packet_ptt == ""
+
+
+def test_packet_on_the_ic705(tmp_path, monkeypatch):
+    from ic705suite.apps.packet import direwolf, ic705
+
+    monkeypatch.setattr(direwolf, "find_direwolf", lambda configured="": "/usr/bin/direwolf")
+    monkeypatch.setattr(ic705, "loopback_present", lambda cards=None: False)
+    path = tmp_path / "config.toml"
+    script = Script("en", "ea7xyz", "sim", "", "", "ic705", "", "y")
+    assert configure.configure(path, script, language="en") == 0
+    config = load_config(path)
+    assert (config.packet_tnc, config.packet_mycall) == ("ic705", "EA7XYZ-4")
+    said = "\n".join(script.said)
+    assert "DATA1 MOD input on WLAN" in said
+    assert "sudo modprobe snd-aloop" in said
+    assert "Direwolf is not installed" not in said
+    assert "EA7XYZ-4 on the IC-705 over WiFi" in said

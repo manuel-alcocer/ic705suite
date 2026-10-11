@@ -268,6 +268,15 @@ so it opens even when it is unreachable.
   must be installed (`apt install direwolf`; on Windows, its installer): it is a program of
   its own (GPLv2), which the suite only starts and talks to. `/tnc` shows its configuration
   and its last words, `/tnc restart` starts it again.
+- `tnc = "ic705"`: the IC-705 over WiFi is the radio, with Direwolf started here (Linux). The
+  core passes the radio's audio to Direwolf (UDP), records what Direwolf transmits from the
+  `snd-aloop` virtual sound card and sends it to the radio, and answers Direwolf's PTT as a
+  rigctld, keying the radio over CI-V. Load the virtual card once:
+  `sudo modprobe snd-aloop; echo snd-aloop | sudo tee /etc/modules-load.d/snd-aloop.conf`.
+  The radio transmits packet in FM-D with its DATA1 MOD input on WLAN: `/qrg 144.800` in the
+  packet screen tunes it so (the core sets the input the first time it keys anyway, but leaves
+  the mode to the operator: without a data mode, or with `tx_enabled` off, it does not key and
+  says why). A higher `[rig] sample_rate` (16000 or 48000) helps Direwolf decode.
 
 The monitor (channel 0) stays on top; below it, the chosen channel: **F1-F8** choose one of the 8 channels, one
 session each. What is typed goes to that channel's station; `/c CALL [v DIGI …]` calls from
@@ -275,7 +284,7 @@ this channel, `/d` hangs up, `/ui DEST text` sends an unconnected frame, `/help`
 rest. A station calling us takes the first free channel. **F9** hides the monitor, **F10**
 lists the stations heard (Enter calls one). The bar marks the channels with unread text. The
 sessions live in the core: leaving the screen, or closing a remote client, does not drop
-them. It needs no radio of the suite's own (the IC-705 will come as a TNC radio later).
+them. With `agwpe` or `direwolf` it needs no radio of the suite's own.
 
 ## Development
 

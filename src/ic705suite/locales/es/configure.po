@@ -153,11 +153,20 @@ msgstr "No se encuentra ningún Digirig conectado: escribe su tarjeta de sonido 
 msgid "PTT for Direwolf (e.g. /dev/ttyUSB0 RTS, COM5 RTS, CM108; vox for none)"
 msgstr "PTT para Direwolf (p. ej. /dev/ttyUSB0 RTS, COM5 RTS, CM108; vox para ninguno)"
 
-msgid "Packet TNC: none, agwpe (a Direwolf already running, here or on another machine) or direwolf (the suite starts its own here, e.g. with a Digirig)"
-msgstr "TNC de packet: none (ninguno), agwpe (un Direwolf que ya funciona, aquí o en otra máquina) o direwolf (la suite arranca el suyo aquí, p. ej. con un Digirig)"
-
 msgid "Sound card for Direwolf (ADEVICE, e.g. plughw:Device,0)"
 msgstr "Tarjeta de sonido para Direwolf (ADEVICE, p. ej. plughw:Device,0)"
 
 msgid "{call} with Direwolf started here ({audio}, PTT {ptt})"
 msgstr "{call} con Direwolf arrancado aquí ({audio}, PTT {ptt})"
+
+msgid "It needs the snd-aloop virtual sound card, missing now; load it once with: {command}"
+msgstr "Necesita la tarjeta de sonido virtual snd-aloop, que ahora falta; cárgala una vez con: {command}"
+
+msgid "Packet TNC: none, agwpe (a Direwolf already running, here or on another machine), direwolf (the suite starts its own here, e.g. with a Digirig) or ic705 (the IC-705 over WiFi, with Direwolf here; Linux)"
+msgstr "TNC de packet: none (ninguno), agwpe (un Direwolf que ya funciona, aquí o en otra máquina), direwolf (la suite arranca el suyo aquí, p. ej. con un Digirig) o ic705 (la IC-705 por WiFi, con Direwolf aquí; Linux)"
+
+msgid "The IC-705 transmits packet in FM-D with its DATA1 MOD input on WLAN (the suite sets it; /qrg 144.800 in packet tunes it). Transmitting also needs [rig] tx_enabled."
+msgstr "La IC-705 transmite packet en FM-D con su entrada DATA1 MOD en WLAN (la suite la ajusta; /qrg 144.800 en packet la sintoniza). Para transmitir hace falta también [rig] tx_enabled."
+
+msgid "{call} on the IC-705 over WiFi, with Direwolf here"
+msgstr "{call} en la IC-705 por WiFi, con Direwolf aquí"

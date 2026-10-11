@@ -106,6 +106,7 @@ class IcomRig(Rig):
         self.address = civ_address or model.params.get("civ_address", 0xA4)
         self._fixed_address = civ_address is not None
         self.keyed_at: float | None = None
+        self.longest_key = MAX_KEY_SECONDS
         self._watchdog: asyncio.Task | None = None
         self._parser = civ.CivParser()
         self._lock = asyncio.Lock()
@@ -413,9 +414,12 @@ class IcomRig(Rig):
         frame = await self.transact(b"\x1c\x00", b"\x1c\x00")
         return len(frame.body) > 2 and frame.body[2] == 1
 
-    async def ptt(self, on: bool) -> None:
+    async def ptt(self, on: bool, longest: float = MAX_KEY_SECONDS) -> None:
+        """Key or release. The watchdog releases it after `longest` seconds whatever
+        happens to the caller (a packet frame may need longer than a sweep's step)."""
         await self.transact(b"\x1c\x00" + (b"\x01" if on else b"\x00"))
         self.keyed_at = time.monotonic() if on else None
+        self.longest_key = longest
         self.state.transmitting = on
         if on and (self._watchdog is None or self._watchdog.done()):
             self._watchdog = asyncio.create_task(self._watchdog_loop())
@@ -433,7 +437,7 @@ class IcomRig(Rig):
 
     async def _watchdog_loop(self) -> None:
         while self.keyed_at is not None:
-            if time.monotonic() - self.keyed_at > MAX_KEY_SECONDS:
+            if time.monotonic() - self.keyed_at > self.longest_key:
                 log.error("watchdog: transmitter keyed too long, releasing PTT")
                 await self.unkey()
                 return

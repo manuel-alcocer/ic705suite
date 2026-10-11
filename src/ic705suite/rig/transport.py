@@ -40,6 +40,14 @@ class Transport(abc.ABC):
     @abc.abstractmethod
     def send_civ(self, frame: bytes) -> None: ...
 
+    #: Whether send_audio() reaches the radio (it transmits it while keyed, in a data mode
+    #: whose modulation input is this connection).
+    can_send_audio = False
+
+    def send_audio(self, pcm: bytes) -> None:
+        """Audio for the transmitter: 16-bit little-endian mono at `sample_rate`."""
+        raise TransportError("this connection cannot send audio to the radio")
+
     def _emit_civ(self, data: bytes) -> None:
         if self.on_civ:
             self.on_civ(data)

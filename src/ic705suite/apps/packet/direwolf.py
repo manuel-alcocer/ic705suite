@@ -49,6 +49,7 @@ class Settings:
     txtail: int = 10
     agw_port: int = 8000
     kiss_port: int = 0         # 0: no KISS over TCP
+    arate: int = 48000         # samples per second of the sound card (or of the UDP audio)
 
 
 def config_text(settings: Settings) -> str:
@@ -58,7 +59,7 @@ def config_text(settings: Settings) -> str:
         "# Written by ic705suite from [packet] in its configuration: changes here are\n"
         "# lost the next time it starts Direwolf.\n"
         f"ADEVICE {settings.audio}\n"
-        "ARATE 48000\n"
+        f"ARATE {settings.arate}\n"
         "ACHANNELS 1\n"
         "CHANNEL 0\n"
         f"MYCALL {settings.mycall}\n"

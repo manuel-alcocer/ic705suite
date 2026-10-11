@@ -111,6 +111,10 @@ class Station:
     def add_audio_listener(self, callback: AudioListener) -> None:
         self._audio.append(callback)
 
+    def remove_audio_listener(self, callback: AudioListener) -> None:
+        if callback in self._audio:
+            self._audio.remove(callback)
+
     def add_tune_listener(self, callback: TuneListener) -> None:
         self._tune.append(callback)
 

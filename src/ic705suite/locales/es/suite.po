@@ -851,27 +851,6 @@ msgstr "{call} no es un indicativo"
 msgid "↑↓ choose · Enter connects · Esc back"
 msgstr "↑↓ elegir · Intro conecta · Esc volver"
 
-msgid ""
-"/c CALL [v DIGI …]   connect this channel to CALL (via digipeaters)\n"
-"/d                   disconnect this channel\n"
-"/ch N                go to channel N (also F1-F8; 0 is the monitor)\n"
-"/ui DEST text        send an unconnected UI frame\n"
-"/clear               clear this channel's window (also Ctrl+L)\n"
-"/retry               reach the TNC again now\n"
-"/tnc                 the TNC: settings and what Direwolf says (/tnc restart)\n"
-"/quit                back to the dashboard (also Ctrl+Q)\n"
-"//text               send a line starting with /"
-msgstr ""
-"/c IND [v DIGI …]    conecta este canal con IND (por digirrepetidores)\n"
-"/d                   desconecta este canal\n"
-"/ch N                va al canal N (también F1-F8; el 0 es el monitor)\n"
-"/ui DEST texto       envía una trama UI sin conexión\n"
-"/clear               limpia la ventana de este canal (también Ctrl+L)\n"
-"/retry               vuelve a buscar el TNC ahora\n"
-"/tnc                 el TNC: su configuración y lo que dice Direwolf (/tnc restart)\n"
-"/quit                vuelve al panel (también Ctrl+Q)\n"
-"//texto              envía una línea que empieza por /"
-
 msgid "Callsign: {call}"
 msgstr "Indicativo: {call}"
 
@@ -919,3 +898,71 @@ msgstr "arrancando"
 
 msgid "stopped, starting again"
 msgstr "parado, vuelve a arrancar"
+
+msgid ""
+"/c CALL [v DIGI …]   connect this channel to CALL (via digipeaters)\n"
+"/d                   disconnect this channel\n"
+"/ch N                go to channel N (also F1-F8; 0 is the monitor)\n"
+"/ui DEST text        send an unconnected UI frame\n"
+"/clear               clear this channel's window (also Ctrl+L)\n"
+"/retry               reach the TNC again now\n"
+"/tnc                 the TNC: settings and what Direwolf says (/tnc restart)\n"
+"/qrg 144.800         tune the IC-705 for packet (FM-D), when it is the radio\n"
+"/quit                back to the dashboard (also Ctrl+Q)\n"
+"//text               send a line starting with /"
+msgstr ""
+"/c IND [v DIGI …]    conecta este canal con IND (por digirrepetidores)\n"
+"/d                   desconecta este canal\n"
+"/ch N                va al canal N (también F1-F8; el 0 es el monitor)\n"
+"/ui DEST texto       envía una trama UI sin conexión\n"
+"/clear               limpia la ventana de este canal (también Ctrl+L)\n"
+"/retry               vuelve a buscar el TNC ahora\n"
+"/tnc                 el TNC: su configuración y lo que dice Direwolf (/tnc restart)\n"
+"/qrg 144.800         sintoniza la IC-705 para packet (FM-D), cuando es la radio\n"
+"/quit                vuelve al panel (también Ctrl+Q)\n"
+"//texto              envía una línea que empieza por /"
+
+msgid "/qrg tunes the IC-705 when it is the packet radio: [packet] tnc = \"ic705\""
+msgstr "/qrg sintoniza la IC-705 cuando es la radio de packet: [packet] tnc = \"ic705\""
+
+msgid "IC-705 on {frequency} MHz FM-D for packet"
+msgstr "IC-705 en {frequency} MHz FM-D para packet"
+
+msgid "Last PTT refused: {reason}"
+msgstr "Último PTT rechazado: {reason}"
+
+msgid "Packet cannot transmit: the IC-705 does not answer ({error})"
+msgstr "Packet no puede transmitir: la IC-705 no responde ({error})"
+
+msgid "Packet cannot transmit: the IC-705 is not connected"
+msgstr "Packet no puede transmitir: la IC-705 no está conectada"
+
+msgid "Packet cannot transmit: the IC-705 is not in a data mode (FM-D); /qrg FREQUENCY tunes it for packet"
+msgstr "Packet no puede transmitir: la IC-705 no está en un modo de datos (FM-D); /qrg FRECUENCIA la sintoniza para packet"
+
+msgid "Packet cannot transmit: transmission is off ([rig] tx_enabled, --tx)"
+msgstr "Packet no puede transmitir: la transmisión está desactivada ([rig] tx_enabled, --tx)"
+
+msgid "Packet with the IC-705 over WiFi needs Linux (snd-aloop)"
+msgstr "Packet con la IC-705 por WiFi necesita Linux (snd-aloop)"
+
+msgid "Radio: the IC-705 over WiFi, audio at {rate} Hz; sent while keyed: {bytes} bytes"
+msgstr "Radio: la IC-705 por WiFi, audio a {rate} Hz; enviado transmitiendo: {bytes} bytes"
+
+msgid "The IC-705 cannot be the radio here: {problem}"
+msgstr "La IC-705 no puede ser la radio aquí: {problem}"
+
+msgid "The IC-705 did not key: {error}"
+msgstr "La IC-705 no ha transmitido: {error}"
+
+msgid "The IC-705 did not take it: {error}"
+msgstr "La IC-705 no lo ha aceptado: {error}"
+
+msgid "The snd-aloop virtual sound card is missing; load it once with: {command}"
+msgstr "Falta la tarjeta de sonido virtual snd-aloop; cárgala una vez con: {command}"
+
+msgid "This connection to the radio cannot send it audio"
+msgstr "Esta conexión con la radio no puede enviarle audio"
+
+msgid "cannot work here (/tnc)"
+msgstr "no puede funcionar aquí (/tnc)"

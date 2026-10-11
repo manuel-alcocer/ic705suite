@@ -27,6 +27,7 @@ HELP = N_(
     "/clear               clear this channel's window (also Ctrl+L)\n"
     "/retry               reach the TNC again now\n"
     "/tnc                 the TNC: settings and what Direwolf says (/tnc restart)\n"
+    "/qrg 144.800         tune the IC-705 for packet (FM-D), when it is the radio\n"
     "/quit                back to the dashboard (also Ctrl+Q)\n"
     "//text               send a line starting with /"
 )
@@ -160,21 +161,9 @@ class PacketClient:
     def status(self) -> list[tuple[str, str, str]]:
         """(label, value, style) pieces of the status line."""
         tnc = self.state.get("tnc") or {}
-        tnc_state = tnc.get("state", "off")
         pieces = [("", "PACKET", "bold"),
                   (_("Call"), self.state.get("mycall", ""), "bold")]
-        where = f"{tnc.get('host', '')}:{tnc.get('port', '')}" if tnc.get("host") else ""
-        style = {"up": "bold green", "connecting": "bold yellow"}.get(tnc_state, "bold red")
-        direwolf = tnc.get("direwolf")
-        if direwolf and tnc_state != "up":
-            # Ours: what Direwolf itself is doing says more than the connection.
-            where = "Direwolf"
-            tnc_text = _(DIREWOLF_NAMES.get(direwolf["state"], direwolf["state"]))
-        else:
-            if direwolf:
-                where = f"Direwolf :{tnc.get('port', '')}"
-            tnc_text = _(TNC_NAMES[tnc_state])
-        pieces.append((_("TNC"), " ".join(filter(None, [where, tnc_text])), style))
+        pieces.append((_("TNC"), *self._tnc_text(tnc)))
         info = self.channel_info()
         if self.channel == 0:
             pieces.append((_("Ch"), f"0 {_('Monitor')}", "bold"))
@@ -187,6 +176,29 @@ class PacketClient:
             pieces.append((_("Ch"), text, "bold cyan" if info.get("state") == "connected"
                            else "bold"))
         return pieces
+
+    @staticmethod
+    def _tnc_text(tnc: dict) -> tuple[str, str]:
+        """What the TNC is doing, and its style, for the status line."""
+        tnc_state = tnc.get("state", "off")
+        style = {"up": "bold green", "connecting": "bold yellow"}.get(tnc_state, "bold red")
+        direwolf, radio = tnc.get("direwolf"), tnc.get("radio")
+        if radio and radio.get("problem"):
+            return "IC-705 " + _("cannot work here (/tnc)"), "bold red"
+        if direwolf and tnc_state != "up":
+            # Ours: what Direwolf itself is doing says more than the connection.
+            return "Direwolf " + _(DIREWOLF_NAMES.get(direwolf["state"], direwolf["state"])), \
+                style
+        if radio:
+            where = "IC-705"
+        elif direwolf:
+            where = f"Direwolf :{tnc.get('port', '')}"
+        else:
+            where = f"{tnc.get('host', '')}:{tnc.get('port', '')}" if tnc.get("host") else ""
+        text = " ".join(filter(None, [where, _(TNC_NAMES[tnc_state])]))
+        if radio and radio.get("keyed"):
+            return text + " · TX", "bold red"
+        return text, style
 
     def counters(self) -> list[tuple[str, object]]:
         tnc = self.state.get("tnc") or {}
@@ -276,6 +288,19 @@ class PacketClient:
             await self.clear()
         elif name == "retry":
             await self._call("pkt.retry")
+        elif name == "qrg":
+            from ic705suite.rig.bands import parse_frequency
+
+            try:
+                frequency = parse_frequency(args[0]) if args else 0
+            except ValueError:
+                frequency = 0
+            if not frequency:
+                self.on_feedback("warning", _("Usage: {usage}").format(usage="/qrg 144.800"))
+                return None
+            if await self._call("pkt.qrg", frequency=frequency):
+                self.on_feedback("ok", _("IC-705 on {frequency} MHz FM-D for packet").format(
+                    frequency=f"{frequency / 1e6:.4f}"))
         elif name == "tnc":
             if args and args[0].lower() == "restart":
                 if await self._call("pkt.tnc.restart"):
@@ -306,6 +331,17 @@ class PacketClient:
             lines.append(_("Last problem: {error}").format(error=tnc["error"]))
         if tnc.get("ports"):
             lines.append(_("Radio ports: {ports}").format(ports=" · ".join(tnc["ports"])))
+        radio = tnc.get("radio")
+        if radio:
+            if radio.get("problem"):
+                lines.append(_("The IC-705 cannot be the radio here: {problem}").format(
+                    problem=radio["problem"]))
+            else:
+                lines.append(_("Radio: the IC-705 over WiFi, audio at {rate} Hz; sent while "
+                               "keyed: {bytes} bytes").format(rate=radio.get("rate", ""),
+                                                             bytes=radio.get("tx_bytes", 0)))
+            if radio.get("refused"):
+                lines.append(_("Last PTT refused: {reason}").format(reason=_(radio["refused"])))
         direwolf = tnc.get("direwolf")
         if direwolf:
             lines.append(_("Direwolf: {state}").format(

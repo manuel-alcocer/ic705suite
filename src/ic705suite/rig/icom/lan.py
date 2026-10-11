@@ -6,7 +6,8 @@ reverse-engineered implementations in wfview and kappanhang.
 Three UDP streams are used, each with its own handshake, pings and idle keep-alives:
   * control (default port 50001): login, token management, stream negotiation
   * CI-V    (port announced by the radio, usually 50002): CI-V frames
-  * audio   (port announced by the radio, usually 50003): receive audio (16-bit LPCM)
+  * audio   (port announced by the radio, usually 50003): receive audio (16-bit LPCM), and
+              transmit audio the same way (packet radio)
 
 All multi-byte header fields are little-endian; several payload fields are
 big-endian, as noted where they are packed.
@@ -64,6 +65,8 @@ STREAM_REQUEST = 0x03
 
 CODEC_LPCM16_MONO = 0x04
 TX_BUFFER_MS = 150
+TX_AUDIO_CHUNK = 1364      # bytes of audio per packet at most, as wfview sends them
+TX_AUDIO_IDENT = 0x0080
 CIV_DATA_MARKER = 0xC1
 
 PING_INTERVAL = 0.5
@@ -396,7 +399,7 @@ class ControlStream(_Stream):
         p[0x40:0x60] = radio.name_raw
         p[0x60:0x70] = encode_credential(username)
         p[0x70] = 0x01  # rx audio enabled
-        p[0x71] = 0x01  # tx audio enabled (unused, CW is keyed by the radio itself)
+        p[0x71] = 0x01  # tx audio enabled (packet radio; CW is keyed by the radio itself)
         p[0x72] = CODEC_LPCM16_MONO
         p[0x73] = CODEC_LPCM16_MONO
         struct.pack_into(">IIIII", p, 0x74, sample_rate, sample_rate, civ_port, audio_port,
@@ -528,6 +531,20 @@ class AudioStream(_Stream):
                  on_audio: Callable[[np.ndarray], None]) -> None:
         super().__init__("audio", host_ip, 0, on_lost)
         self._on_audio = on_audio
+        self._audio_seq = 0
+
+    def send_audio(self, pcm: bytes) -> None:
+        """Transmit audio in packets of the receive layout: ident, its own sequence and the
+        length (both big-endian), then the samples (16-bit little-endian)."""
+        for start in range(0, len(pcm), TX_AUDIO_CHUNK):
+            piece = pcm[start:start + TX_AUDIO_CHUNK]
+            p = make_header(AUDIO_HEADER_SIZE + len(piece), 0, 0, self.my_id, self.remote_id)
+            struct.pack_into("<H", p, 0x10, TX_AUDIO_IDENT)
+            struct.pack_into(">H", p, 0x12, self._audio_seq)
+            struct.pack_into(">H", p, 0x16, len(piece))
+            p[AUDIO_HEADER_SIZE:] = piece
+            self._audio_seq = (self._audio_seq + 1) & 0xFFFF
+            self.send_tracked(p)
 
     def handle_packet(self, data: bytes) -> None:
         if len(data) <= AUDIO_HEADER_SIZE:
@@ -606,6 +623,13 @@ class LanTransport(Transport):
         if self._civ is None:
             raise TransportError("not connected")
         self._civ.send_civ(frame)
+
+    can_send_audio = True
+
+    def send_audio(self, pcm: bytes) -> None:
+        if self._audio is None:
+            raise TransportError("not connected")
+        self._audio.send_audio(pcm)
 
     def _lost(self, reason: str) -> None:
         if not self._lost_reported:

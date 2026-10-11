@@ -52,7 +52,10 @@ def summary(config: Config) -> list[tuple[str, str]]:
                  _("only from the antenna application")))
     rows.append((_("Graphical client"), config.theme))
     mycall = config.packet_mycall or config.callsign or "-"
-    if config.packet_tnc == "direwolf" and config.packet_audio:
+    if config.packet_tnc == "ic705":
+        rows.append((_("Packet"), _("{call} on the IC-705 over WiFi, with Direwolf here")
+                     .format(call=mycall)))
+    elif config.packet_tnc == "direwolf" and config.packet_audio:
         rows.append((_("Packet"), _("{call} with Direwolf started here ({audio}, PTT {ptt})")
                      .format(call=mycall, audio=config.packet_audio,
                              ptt=config.packet_ptt or "VOX")))
@@ -147,34 +150,46 @@ def _packet_call(value: str) -> str | None:
              "EA7XYZ-4")
 
 
-PACKET_TNCS = ("none", "agwpe", "direwolf")
+PACKET_TNCS = ("none", "agwpe", "direwolf", "ic705")
 
 
 def _packet_questions(q: Questions, config: Config) -> None:
     """Which TNC packet uses (if any), how to reach it or what Direwolf runs with here, and
     the callsign."""
     from ic705suite.apps.packet.direwolf import find_devices, find_direwolf
+    from ic705suite.apps.packet.ic705 import loopback_help, loopback_present
 
-    current = config.packet_tnc if config.packet_tnc == "direwolf" and config.packet_audio \
-        else "agwpe" if config.packet_host else "none"
+    if config.packet_tnc == "ic705" or (config.packet_tnc == "direwolf" and
+                                        config.packet_audio):
+        current = config.packet_tnc
+    else:
+        current = "agwpe" if config.packet_host else "none"
     kind = q.choice(_("Packet TNC: none, agwpe (a Direwolf already running, here or on "
-                      "another machine) or direwolf (the suite starts its own here, e.g. with "
-                      "a Digirig)"), PACKET_TNCS, current)
+                      "another machine), direwolf (the suite starts its own here, e.g. with "
+                      "a Digirig) or ic705 (the IC-705 over WiFi, with Direwolf here; Linux)"),
+                    PACKET_TNCS, current)
     if kind == "none":
         config.packet_tnc, config.packet_host = "agwpe", ""
         return
     config.packet_tnc = kind
-    if kind == "agwpe":
+    if kind in ("direwolf", "ic705") and find_direwolf(config.packet_direwolf) is None:
+        q.write(_("Direwolf is not installed here yet: install it (Debian, Ubuntu, "
+                  "Raspberry Pi OS: apt install direwolf; Windows: its installer) before "
+                  "using packet."))
+    if kind == "ic705":
+        q.write(_("The IC-705 transmits packet in FM-D with its DATA1 MOD input on WLAN (the "
+                  "suite sets it; /qrg 144.800 in packet tunes it). Transmitting also needs "
+                  "[rig] tx_enabled."))
+        if not loopback_present():
+            q.write(_("It needs the snd-aloop virtual sound card, missing now; load it once "
+                      "with: {command}").format(command=loopback_help()))
+    elif kind == "agwpe":
         address = (f"{config.packet_host}:{config.packet_tcp_port}"
                    if config.packet_host else "")
         tnc = q.text(_("Direwolf's AGWPE port as host or host:port"), address, _tnc_address)
         host, _sep, port = tnc.rpartition(":") if ":" in tnc else (tnc, "", "")
         config.packet_host, config.packet_tcp_port = host, int(port or 8000)
     else:
-        if find_direwolf(config.packet_direwolf) is None:
-            q.write(_("Direwolf is not installed here yet: install it (Debian, Ubuntu, "
-                      "Raspberry Pi OS: apt install direwolf; Windows: its installer) before "
-                      "using packet."))
         devices = find_devices()
         for device in devices:
             q.write(_("Found: {device}").format(device=device.description))
@@ -264,7 +279,7 @@ def configure(path: Path | None = None, questions: Questions | None = None,
         ("packet", "tnc"): config.packet_tnc,
         (_section_of(text, "tx_enabled", ("rig", "keyer")), "tx_enabled"): config.tx_enabled,
     }
-    if config.packet_host or config.packet_tnc == "direwolf":
+    if config.packet_host or config.packet_tnc in ("direwolf", "ic705"):
         values.update({("packet", "tcp_port"): config.packet_tcp_port,
                        ("packet", "mycall"): config.packet_mycall})
     if config.packet_tnc == "direwolf":
