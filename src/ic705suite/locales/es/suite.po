@@ -899,29 +899,6 @@ msgstr "arrancando"
 msgid "stopped, starting again"
 msgstr "parado, vuelve a arrancar"
 
-msgid ""
-"/c CALL [v DIGI …]   connect this channel to CALL (via digipeaters)\n"
-"/d                   disconnect this channel\n"
-"/ch N                go to channel N (also F1-F8; 0 is the monitor)\n"
-"/ui DEST text        send an unconnected UI frame\n"
-"/clear               clear this channel's window (also Ctrl+L)\n"
-"/retry               reach the TNC again now\n"
-"/tnc                 the TNC: settings and what Direwolf says (/tnc restart)\n"
-"/qrg 144.800         tune the IC-705 for packet (FM-D), when it is the radio\n"
-"/quit                back to the dashboard (also Ctrl+Q)\n"
-"//text               send a line starting with /"
-msgstr ""
-"/c IND [v DIGI …]    conecta este canal con IND (por digirrepetidores)\n"
-"/d                   desconecta este canal\n"
-"/ch N                va al canal N (también F1-F8; el 0 es el monitor)\n"
-"/ui DEST texto       envía una trama UI sin conexión\n"
-"/clear               limpia la ventana de este canal (también Ctrl+L)\n"
-"/retry               vuelve a buscar el TNC ahora\n"
-"/tnc                 el TNC: su configuración y lo que dice Direwolf (/tnc restart)\n"
-"/qrg 144.800         sintoniza la IC-705 para packet (FM-D), cuando es la radio\n"
-"/quit                vuelve al panel (también Ctrl+Q)\n"
-"//texto              envía una línea que empieza por /"
-
 msgid "/qrg tunes the IC-705 when it is the packet radio: [packet] tnc = \"ic705\""
 msgstr "/qrg sintoniza la IC-705 cuando es la radio de packet: [packet] tnc = \"ic705\""
 
@@ -966,3 +943,106 @@ msgstr "Esta conexión con la radio no puede enviarle audio"
 
 msgid "cannot work here (/tnc)"
 msgstr "no puede funcionar aquí (/tnc)"
+
+msgid ""
+"/c CALL [v DIGI …]   connect this channel to CALL (via digipeaters)\n"
+"/d                   disconnect this channel\n"
+"/ch N                go to channel N (also F1-F8; 0 is the monitor)\n"
+"/ui DEST text        send an unconnected UI frame\n"
+"/clear               clear this channel's window (also Ctrl+L)\n"
+"/retry               reach the TNC again now\n"
+"/tnc                 the TNC: settings and what Direwolf says (/tnc restart)\n"
+"/qrg 144.800         tune the IC-705 for packet (FM-D), when it is the radio\n"
+"/quit                back to the dashboard (also Ctrl+Q)\n"
+"//text               send a line starting with / (connected, /EX and any other\n"
+"                     line that is not a command here go to the station as typed)"
+msgstr ""
+"/c IND [v DIGI …]    conecta este canal con IND (por digirrepetidores)\n"
+"/d                   desconecta este canal\n"
+"/ch N                va al canal N (también F1-F8; el 0 es el monitor)\n"
+"/ui DEST texto       envía una trama UI sin conexión\n"
+"/clear               limpia la ventana de este canal (también Ctrl+L)\n"
+"/retry               vuelve a buscar el TNC ahora\n"
+"/tnc                 el TNC: su configuración y lo que dice Direwolf (/tnc restart)\n"
+"/qrg 144.800         sintoniza la IC-705 para packet (FM-D), cuando es la radio\n"
+"/quit                vuelve al panel (también Ctrl+Q)\n"
+"//texto              envía una línea que empieza por / (conectado, /EX y cualquier\n"
+"                     otra línea que no sea un comando de aquí van a la estación tal cual)"
+
+msgid "BBS"
+msgstr "BBS"
+
+msgid "Connected to {call}, this BBS (no radio)"
+msgstr "Conectado con {call}, esta BBS (sin radio)"
+
+msgid "Connects"
+msgstr "Conexiones"
+
+msgid "F1-F8 Channel · /help · F9 Monitor · F10 Heard · F12 BBS · Ctrl+Q Back"
+msgstr "F1-F8 Canal · /help · F9 Monitor · F10 Oídas · F12 BBS · Ctrl+Q Volver"
+
+msgid "F1-F8 Channel · Enter sends · /c CALL connects · /d disconnects · /help · F9 Monitor · F10 Heard · F12 BBS · PgUp/PgDn · Ctrl+L Clear · Ctrl+Q Back"
+msgstr "F1-F8 Canal · Intro envía · /c IND conecta · /d desconecta · /help · F9 Monitor · F10 Oídas · F12 BBS · PgUp/PgDn · Ctrl+L Limpiar · Ctrl+Q Volver"
+
+msgid "From"
+msgstr "De"
+
+msgid "Keep"
+msgstr "Conservar"
+
+msgid "Kill"
+msgstr "Borrar"
+
+msgid "Kill message"
+msgstr "Borrar mensaje"
+
+msgid "Kill message {number} from {call}, \"{title}\"?"
+msgstr "¿Borrar el mensaje {number} de {call}, «{title}»?"
+
+msgid "Last seen"
+msgstr "Última vez"
+
+msgid "Message {number}"
+msgstr "Mensaje {number}"
+
+msgid "No messages yet"
+msgstr "Aún no hay mensajes"
+
+msgid "Nobody yet"
+msgstr "Nadie todavía"
+
+msgid "Size"
+msgstr "Tamaño"
+
+msgid "The BBS is off: [packet] bbs = true (ic705suite --configure)"
+msgstr "La BBS está apagada: [packet] bbs = true (ic705suite --configure)"
+
+msgid "Title"
+msgstr "Título"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "kill"
+msgstr "borrar"
+
+msgid "read"
+msgstr "leer"
+
+msgid "users/messages"
+msgstr "usuarios/mensajes"
+
+msgid "{call} connected to the BBS"
+msgstr "{call} se ha conectado a la BBS"
+
+msgid "{call} left the BBS"
+msgstr "{call} ha salido de la BBS"
+
+msgid "{call}: connected {names} · {count} messages"
+msgstr "{call}: conectados {names} · {count} mensajes"
+
+msgid "{call}: nobody connected · {count} messages"
+msgstr "{call}: nadie conectado · {count} mensajes"
+
+msgid "↑↓ choose · Enter reads · K kills · U users/messages · Esc back"
+msgstr "↑↓ elegir · Intro lee · K borra · U usuarios/mensajes · Esc volver"

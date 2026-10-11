@@ -46,7 +46,9 @@ PAGES = {"dashboard": ("ic705suite.gui.dashboard", "DashboardPage"),
          "history": ("ic705suite.gui.swr", "HistoryView"),
          "entry": ("ic705suite.gui.swr", "EntryView"),
          "logbook": ("ic705suite.gui.log", "LogPage"),
-         "packet": ("ic705suite.gui.packet", "PacketPage")}
+         "packet": ("ic705suite.gui.packet", "PacketPage"),
+         "packet heard": ("ic705suite.gui.packet", "HeardView"),
+         "packet bbs": ("ic705suite.gui.packet", "BbsView")}
 
 
 @pytest.mark.parametrize("page", sorted(PAGES))

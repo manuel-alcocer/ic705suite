@@ -24,17 +24,21 @@ from PySide6.QtWidgets import (
 from rich.text import Text
 
 from ic705suite.apps.packet.app import (
+    BBS_HINT,
     CONTROL,
     HEARD_HINT,
     HINT,
     LINE_BREAK,
     SHORT_HINT,
+    BbsScreen,
     HeardScreen,
     PacketApp,
+    bbs_who,
+    message_lines,
 )
 from ic705suite.apps.packet.client import CHANNELS, STYLES, PacketClient, piece_text
 from ic705suite.gui import theme
-from ic705suite.gui.page import Overlay, Page
+from ic705suite.gui.page import Overlay, Page, choose
 from ic705suite.gui.widgets import Footer, Frame, Table, rich_html, span, with_load_html
 from ic705suite.i18n import _
 from ic705suite.station.links import Link
@@ -161,6 +165,119 @@ class HeardView(Overlay):
             self.page.run_worker(self.page.client.connect_to(call))
 
 
+class BbsView(Overlay):
+    """The sysop's page (the terminal's BbsScreen): the BBS's messages, read and killed with
+    the same keys (or a double click and the buttons), and its users."""
+
+    TUI = BbsScreen
+
+    def __init__(self, page: PacketPage) -> None:
+        super().__init__(page)
+        self.link = page.link
+        self.showing = "messages"
+        self.rows: list[dict] = []
+        self.frame = Frame(_("BBS"))
+        self.who = self.frame.add(QLabel())
+        self.who.setStyleSheet(f"color:{theme.DIM};")
+        self.table = self.frame.add(Table(0, 7), 1)
+        self.table.verticalHeader().hide()
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.cellDoubleClicked.connect(lambda *_a: self.action_read())
+        buttons = QHBoxLayout()
+        for key, label, action in (("Enter", _("read"), self.action_read),
+                                   ("K", _("kill"), self.action_kill),
+                                   ("U", _("users/messages"), self.action_users),
+                                   ("Esc", _("back"), self.action_dismiss)):
+            button = QPushButton(f"{key}  {label}")
+            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            button.clicked.connect(lambda _c=False, a=action: a())
+            buttons.addWidget(button)
+        buttons.addStretch(1)
+        self.frame.body.addLayout(buttons)
+        hint = self.frame.add(QLabel(_(BBS_HINT)))
+        hint.setStyleSheet(f"color:{theme.DIM};")
+        box = QVBoxLayout(self)
+        box.setContentsMargins(40, 30, 40, 30)
+        box.addWidget(self.frame)
+
+    def start(self) -> None:
+        self.table.setFocus()
+        self.run_worker(self._load())
+
+    def resumed(self) -> None:
+        self.table.setFocus()
+
+    async def _load(self) -> None:
+        state = await self.link.call("pkt.state")
+        self.who.setText(bbs_who(state))
+        current = max(0, self.table.currentRow())
+        if self.showing == "messages":
+            self.rows = (await self.link.call("pkt.bbs.messages")).get("messages", [])
+            headers = ["#", _("Date"), _("Type"), _("To"), _("From"), _("Size"), _("Title")]
+            cells = [(str(m["id"]),
+                      f"{dt.datetime.fromtimestamp(m['created'], dt.UTC):%d-%b %H:%M}",
+                      m["kind"] + m["status"], m["to_call"] + (f"@{m['at']}" if m["at"] else ""),
+                      m["from_call"], str(m["size"]), m["title"]) for m in self.rows]
+            self.table.setColumnCount(7)
+            self.table.right_align(0, 5)
+        else:
+            self.rows = (await self.link.call("pkt.bbs.users")).get("users", [])
+            headers = [_("Callsign"), _("Name"), _("Last seen"), _("Connects")]
+            cells = [(u["call"], u["name"],
+                      f"{dt.datetime.fromtimestamp(u['last_seen'], dt.UTC):%Y-%m-%d %H:%M}",
+                      str(u["connects"])) for u in self.rows]
+            self.table.setColumnCount(4)
+            self.table.right_align(3)
+        self.table.setHorizontalHeaderLabels(headers)
+        self.table.setRowCount(len(cells))
+        for row, values in enumerate(cells):
+            for column, value in enumerate(values):
+                self.table.setItem(row, column, QTableWidgetItem(value))
+        self.table.resizeColumnsToContents()
+        if self.rows:
+            self.table.selectRow(min(current, len(self.rows) - 1))
+
+    def _chosen(self) -> dict | None:
+        row = self.table.currentRow()
+        return self.rows[row] if 0 <= row < len(self.rows) else None
+
+    def action_dismiss(self) -> None:
+        self.page.pop_overlay()
+
+    def action_pop_screen(self) -> None:
+        self.action_dismiss()
+
+    def action_read(self) -> None:
+        if self.showing == "messages" and (chosen := self._chosen()):
+            self.run_worker(self._read(chosen["id"]))
+
+    async def _read(self, number: int) -> None:
+        message = (await self.link.call("pkt.bbs.message", id=number)).get("message")
+        if message:
+            self.page.show_text(_("Message {number}").format(number=number),
+                                message_lines(message))
+
+    def action_kill(self) -> None:
+        if self.showing == "messages" and (chosen := self._chosen()):
+            self.run_worker(self._kill(chosen))
+
+    async def _kill(self, message: dict) -> None:
+        answer = await choose(self, _("Kill message"), _(
+            "Kill message {number} from {call}, \"{title}\"?").format(
+            number=message["id"], call=message["from_call"], title=message["title"]),
+            [("yes", _("Kill")), ("no", _("Keep"))])
+        if answer == "yes":
+            await self.link.call("pkt.bbs.kill", id=message["id"])
+            await self._load()
+
+    def action_users(self) -> None:
+        self.showing = "users" if self.showing == "messages" else "messages"
+        self.run_worker(self._load())
+
+
 class PacketPage(Page):
     TUI = PacketApp
 
@@ -172,6 +289,10 @@ class PacketPage(Page):
                                    self._feedback, self.show_text)
         self.client.link_task = lambda awaitable: self.run_worker(awaitable)
         self._build()
+
+    def start(self) -> None:
+        # Here, not on creation: the page it replaces (the dashboard) detaches the link's
+        # events when it stops, after this one was made.
         self.link.attach(self.client.handle)
         self.run_worker(self._start())
 
@@ -319,6 +440,14 @@ class PacketPage(Page):
 
     def action_heard(self) -> None:
         self.push_overlay(HeardView(self))
+
+    def action_bbs(self) -> None:
+        if not ((self.client.state.get("bbs") or {}).get("on")):
+            self._feedback("warning", _("The BBS is off: [packet] bbs = true "
+                                        "(ic705suite --configure)"))
+            return
+        if self.overlay is None:
+            self.push_overlay(BbsView(self))
 
     def action_scroll(self, direction: int) -> None:
         self.channel_view.scroll_page(direction)

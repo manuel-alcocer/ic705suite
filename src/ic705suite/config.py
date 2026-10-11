@@ -113,6 +113,11 @@ max_power = 30
 # audio = "plughw:Device,0"      # Direwolf's ADEVICE (Windows: part of the card's name)
 # ptt = "/dev/ttyUSB0 RTS"       # Direwolf's PTT: "COM5 RTS", "CM108", "" for the VOX
 # txdelay = 30                   # tens of ms before the data, for the radio to key up
+# The BBS (messages and bulletins) on its own callsign (default: your callsign -1), and the
+# client's callsign (mycall): either, or both.
+# bbs = false
+# bbs_call = "N0CALL-1"
+# client = true
 # direwolf = "direwolf"          # the program, when it is not on the PATH
 # Own callsign for packet, with its SSID (default: [station] callsign)
 # mycall = "N0CALL-4"
@@ -191,6 +196,9 @@ class Config:
     packet_ptt: str = ""
     packet_txdelay: int = 30
     packet_direwolf: str = ""
+    packet_bbs: bool = False
+    packet_bbs_call: str = ""        # "" = the station callsign -1
+    packet_client: bool = True
     # [ui] [server] [client]
     language: str = ""
     glyphs: str = "auto"
@@ -258,6 +266,9 @@ def load_config(path: Path | None = None) -> Config:
         cfg.packet_ptt = str(packet.get("ptt", cfg.packet_ptt))
         cfg.packet_txdelay = int(packet.get("txdelay", cfg.packet_txdelay))
         cfg.packet_direwolf = str(packet.get("direwolf", cfg.packet_direwolf))
+        cfg.packet_bbs = bool(packet.get("bbs", cfg.packet_bbs))
+        cfg.packet_bbs_call = str(packet.get("bbs_call", cfg.packet_bbs_call)).upper()
+        cfg.packet_client = bool(packet.get("client", cfg.packet_client))
         server, client = data.get("server", {}), data.get("client", {})
         cfg.listen = str(server.get("listen", cfg.listen))
         cfg.server_token = str(server.get("token", cfg.server_token))

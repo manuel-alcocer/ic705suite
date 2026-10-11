@@ -15,8 +15,9 @@ from ic705suite.apps.packet.agwpe import HEADER, Frame, decode_header
 
 
 class FakeTnc:
-    def __init__(self, answers: bool = True) -> None:
+    def __init__(self, answers: bool = True, echo: bool = True) -> None:
         self.answers = answers           # the stations we call answer (else: no answer)
+        self.echo = echo                 # the far end echoes what it gets
         self.received: list[Frame] = []
         self.writers: list[asyncio.StreamWriter] = []
         self.registered: set[str] = set()
@@ -74,7 +75,11 @@ class FakeTnc:
                     Frame(0, "D", other, mine, f"Welcome to {other}\rBBS>".encode(),
                           pid=0xF0)]
         if kind == "D":
+            if not self.echo:
+                return []
             return [Frame(0, "D", other, mine, b"ECHO " + frame.data + b"BBS>", pid=0xF0)]
+        if kind == "Y":                  # nothing waits to be acknowledged
+            return [Frame(0, "Y", mine, other, struct.pack("<I", 0))]
         if kind == "d":
             return [Frame(0, "d", other, mine,
                           f"*** DISCONNECTED From Station {other}\r\0".encode())]

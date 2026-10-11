@@ -51,7 +51,8 @@ def summary(config: Config) -> list[tuple[str, str]]:
                  _("with a password") if config.swr_remote_password else
                  _("only from the antenna application")))
     rows.append((_("Graphical client"), config.theme))
-    mycall = config.packet_mycall or config.callsign or "-"
+    mycall = (config.packet_mycall or config.callsign or "-") if config.packet_client \
+        else _("no terminal")
     if config.packet_tnc == "ic705":
         rows.append((_("Packet"), _("{call} on the IC-705 over WiFi, with Direwolf here")
                      .format(call=mycall)))
@@ -64,6 +65,9 @@ def summary(config: Config) -> list[tuple[str, str]]:
             call=mycall, host=config.packet_host, port=config.packet_tcp_port)))
     else:
         rows.append((_("Packet"), _("not set up")))
+    if config.packet_bbs and (config.packet_host or config.packet_tnc in ("direwolf", "ic705")):
+        base = config.callsign.split("/")[0].split("-")[0]
+        rows.append((_("BBS"), config.packet_bbs_call or f"{base}-1"))
     return rows
 
 
@@ -202,9 +206,19 @@ def _packet_questions(q: Questions, config: Config) -> None:
         ptt = q.text(_("PTT for Direwolf (e.g. /dev/ttyUSB0 RTS, COM5 RTS, CM108; vox for "
                        "none)"), config.packet_ptt or (found.ptt if found else "vox"))
         config.packet_ptt = "" if ptt.lower() in ("vox", "none", "-") else ptt
-    config.packet_mycall = q.text(
-        _("Packet callsign, with its SSID"),
-        config.packet_mycall or f"{config.callsign.split('/')[0]}-4", _packet_call, upper=True)
+    base = config.callsign.split("/")[0].split("-")[0]
+    config.packet_client = q.yes(_("Packet terminal (F7) with a callsign of its own?"),
+                                 config.packet_client)
+    if config.packet_client:
+        config.packet_mycall = q.text(_("Packet callsign, with its SSID"),
+                                      config.packet_mycall or f"{base}-4", _packet_call,
+                                      upper=True)
+    config.packet_bbs = q.yes(_("A BBS on this machine (messages and bulletins for the "
+                                "stations that connect to it)?"), config.packet_bbs)
+    if config.packet_bbs:
+        config.packet_bbs_call = q.text(_("BBS callsign, with its SSID"),
+                                        config.packet_bbs_call or f"{base}-1", _packet_call,
+                                        upper=True)
 
 
 def _tnc_address(value: str) -> str | None:
@@ -281,7 +295,12 @@ def configure(path: Path | None = None, questions: Questions | None = None,
     }
     if config.packet_host or config.packet_tnc in ("direwolf", "ic705"):
         values.update({("packet", "tcp_port"): config.packet_tcp_port,
-                       ("packet", "mycall"): config.packet_mycall})
+                       ("packet", "client"): config.packet_client,
+                       ("packet", "bbs"): config.packet_bbs})
+        if config.packet_client:
+            values[("packet", "mycall")] = config.packet_mycall
+        if config.packet_bbs:
+            values[("packet", "bbs_call")] = config.packet_bbs_call
     if config.packet_tnc == "direwolf":
         values.update({("packet", "audio"): config.packet_audio,
                        ("packet", "ptt"): config.packet_ptt})

@@ -23,12 +23,13 @@ from ic705suite.apps.packet.client import CHANNELS, STYLES, PacketClient, Tab, p
 from ic705suite.i18n import N_, _
 from ic705suite.station.links import Link
 from ic705suite.ui.sysload import with_load
-from ic705suite.ui.widgets import TextScreen, clock_footer, css
+from ic705suite.ui.widgets import ChoiceScreen, TextScreen, clock_footer, css
 
 HINT = N_("F1-F8 Channel · Enter sends · /c CALL connects · /d disconnects · /help · "
-          "F9 Monitor · F10 Heard · PgUp/PgDn · Ctrl+L Clear · Ctrl+Q Back")
-SHORT_HINT = N_("F1-F8 Channel · /help · F9 Monitor · F10 Heard · Ctrl+Q Back")
+          "F9 Monitor · F10 Heard · F12 BBS · PgUp/PgDn · Ctrl+L Clear · Ctrl+Q Back")
+SHORT_HINT = N_("F1-F8 Channel · /help · F9 Monitor · F10 Heard · F12 BBS · Ctrl+Q Back")
 HEARD_HINT = N_("↑↓ choose · Enter connects · Esc back")
+BBS_HINT = N_("↑↓ choose · Enter reads · K kills · U users/messages · Esc back")
 
 CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1a\x1c-\x1f\x7f]")
 LINE_BREAK = re.compile(r"\r\n|\n\r|\r|\n")
@@ -150,6 +151,126 @@ class HeardScreen(ModalScreen[str]):
             self.dismiss(self.heard[table.cursor_row]["call"])
 
 
+def message_lines(message: dict) -> list[str]:
+    """A BBS message as the sysop reads it."""
+    import datetime as dt
+
+    at = f"@{message['at']}" if message["at"] else ""
+    created = dt.datetime.fromtimestamp(message["created"], dt.UTC)
+    return [f"{_('From')}: {message['from_call']}", f"{_('To')}: {message['to_call']}{at}",
+            f"{_('Date')}: {created:%Y-%m-%d %H:%M} UTC", f"Bid: {message['bid']}",
+            f"{_('Title')}: {message['title']}", "", *message["body"].splitlines()]
+
+
+def bbs_who(state: dict) -> str:
+    """Who is on the BBS now, for the sysop page's heading."""
+    bbs = state.get("bbs") or {}
+    sessions = bbs.get("sessions") or []
+    if not sessions:
+        return _("{call}: nobody connected · {count} messages").format(
+            call=bbs.get("call", ""), count=bbs.get("messages", 0))
+    names = ", ".join(s["call"] + (" (" + _("here") + ")" if s["local"] else "")
+                      for s in sessions)
+    return _("{call}: connected {names} · {count} messages").format(
+        call=bbs.get("call", ""), names=names, count=bbs.get("messages", 0))
+
+
+class BbsScreen(ModalScreen[None]):
+    """The sysop's page: the BBS's messages (read, kill) and its users."""
+
+    BINDINGS = [
+        Binding("escape", "dismiss", show=False),
+        Binding("enter", "read", show=False, priority=True),
+        Binding("k", "kill", show=False),
+        Binding("u", "users", show=False),
+    ]
+
+    def __init__(self, link: Link) -> None:
+        super().__init__()
+        self.link = link
+        self.showing = "messages"
+        self.rows: list[dict] = []
+
+    def compose(self) -> ComposeResult:
+        with Vertical(classes="modal wide") as box:
+            box.border_title = _("BBS")
+            yield Static(id="bbs-who", classes="modal-subtitle")
+            yield DataTable(id="bbs", cursor_type="row", zebra_stripes=False)
+            yield Static(_(BBS_HINT), classes="modal-help")
+
+    async def on_mount(self) -> None:
+        table = self.query_one(DataTable)
+        table.styles.height = "auto"
+        table.styles.max_height = 18
+        await self._load()
+        table.focus()
+
+    async def _load(self) -> None:
+        import datetime as dt
+
+        state = await self.link.call("pkt.state")
+        self.query_one("#bbs-who", Static).update(Text(bbs_who(state), style="dim"))
+        table = self.query_one(DataTable)
+        row = table.cursor_row if table.row_count else 0
+        table.clear(columns=True)
+        if self.showing == "messages":
+            self.rows = (await self.link.call("pkt.bbs.messages")).get("messages", [])
+            table.add_columns("#", _("Date"), _("Type"), _("To"), _("From"), _("Size"),
+                              _("Title"))
+            for m in self.rows:
+                at = f"@{m['at']}" if m["at"] else ""
+                table.add_row(Text(str(m["id"]), justify="right"),
+                              f"{dt.datetime.fromtimestamp(m['created'], dt.UTC):%d-%b %H:%M}",
+                              m["kind"] + m["status"], m["to_call"] + at, m["from_call"],
+                              Text(str(m["size"]), justify="right"), m["title"])
+            if not self.rows:
+                table.add_row("", _("No messages yet"), "", "", "", "", "")
+        else:
+            self.rows = (await self.link.call("pkt.bbs.users")).get("users", [])
+            table.add_columns(_("Callsign"), _("Name"), _("Last seen"), _("Connects"))
+            for u in self.rows:
+                seen = dt.datetime.fromtimestamp(u["last_seen"], dt.UTC)
+                table.add_row(u["call"], u["name"], f"{seen:%Y-%m-%d %H:%M}",
+                              Text(str(u["connects"]), justify="right"))
+            if not self.rows:
+                table.add_row(_("Nobody yet"), "", "", "")
+        if self.rows:
+            table.move_cursor(row=min(row, len(self.rows) - 1))
+
+    def _chosen(self) -> dict | None:
+        table = self.query_one(DataTable)
+        if self.rows and 0 <= table.cursor_row < len(self.rows):
+            return self.rows[table.cursor_row]
+        return None
+
+    def action_read(self) -> None:
+        if self.showing == "messages" and (chosen := self._chosen()):
+            self.run_worker(self._read(chosen["id"]))
+
+    async def _read(self, number: int) -> None:
+        message = (await self.link.call("pkt.bbs.message", id=number)).get("message")
+        if message:
+            self.app.push_screen(TextScreen(_("Message {number}").format(number=number),
+                                            message_lines(message)))
+
+    def action_kill(self) -> None:
+        if self.showing == "messages" and (chosen := self._chosen()):
+            self.run_worker(self._kill(chosen))
+
+    async def _kill(self, message: dict) -> None:
+        answer = await self.app.push_screen_wait(ChoiceScreen(
+            _("Kill message"), _("Kill message {number} from {call}, \"{title}\"?").format(
+                number=message["id"], call=message["from_call"], title=message["title"]),
+            [("yes", _("Kill")), ("no", _("Keep"))]))
+        if answer == "yes":
+            await self.link.call("pkt.bbs.kill", id=message["id"])
+            await self._load()
+
+    def action_users(self) -> None:
+        self.showing = "users" if self.showing == "messages" else "messages"
+        self.run_worker(self._load())
+
+
 class PacketApp(App[int]):
     CSS = css("ic705suite.apps.packet")
     TITLE = "ic705suite Packet"
@@ -160,6 +281,7 @@ class PacketApp(App[int]):
           for n in range(1, CHANNELS + 1)),
         Binding("f9", "monitor", show=False, priority=True),
         Binding("f10", "heard", show=False, priority=True),
+        Binding("f12", "bbs", show=False, priority=True),
         Binding("pageup", "scroll(-1)", show=False),
         Binding("pagedown", "scroll(1)", show=False),
         Binding("ctrl+l", "clear", show=False, priority=True),
@@ -290,6 +412,14 @@ class PacketApp(App[int]):
             self.query_one("#line", Input).focus()
 
         self.push_screen(HeardScreen(self.client.heard()), chosen)
+
+    def action_bbs(self) -> None:
+        if not ((self.client.state.get("bbs") or {}).get("on")):
+            self._feedback("warning", _("The BBS is off: [packet] bbs = true "
+                                        "(ic705suite --configure)"))
+            return
+        if len(self.screen_stack) == 1:
+            self.push_screen(BbsScreen(self.link), lambda _r: self.query_one("#line").focus())
 
     def action_scroll(self, direction: int) -> None:
         view = self.query_one("#channel", TextView)

@@ -42,7 +42,7 @@ async def started(tnc: FakeTnc, **settings) -> tuple[PacketService, Hub]:
     hub = Hub()
     service = PacketService(config, hub)
     await service.start()
-    await until(lambda: service.registered)
+    await until(lambda: service.registered or (service.bbs_registered and not service.client_on))
     return service, hub
 
 
@@ -350,3 +350,79 @@ def _alive(pid: int) -> bool:
     except OSError:
         return False
     return True
+
+
+# ---- the BBS ----------------------------------------------------------------------------------
+
+def test_a_station_on_the_bbs_over_the_air(tmp_path):
+    async def scenario():
+        tnc = await FakeTnc(echo=False).start()
+        service, hub = await started(tnc, packet_bbs=True,
+                                     database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        try:
+            await until(lambda: service.bbs_registered)
+            assert tnc.registered == {"EA7KLX-4", "EA7KLX-1"}
+            assert service.state()["bbs"]["call"] == "EA7KLX-1"
+
+            def said() -> str:
+                return b"".join(f.data for f in tnc.received
+                                if f.kind == "D" and f.call_from == "EA7KLX-1").decode()
+
+            tnc.incoming("EA1ABC-7", "EA7KLX-1")
+            await until(lambda: "de EA7KLX>" in said())
+            assert "Hello EA1ABC" in said()
+            assert service.channels[1].state == "free"          # not a client channel
+            assert "EA1ABC-7 connected to the BBS" in hub.texts(0)
+            assert service.state()["bbs"]["sessions"][0]["call"] == "EA1ABC-7"
+            for line in (b"SP EA7KLX\r", b"Hola\r", b"Te dejo un mensaje\r/EX\r"):
+                tnc.push(tnc.reply_from("EA1ABC-7", "EA7KLX-1", line))
+            await until(lambda: "Message: 1 Bid: 1_EA7KLX" in said())
+            tnc.push(tnc.reply_from("EA1ABC-7", "EA7KLX-1", b"B\r"))
+            await until(lambda: any(f.kind == "d" and f.call_to == "EA1ABC-7"
+                                    for f in tnc.received))
+            tnc.hang_up("EA1ABC-7", "EA7KLX-1")
+            await until(lambda: not service.bbs_sessions)
+            assert "EA1ABC-7 left the BBS" in hub.texts(0)
+
+            # The sysop reads it from a client channel: straight in, nothing on the air.
+            sent = len(tnc.received)
+            await service.call("connect", {"channel": 2, "call": "EA7KLX-1"})
+            assert service.channels[2].state == "connected"
+            assert service.channels[2].summary()["local"]
+            assert "You have 1 new message" in hub.texts(2)
+            await service.call("send", {"channel": 2, "text": "RM"})
+            assert "Te dejo un mensaje" in hub.texts(2)
+            listed = await service.call("bbs.messages", {})
+            assert listed["messages"][0]["title"] == "Hola"
+            assert listed["messages"][0]["status"] == "Y" and "body" not in listed["messages"][0]
+            assert (await service.call("bbs.message", {"id": 1}))["message"]["body"] == \
+                "Te dejo un mensaje"
+            assert [u["call"] for u in (await service.call("bbs.users", {}))["users"]] == \
+                ["EA7KLX", "EA1ABC"]
+            await service.call("send", {"channel": 2, "text": "B"})
+            assert service.channels[2].state == "free"
+            await asyncio.sleep(0.1)
+            assert len(tnc.received) == sent
+            await service.call("bbs.kill", {"id": 1})
+            assert service.state()["bbs"]["messages"] == 0
+        finally:
+            await service.stop()
+            await tnc.stop()
+
+    asyncio.run(scenario())
+
+
+def test_bbs_alone_without_the_client(tmp_path):
+    async def scenario():
+        tnc = await FakeTnc(echo=False).start()
+        service, _hub = await started(tnc, packet_bbs=True, packet_client=False,
+                                      packet_bbs_call="EA7KLX-8",
+                                      database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        try:
+            assert tnc.registered == {"EA7KLX-8"}
+            assert service.state()["mycall"] == ""
+        finally:
+            await service.stop()
+            await tnc.stop()
+
+    asyncio.run(scenario())

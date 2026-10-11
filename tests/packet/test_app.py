@@ -80,12 +80,14 @@ def test_a_session_in_the_terminal(tmp_path):
 
                 await pilot.press(*"/help", "enter")
                 await wait(pilot, lambda: "/ui DEST text" in shown(channel))
-                await pilot.press(*"/nonsense", "enter")
-                await wait(pilot, lambda: "Unknown command" in str(
-                    app.query_one("#entry").border_subtitle))
+                await pilot.press(*"/ex", "enter")              # not ours: to the station
+                await wait(pilot, lambda: "ECHO /ex" in shown(channel))
 
                 await pilot.press(*"/d", "enter")
                 await wait(pilot, lambda: client.channel_info(2).get("state") == "free")
+                await pilot.press(*"/nonsense", "enter")        # with nobody: a mistake
+                await wait(pilot, lambda: "Unknown command" in str(
+                    app.query_one("#entry").border_subtitle))
 
                 await pilot.press(*"/tnc", "enter")                 # what the TNC is
                 await wait(pilot, lambda: len(app.screen_stack) > 1)
@@ -152,5 +154,78 @@ def test_not_set_up_says_how(tmp_path):
                 app.query_one("#entry").border_subtitle))
             await pilot.press("ctrl+q")
             await pilot.pause(0.2)
+
+    asyncio.run(scenario())
+
+
+def test_the_sysop_on_the_bbs(tmp_path):
+    """/c to the BBS's own callsign enters it with no radio; F12 is the sysop's page."""
+    from textual.widgets import DataTable
+
+    from ic705suite.apps.packet.app import BbsScreen
+    from ic705suite.ui.widgets import ChoiceScreen, TextScreen
+
+    async def scenario():
+        tnc = await FakeTnc(echo=False).start()
+        config = packet_config(tmp_path, tnc.port)
+        config.packet_bbs = True
+        link = LocalLink(None, config)
+        app = PacketApp(link, owns_link=True)
+        try:
+            async with app.run_test(size=(140, 40)) as pilot:
+                client = app.client
+                await wait(pilot, lambda: (client.state.get("bbs") or {}).get("registered"))
+                assert "BBS EA7KLX-1" in str(app.query_one("#statusline").render())
+                channel = app.query_one("#channel", TextView)
+                await pilot.press(*"/c ea7klx-1", "enter")
+                await wait(pilot, lambda: "de EA7KLX>" in shown(channel))
+                assert "*** Connected to EA7KLX-1, this BBS (no radio)" in shown(channel)
+                for line in ("SB ALL", "Club meeting", "Friday 20h", "/ex"):
+                    await pilot.press(*line, "enter")
+                await wait(pilot, lambda: "Message: 1 Bid: 1_EA7KLX" in shown(channel))
+
+                await pilot.press("f12")
+                await wait(pilot, lambda: isinstance(app.screen, BbsScreen))
+                screen = app.screen
+                await wait(pilot, lambda: screen.rows)
+                assert "connected EA7KLX (here)" in str(screen.query_one("#bbs-who").render())
+                assert screen.query_one(DataTable).row_count == 1
+                await pilot.press("enter")
+                await wait(pilot, lambda: isinstance(app.screen, TextScreen))
+                assert "Friday 20h" in "\n".join(app.screen.lines)
+                await pilot.press("escape")
+                await pilot.press("u")
+                await wait(pilot, lambda: screen.showing == "users" and screen.rows)
+                assert screen.rows[0]["call"] == "EA7KLX"
+                await pilot.press("u")
+                await wait(pilot, lambda: screen.showing == "messages" and screen.rows)
+                await pilot.press("k")
+                await wait(pilot, lambda: isinstance(app.screen, ChoiceScreen))
+                await pilot.press("enter")                      # Kill
+                await wait(pilot, lambda: isinstance(app.screen, BbsScreen) and not screen.rows)
+                await pilot.press("escape")
+                await pilot.press(*"/d", "enter")
+                await wait(pilot, lambda: client.channel_info(1).get("state") == "free")
+                await pilot.press("ctrl+q")
+                await pilot.pause(0.2)
+        finally:
+            await tnc.stop()
+
+    asyncio.run(scenario())
+
+
+def test_f12_with_the_bbs_off(tmp_path):
+    async def scenario():
+        tnc = await FakeTnc().start()
+        app = PacketApp(LocalLink(None, packet_config(tmp_path, tnc.port)), owns_link=True)
+        try:
+            async with app.run_test(size=(130, 36)) as pilot:
+                await wait(pilot, lambda: (app.client.state.get("tnc") or {}).get("state") == "up")
+                await pilot.press("f12")
+                assert "The BBS is off" in str(app.query_one("#entry").border_subtitle)
+                await pilot.press("ctrl+q")
+                await pilot.pause(0.2)
+        finally:
+            await tnc.stop()
 
     asyncio.run(scenario())

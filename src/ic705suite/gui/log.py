@@ -62,6 +62,7 @@ from ic705suite.gui.page import Page, _Dialog, _wait
 from ic705suite.gui.widgets import (
     Frame,
     Table,
+    clickable_keys,
     hint_html,
     rich_colour,
     rich_html,
@@ -504,7 +505,7 @@ class QtStatsFooter(QLabel):
         self.setTextFormat(Qt.TextFormat.RichText)
         self.setContentsMargins(0, 2, 6, 2)
         self.setObjectName("footerbar")      # styled by the theme
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        clickable_keys(self)                 # its keys can be clicked
         self.timer = QTimer(self, interval=1000, timeout=self.redraw)
         self.timer.start()
 
@@ -514,7 +515,7 @@ class QtStatsFooter(QLabel):
         chars = max(1, self.width() // max(1, self.fontMetrics().averageCharWidth()))
         hint = next((h for h in hints if len(h) + len(counters.plain) + 4 < chars), hints[-1])
         self.setText(f'<table width="100%"><tr><td>{rich_html(counters)}</td>'
-                     f'<td align="right">{hint_html(hint)}</td></tr></table>')
+                     f'<td align="right">{hint_html(hint, links=True)}</td></tr></table>')
 
 
 # ---- the entry line ----------------------------------------------------------------------------

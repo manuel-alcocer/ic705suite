@@ -39,7 +39,7 @@ def test_set_values_keeps_the_rest_of_the_file():
 def test_a_new_setup_asks_and_writes_the_template(tmp_path):
     path = tmp_path / "config.toml"
     script = Script("es", "ea7xyz/p", "lan", "192.168.1.84", "manuel", "", "light",
-                    "agwpe", "pi.local:8001", "", "s", secrets=("secreto", "arriba"))
+                    "agwpe", "pi.local:8001", "", "", "", "s", secrets=("secreto", "arriba"))
     assert configure.configure(path, script, language="en") == 0
     config = load_config(path)
     assert (config.language, config.callsign, config.connection) == ("es", "EA7XYZ/P", "lan")
@@ -87,7 +87,7 @@ def test_tx_enabled_stays_where_cwic705_put_it(tmp_path):
 def test_a_wrong_answer_is_asked_again(tmp_path):
     path = tmp_path / "config.toml"
     script = Script("fr", "en", "not a call", "EA7XYZ", "usb", "sim", "maybe", "n", "pink",
-                    "dark", "kiss", "agwpe", "pi:x", "pi", "EA7XYZ/P", "", "y")
+                    "dark", "kiss", "agwpe", "pi:x", "pi", "", "EA7XYZ/P", "", "y", "", "y")
     assert configure.configure(path, script, language="en") == 0
     assert load_config(path).connection == "sim" and load_config(path).theme == "dark"
     assert any("Choose one of" in line for line in script.said)
@@ -96,6 +96,7 @@ def test_a_wrong_answer_is_asked_again(tmp_path):
     assert any("SSID from 0 to 15" in line for line in script.said)
     assert load_config(path).packet_host == "pi"
     assert load_config(path).packet_mycall == "EA7XYZ-4"
+    assert load_config(path).packet_bbs and load_config(path).packet_bbs_call == "EA7XYZ-1"
 
 
 @pytest.mark.parametrize("answer", ["n", KeyboardInterrupt, EOFError])
@@ -168,7 +169,7 @@ def test_direwolf_here_with_the_digirig_found(tmp_path, monkeypatch):
         "sound card Device + ttyUSB0")])
     monkeypatch.setattr(direwolf, "find_direwolf", lambda configured="": None)
     path = tmp_path / "config.toml"
-    script = Script("en", "ea7xyz", "sim", "", "", "direwolf", "", "", "", "y")
+    script = Script("en", "ea7xyz", "sim", "", "", "direwolf", "", "", "", "", "", "y")
     assert configure.configure(path, script, language="en") == 0
     config = load_config(path)
     assert (config.packet_tnc, config.packet_audio, config.packet_ptt, config.packet_mycall) == \
@@ -180,7 +181,7 @@ def test_direwolf_here_with_the_digirig_found(tmp_path, monkeypatch):
     assert "EA7XYZ-4 with Direwolf started here (plughw:Device,0" in said
 
     # Enter keeps it; "vox" leaves the PTT to the radio.
-    script = Script("", "", "", "", "", "", "", "vox", "", "y", secrets=("",))
+    script = Script("", "", "", "", "", "", "", "vox", "", "", "", "y", secrets=("",))
     assert configure.configure(path, script, language="en") == 0
     config = load_config(path)
     assert config.packet_tnc == "direwolf" and config.packet_ptt == ""
@@ -192,7 +193,7 @@ def test_packet_on_the_ic705(tmp_path, monkeypatch):
     monkeypatch.setattr(direwolf, "find_direwolf", lambda configured="": "/usr/bin/direwolf")
     monkeypatch.setattr(ic705, "loopback_present", lambda cards=None: False)
     path = tmp_path / "config.toml"
-    script = Script("en", "ea7xyz", "sim", "", "", "ic705", "", "y")
+    script = Script("en", "ea7xyz", "sim", "", "", "ic705", "", "", "", "y")
     assert configure.configure(path, script, language="en") == 0
     config = load_config(path)
     assert (config.packet_tnc, config.packet_mycall) == ("ic705", "EA7XYZ-4")

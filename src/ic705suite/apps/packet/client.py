@@ -29,7 +29,8 @@ HELP = N_(
     "/tnc                 the TNC: settings and what Direwolf says (/tnc restart)\n"
     "/qrg 144.800         tune the IC-705 for packet (FM-D), when it is the radio\n"
     "/quit                back to the dashboard (also Ctrl+Q)\n"
-    "//text               send a line starting with /"
+    "//text               send a line starting with / (connected, /EX and any other\n"
+    "                     line that is not a command here go to the station as typed)"
 )
 
 #: How each kind of text is drawn: Rich style names, which the graphical client maps too.
@@ -161,9 +162,15 @@ class PacketClient:
     def status(self) -> list[tuple[str, str, str]]:
         """(label, value, style) pieces of the status line."""
         tnc = self.state.get("tnc") or {}
-        pieces = [("", "PACKET", "bold"),
-                  (_("Call"), self.state.get("mycall", ""), "bold")]
+        pieces = [("", "PACKET", "bold")]
+        if self.state.get("mycall"):
+            pieces.append((_("Call"), self.state["mycall"], "bold"))
         pieces.append((_("TNC"), *self._tnc_text(tnc)))
+        bbs = self.state.get("bbs") or {}
+        if bbs.get("on"):
+            on_air = len([s for s in bbs.get("sessions") or [] if not s["local"]])
+            pieces.append(("BBS", bbs["call"] + (f" · {on_air}" if on_air else ""),
+                           "bold green" if bbs.get("registered") else "bold yellow"))
         info = self.channel_info()
         if self.channel == 0:
             pieces.append((_("Ch"), f"0 {_('Monitor')}", "bold"))
@@ -314,6 +321,9 @@ class PacketClient:
                 self.on_text(self.channel, piece)
         elif name in ("q", "quit", "exit"):
             return "quit"
+        elif self.channel and self.channel_info().get("state") == "connected":
+            # Not ours: the station's (a BBS's /EX ends a message).
+            await self._call("pkt.send", channel=self.channel, text="/" + line)
         else:
             self.on_feedback("error", _("Unknown command: {cmd}. /help lists them").format(
                 cmd="/" + name))

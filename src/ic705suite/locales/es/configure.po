@@ -170,3 +170,15 @@ msgstr "La IC-705 transmite packet en FM-D con su entrada DATA1 MOD en WLAN (la 
 
 msgid "{call} on the IC-705 over WiFi, with Direwolf here"
 msgstr "{call} en la IC-705 por WiFi, con Direwolf aquí"
+
+msgid "A BBS on this machine (messages and bulletins for the stations that connect to it)?"
+msgstr "¿Una BBS en esta máquina (mensajes y boletines para las estaciones que se conecten)?"
+
+msgid "BBS callsign, with its SSID"
+msgstr "Indicativo de la BBS, con su SSID"
+
+msgid "Packet terminal (F7) with a callsign of its own?"
+msgstr "¿Terminal de packet (F7) con indicativo propio?"
+
+msgid "no terminal"
+msgstr "sin terminal"

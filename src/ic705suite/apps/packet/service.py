@@ -37,6 +37,7 @@ from ic705suite.apps.packet.agwpe import (
     parse_monitor,
     parse_ports,
 )
+from ic705suite.apps.packet.bbs import BbsSession, BbsStore
 from ic705suite.apps.packet.direwolf import Direwolf, config_text, find_direwolf
 from ic705suite.apps.packet.direwolf import Settings as DirewolfSettings
 from ic705suite.apps.packet.ic705 import Ic705Port
@@ -52,6 +53,9 @@ CHANNELS = 8               # sessions at once, as BayCom's default
 KEEP = 2000                # pieces of text kept per channel for clients that open later
 HISTORY = 600              # of them sent to a client opening a channel
 HEARD = 200                # stations kept in the heard list
+BBS_SESSIONS = 10          # stations on the BBS at once
+PACLEN = 200               # bytes of text per frame the BBS sends
+DRAIN_TIMEOUT = 60.0       # longest wait for the last frames before hanging up
 RETRY_DELAY = 10.0         # between attempts to reach the TNC
 
 
@@ -76,15 +80,17 @@ class Channel:
     rx_bytes: int = 0
     tx_bytes: int = 0
     text: deque = field(default_factory=lambda: deque(maxlen=KEEP))
+    bbs: BbsSession | None = None    # connected to our own BBS, with no radio between
 
     def summary(self) -> dict:
         return {"number": self.number, "call": self.call, "via": self.via, "state": self.state,
                 "incoming": self.incoming, "since": self.since, "unread": self.unread,
-                "rx": self.rx_bytes, "tx": self.tx_bytes}
+                "rx": self.rx_bytes, "tx": self.tx_bytes, "local": self.bbs is not None}
 
     def reset(self) -> None:
         self.call, self.via, self.state, self.incoming, self.since = "", [], "free", False, 0.0
         self.rx_bytes = self.tx_bytes = 0
+        self.bbs = None
 
 
 @dataclass
@@ -124,12 +130,37 @@ class PacketService:
         self.direwolf_missing = False
         self.radio: Ic705Port | None = None        # the IC-705 as its radio (tnc = "ic705")
         self.radio_problem = ""
+        self.bbs_registered = False
+        self.bbs_sessions: dict[str, BbsSession] = {}     # by the station's call (on the air)
+        self._outstanding: dict[str, asyncio.Future] = {}   # 'Y' asked, by the far call
+        self._bbs_store: BbsStore | None = None
 
     # ---- settings ------------------------------------------------------------------------
 
     @property
     def mycall(self) -> str:
         return (self.config.packet_mycall or self.config.callsign).upper()
+
+    @property
+    def bbs_on(self) -> bool:
+        return bool(self.config.packet_bbs and self.bbs_call)
+
+    @property
+    def client_on(self) -> bool:
+        return bool(self.config.packet_client and self.mycall)
+
+    @property
+    def bbs_call(self) -> str:
+        if self.config.packet_bbs_call:
+            return self.config.packet_bbs_call.upper()
+        base = (self.config.callsign or self.mycall).upper().split("/")[0].split("-")[0]
+        return f"{base}-1" if base else ""
+
+    @property
+    def bbs_store(self) -> BbsStore:
+        if self._bbs_store is None:
+            self._bbs_store = BbsStore(self.config.database_url)
+        return self._bbs_store
 
     @property
     def radio_port(self) -> int:
@@ -150,11 +181,13 @@ class PacketService:
 
     @property
     def configured(self) -> bool:
+        if not (self.client_on or self.bbs_on):
+            return False
         if self.on_ic705:
-            return bool(self.mycall and self.station is not None)
+            return self.station is not None
         if self.local:
-            return bool(self.config.packet_audio and self.mycall)
-        return bool(self.config.packet_host and self.mycall)
+            return bool(self.config.packet_audio)
+        return bool(self.config.packet_host)
 
     # ---- life ----------------------------------------------------------------------------
 
@@ -225,7 +258,7 @@ class PacketService:
     async def _run(self) -> None:
         host, port = self.host, self.config.packet_tcp_port
         while True:
-            self.tnc_state, self.registered = "connecting", False
+            self.tnc_state, self.registered, self.bbs_registered = "connecting", False, False
             self._touch()
             if self.local:
                 # Ours: wait until it says it takes AGWPE clients (or it cannot start).
@@ -241,7 +274,10 @@ class PacketService:
                 self._system(0, N_("TNC connected: {host}:{port}"), host=host, port=port)
                 client.send(Frame(0, "R"))
                 client.send(Frame(0, "G"))
-                client.send(Frame(0, "X", call_from=self.mycall))
+                if self.client_on:
+                    client.send(Frame(0, "X", call_from=self.mycall))
+                if self.bbs_on:
+                    client.send(Frame(0, "X", call_from=self.bbs_call))
                 client.send(Frame(0, "m"))          # the monitor, always on in the core
                 await client.pump()
             except asyncio.CancelledError:
@@ -253,8 +289,9 @@ class PacketService:
                 self._client = None
             await client.close()
             self.tnc_state, self.tnc_error = "down", reason or "connection closed"
+            self._end_bbs_sessions()
             for channel in self.channels[1:]:
-                if channel.state != "free":
+                if channel.state != "free" and channel.bbs is None:
                     self._system(channel.number, N_("Link to the TNC lost: {call} is no longer "
                                                     "connected"), call=channel.call)
                     channel.reset()
@@ -271,6 +308,9 @@ class PacketService:
 
     def _on_frame(self, frame: Frame) -> None:
         kind = frame.kind
+        if kind in "CDd" and self.bbs_on and frame.call_to == self.bbs_call:
+            self._bbs_frame(frame)
+            return
         if kind == "D":
             channel = self._channel_of(frame.call_from)
             if channel is not None:
@@ -287,10 +327,22 @@ class PacketService:
         elif kind in MONITOR_KINDS:
             self._monitored(frame)
         elif kind == "X":
-            self.registered = bool(frame.data) and frame.data[0] == 1
-            if not self.registered:
-                self._system(0, N_("The TNC refused the callsign {call}"), call=self.mycall)
+            ok = bool(frame.data) and frame.data[0] == 1
+            if frame.call_from == self.bbs_call and self.bbs_on:
+                self.bbs_registered = ok
+            else:
+                self.registered = ok
+            if not ok:
+                self._system(0, N_("The TNC refused the callsign {call}"),
+                             call=frame.call_from or self.mycall)
             self._touch()
+        elif kind == "Y":
+            # Frames of a session still waiting to be acknowledged (asked by _drained).
+            waiting = self._outstanding.pop(frame.call_to, None) or \
+                self._outstanding.pop(frame.call_from, None)
+            if waiting is not None and not waiting.done():
+                count = struct.unpack("<I", frame.data[:4])[0] if len(frame.data) >= 4 else 0
+                waiting.set_result(count)
         elif kind == "G":
             self.radio_ports = parse_ports(decode_text(frame.data))
             self._touch()
@@ -364,6 +416,8 @@ class PacketService:
                               channel=channel.number, call=channel.call)
         if self._channel_of(call) is not None:
             raise PacketError(N_("Already connected to {call}"), call=call)
+        if self.bbs_on and call == self.bbs_call and not via:
+            return self._local_bbs(channel)
         port = self.radio_port - 1
         if via:
             self._send(Frame(port, "v", self.mycall, call, digis(via), PID_TEXT))
@@ -380,6 +434,11 @@ class PacketService:
         channel = self._session_channel(number)
         if channel.state == "free":
             raise PacketError(N_("Nothing to disconnect on channel {channel}"), channel=number)
+        if channel.bbs is not None:
+            self._system(number, N_("Disconnected from {call}"), call=channel.call)
+            channel.reset()
+            self._touch()
+            return channel
         self._send(Frame(self.radio_port - 1, "d", self.mycall, channel.call))
         if channel.state == "calling":
             self._system(number, N_("Call to {call} cancelled"), call=channel.call)
@@ -396,12 +455,116 @@ class PacketService:
         if not data.endswith("\r"):
             data += "\r"
         payload = data.encode("utf-8", "replace")
-        self._send(Frame(self.radio_port - 1, "D", self.mycall, channel.call, payload,
-                         PID_TEXT))
+        if channel.bbs is None:
+            self._send(Frame(self.radio_port - 1, "D", self.mycall, channel.call, payload,
+                             PID_TEXT))
         channel.tx_bytes += len(payload)
         self._text(channel, "tx", data.replace("\r", "\n"), unread=False)
+        if channel.bbs is not None:
+            channel.bbs.feed(data)
         self._touch()
         return channel
+
+    # ---- the BBS -------------------------------------------------------------------------
+
+    def _local_bbs(self, channel: Channel) -> Channel:
+        """The sysop's channel straight into our BBS: no frame goes to the radio."""
+        number = channel.number
+
+        def answer(text: str) -> None:
+            channel.rx_bytes += len(text)
+            self._text(channel, "rx", text)
+
+        def hang_up() -> None:
+            if channel.bbs is session:
+                self._system(number, N_("Disconnected from {call}"), call=channel.call)
+                channel.reset()
+                self._touch()
+
+        session = BbsSession(self.bbs_store, self.bbs_call, self.config.callsign or self.mycall,
+                             self.mycall or self.config.callsign, answer, hang_up, self._touch)
+        channel.call, channel.via, channel.state = self.bbs_call, [], "connected"
+        channel.incoming, channel.since, channel.bbs = False, time.time(), session
+        self._system(number, N_("Connected to {call}, this BBS (no radio)"), call=self.bbs_call)
+        session.start()
+        self._touch()
+        return channel
+
+    def _bbs_frame(self, frame: Frame) -> None:
+        call, kind = frame.call_from, frame.kind
+        session = self.bbs_sessions.get(call)
+        if kind == "C":
+            if session is not None:
+                return
+            if len(self.bbs_sessions) >= BBS_SESSIONS:
+                self._bbs_send(call, "*** The BBS is full, try later\r")
+                self._send(Frame(frame.port, "d", self.bbs_call, call))
+                return
+            session = BbsSession(self.bbs_store, self.bbs_call,
+                                 self.config.callsign or self.mycall, call,
+                                 lambda text: self._bbs_send(call, text),
+                                 lambda: self._bbs_hang_up(call), self._touch)
+            self.bbs_sessions[call] = session
+            self._system(0, N_("{call} connected to the BBS"), call=call)
+            session.start()
+            self._touch()
+        elif kind == "D" and session is not None:
+            session.feed(decode_text(frame.data))
+        elif kind == "d" and session is not None:
+            del self.bbs_sessions[call]
+            self._system(0, N_("{call} left the BBS"), call=call)
+            self._touch()
+
+    def _bbs_send(self, call: str, text: str) -> None:
+        data = text.encode("utf-8", "replace")
+        with contextlib.suppress(PacketError):
+            for start in range(0, len(data), PACLEN):
+                self._send(Frame(self.radio_port - 1, "D", self.bbs_call, call,
+                                 data[start:start + PACLEN], PID_TEXT))
+
+    def _bbs_hang_up(self, call: str) -> None:
+        """The station said bye: disconnect once what was sent has reached it (the TNC
+        drops what it still holds when told to disconnect)."""
+        asyncio.get_running_loop().create_task(self._hang_up_when_sent(call))
+
+    async def _hang_up_when_sent(self, call: str) -> None:
+        await self._drained(self.bbs_call, call)
+        with contextlib.suppress(PacketError):
+            self._send(Frame(self.radio_port - 1, "d", self.bbs_call, call))
+        if self.bbs_sessions.pop(call, None) is not None:
+            self._system(0, N_("{call} left the BBS"), call=call)
+            self._touch()
+
+    async def _drained(self, mine: str, other: str, timeout: float = DRAIN_TIMEOUT) -> None:
+        """Wait until the TNC holds no unacknowledged frame of the session (AGWPE 'Y')."""
+        deadline = asyncio.get_running_loop().time() + timeout
+        while asyncio.get_running_loop().time() < deadline:
+            future = asyncio.get_running_loop().create_future()
+            self._outstanding[other] = future
+            try:
+                self._send(Frame(self.radio_port - 1, "Y", mine, other))
+                if await asyncio.wait_for(future, 2) == 0:
+                    return
+            except (PacketError, TimeoutError):
+                return
+            finally:
+                self._outstanding.pop(other, None)
+            await asyncio.sleep(0.5)
+
+    def _end_bbs_sessions(self) -> None:
+        for call in list(self.bbs_sessions):
+            self._system(0, N_("{call} left the BBS"), call=call)
+        self.bbs_sessions.clear()
+
+    def _bbs_state(self) -> dict:
+        if not self.bbs_on:
+            return {"on": False, "call": self.bbs_call}
+        sessions = [{"call": call, "since": s.since, "local": False}
+                    for call, s in self.bbs_sessions.items()]
+        sessions += [{"call": c.bbs.call, "since": c.bbs.since, "local": True}
+                     for c in self.channels[1:] if c.bbs is not None]
+        return {"on": True, "call": self.bbs_call, "registered": self.bbs_registered,
+                "sessions": sessions, "messages": self.bbs_store.count()}
 
     def unproto(self, dest: str, text: str, via: list[str]) -> None:
         dest = dest.strip().upper()
@@ -426,8 +589,9 @@ class PacketService:
                     "tx": self._client.tx_bytes if self._client else 0,
                     "direwolf": self._direwolf_state(),
                     "radio": self._radio_state()},
-            "mycall": self.mycall,
+            "mycall": self.mycall if self.client_on else "",
             "radio_port": self.radio_port,
+            "bbs": self._bbs_state(),
             "channels": [c.summary() for c in self.channels],
             "heard": [{"call": s.call, "last": s.last, "frames": s.frames, "port": s.port,
                        "dest": s.dest, "via": s.via}
@@ -471,6 +635,17 @@ class PacketService:
                     raise PacketError(N_("Direwolf is not started by the suite here: "
                                          "[packet] tnc = \"direwolf\""))
                 self.direwolf.restart()
+            elif method == "bbs.messages":
+                found = self.bbs_store.messages(killed=bool(params.get("killed")), last=500)
+                return {"messages": [{k: v for k, v in m.items() if k != "body"} | {
+                    "size": len(m["body"])} for m in found]}
+            elif method == "bbs.message":
+                return {"message": self.bbs_store.message(int(params["id"]))}
+            elif method == "bbs.kill":
+                self.bbs_store.set_status(int(params["id"]), "K")
+                self._touch()
+            elif method == "bbs.users":
+                return {"users": self.bbs_store.users()}
             elif method == "qrg":
                 if self.radio is None:
                     raise PacketError(N_("/qrg tunes the IC-705 when it is the packet radio: "

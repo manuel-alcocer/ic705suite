@@ -62,15 +62,55 @@ def badge(text: str, fg: str, bg: str) -> str:
             f"&nbsp;{esc(text)}&nbsp;</span>&nbsp;")
 
 
-def hint_html(hint: str) -> str:
-    """A key hint with its keys bold and the rest dim, as the terminal's footer."""
+# Keys of a hint that a click can press: one function key, Esc or Ctrl+letter (not a range
+# such as F2-F9, nor Enter or the arrows, which mean nothing without a field or a list).
+CLICKABLE = re.compile(r"^(F\d{1,2}|Esc|Ctrl\+[A-Z])$")
+
+
+def hint_html(hint: str, links: bool = False) -> str:
+    """A key hint with its keys bold and the rest dim, as the terminal's footer; with
+    `links`, the keys a click can press are links ("key:F12")."""
     out, position = [], 0
     for match in KEY.finditer(hint):
         out.append(span(hint[position:match.start()], theme.DIM))
-        out.append(span(match.group(), theme.TEXT, bold=True))
+        token = match.group()
+        if links and CLICKABLE.match(token):
+            out.append(f'<a href="key:{esc(token)}" style="color:{theme.TEXT};'
+                       f'font-weight:bold;text-decoration:none;">{esc(token)}</a>')
+        else:
+            out.append(span(token, theme.TEXT, bold=True))
         position = match.end()
     out.append(span(hint[position:], theme.DIM))
     return "".join(out)
+
+
+def press_key(token: str, source: QWidget) -> None:
+    """A key of a hint clicked: the same as pressing it (sent to whatever has the keys)."""
+    from PySide6.QtCore import QEvent
+    from PySide6.QtWidgets import QApplication
+
+    modifiers = Qt.KeyboardModifier.NoModifier
+    if token == "Esc":
+        key = Qt.Key.Key_Escape
+    elif token.startswith("Ctrl+"):
+        key = getattr(Qt.Key, f"Key_{token[5:].upper()}")
+        modifiers = Qt.KeyboardModifier.ControlModifier
+    elif token.startswith("F") and token[1:].isdigit():
+        key = getattr(Qt.Key, f"Key_F{int(token[1:])}")
+    else:
+        return
+    target = QApplication.focusWidget() or source.window()
+    for kind in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease):
+        QApplication.sendEvent(target, QKeyEvent(kind, key, modifiers))
+
+
+def clickable_keys(label: QLabel) -> None:
+    """Let the keys of the hint in `label` be pressed with the mouse."""
+    label.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
+    label.setOpenExternalLinks(False)
+    label.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+    label.linkActivated.connect(
+        lambda href: href.startswith("key:") and press_key(href[4:], label))
 
 
 # ---- rich text -----------------------------------------------------------------------------
@@ -290,6 +330,7 @@ class Footer(QLabel):
         self.setTextFormat(Qt.TextFormat.RichText)
         self.setContentsMargins(0, 2, 6, 2)
         self.setObjectName("footerbar")      # styled by the theme
+        clickable_keys(self)                 # its keys can be clicked
         self.timer = QTimer(self, interval=1000, timeout=self.redraw)
         self.timer.start()
         self.redraw()
@@ -304,7 +345,7 @@ class Footer(QLabel):
         chars = max(1, self.width() // max(1, self.fontMetrics().averageCharWidth()))
         hint = next((h for h in hints if len(h) + 40 < chars), hints[-1] if hints else "")
         self.setText(f'<table width="100%"><tr><td>{clock}{counters}</td>'
-                     f'<td align="right">{hint_html(hint)}</td></tr></table>')
+                     f'<td align="right">{hint_html(hint, links=True)}</td></tr></table>')
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt's name
         super().resizeEvent(event)

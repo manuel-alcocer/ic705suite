@@ -286,6 +286,18 @@ lists the stations heard (Enter calls one). The bar marks the channels with unre
 sessions live in the core: leaving the screen, or closing a remote client, does not drop
 them. With `agwpe` or `direwolf` it needs no radio of the suite's own.
 
+**The BBS.** With `[packet] bbs = true` the core also runs a BBS on its own callsign
+(`bbs_call`, by default your callsign `-1`): personal messages and bulletins, with the
+commands of the BBSes on the air: `L` (new since your last `L`), `LM`, `LB`, `LL n`,
+`L< CALL`, `L> CALL`, `R n`, `RM`, `SP CALL[@BBS]`, `SB AREA[@DIST]` (the text ends with
+`/EX` or Ctrl+Z), `K n`, `KM`, `N name`, `I`, `H`, `B`. It keeps them in the suite's database
+(tables `bbs_messages`, `bbs_users`). Up to 10 stations at once; each is welcomed with the
+messages waiting for them. The terminal (`[packet] client`, `mycall`) is optional too: the
+BBS alone, the terminal alone, or both. From the terminal, `/c` to the BBS's callsign enters
+it with no radio between (as its sysop); **F12** is the sysop's page: the messages (Enter
+reads, K kills), U the users, and who is connected. A line starting with `/` that is not a
+command of the terminal goes to the station as typed while connected (a BBS's `/EX`).
+
 ## Development
 
 ```sh
