@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.9.0 (2026-10-11)
+
+### Features
+
+- **packet**: The core can start its own Direwolf, with the Digirig found here
+  ([`8e7188c`](https://github.com/manuel-alcocer/ic705suite/commit/8e7188cf8a2731461c2feb5990c6a9a8092f9bba))
+
+
 ## v0.8.0 (2026-10-11)
 
 ### Features
