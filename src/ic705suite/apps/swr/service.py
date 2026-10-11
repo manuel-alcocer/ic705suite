@@ -59,7 +59,10 @@ TEN_METRE_SWEEP_END = 29_000_000  # the whole 10 m band is too wide for one usef
 PHOTO_TYPES = {b"\xff\xd8\xff": ("jpg", "image/jpeg"), b"\x89PNG": ("png", "image/png"),
                b"RIFF": ("webp", "image/webp"), b"GIF8": ("gif", "image/gif")}
 MAX_PHOTO = 16 * 1024 * 1024
-PHOTO_CHUNK = 32 * 1024          # per call over the link (its messages are at most 64 kB)
+PHOTO_CHUNK = 32 * 1024
+# The phone page's remote control password: this many wrong in this long lock it.
+REMOTE_ATTEMPTS = 5
+REMOTE_LOCK_SECONDS = 300          # per call over the link (its messages are at most 64 kB)
 
 
 def photo_type(data: bytes) -> tuple[str, str] | None:
@@ -382,6 +385,7 @@ class SwrService:
         self._version = 0
         self._sent = -1
         self.remote = False        # off at every start: switched on by hand (antenna app)
+        self._wrong: list[float] = []   # recent wrong passwords from the phone
 
     @property
     def allow_tx(self) -> bool:
@@ -473,6 +477,33 @@ class SwrService:
             self.ui.info(N_("antenna: remote control on") if on
                          else N_("antenna: remote control off"))
             self._version += 1
+
+    @property
+    def remote_password(self) -> str:
+        return self.config.swr_remote_password
+
+    def remote_from_phone(self, on: bool, password: str = "") -> None:
+        """The phone page's switch: off always (the safe side); on only with [swr]
+        remote_password typed right, and a few wrong ones lock it for a while."""
+        import hmac
+
+        if not on:
+            self.set_remote(False)
+            return
+        if not self.remote_password:
+            raise SweepError("the remote control can only be switched on in the antenna "
+                             "application (no remote_password in [swr])")
+        now = time.monotonic()
+        self._wrong = [t for t in self._wrong if now - t < REMOTE_LOCK_SECONDS]
+        if len(self._wrong) >= REMOTE_ATTEMPTS:
+            raise SweepError("too many wrong passwords: wait a few minutes")
+        if not hmac.compare_digest(str(password).encode(), self.remote_password.encode()):
+            self._wrong.append(now)
+            log.warning("antenna page: wrong remote control password")
+            raise SweepError("wrong password")
+        self._wrong.clear()
+        log.info("antenna remote control switched on from the phone page")
+        self.set_remote(True)
 
     def require_remote(self) -> None:
         """The phone page may act only while the remote control is on."""
@@ -644,7 +675,8 @@ class SwrService:
         antenna = self.history.antenna()
         return {"connected": self.station.connected, "status": status,
                 "antenna": {"id": antenna["id"], "name": antenna["name"]},
-                "allow_tx": self.allow_tx, "remote": self.remote, "max_power": self.max_power, "port": self.port,
+                "allow_tx": self.allow_tx, "remote": self.remote,
+                "remote_password": bool(self.remote_password), "max_power": self.max_power, "port": self.port,
                 "frequency": st.frequency, "mode": st.mode,
                 "sweep": {"kind": s.kind, "running": s.running, "band": s.band, "target": s.target,
                           "preset": s.preset, "entry_id": s.entry_id,

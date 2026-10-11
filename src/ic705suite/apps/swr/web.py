@@ -89,6 +89,11 @@ async def route(service: SwrService, method: str, target: str, body: bytes) -> b
             # applications of the suite are using it).
             service.stop_sweep()
             return _json(service.state())
+        if path == "/api/remote":
+            # Switched on with the password ([swr] remote_password), off at any time.
+            data = json.loads(body or b"{}")
+            service.remote_from_phone(bool(data.get("on")), str(data.get("password", "")))
+            return _json(service.state())
         # Anything else from the phone only while the remote control is on (switched on by
         # hand in the antenna application; there is no way to switch it on from here).
         service.require_remote()

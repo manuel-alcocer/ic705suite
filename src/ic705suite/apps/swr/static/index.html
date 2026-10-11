@@ -70,6 +70,13 @@
   .msg { padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; font-size: 15px; }
   .msg.err { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
   .msg.off { background: color-mix(in srgb, var(--muted) 18%, transparent); color: var(--fg); }
+  .msg.on { background: color-mix(in srgb, var(--tx) 12%, transparent); color: var(--fg);
+            display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  .msg.on.hidden, .pass.hidden { display: none; }
+  .msg button { padding: 8px 14px; border-radius: 10px; border: 1px solid var(--accent);
+                background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; }
+  .pass { display: flex; gap: 8px; margin-top: 10px; }
+  .pass input { flex: 1; font-size: 16px; }
   .msg.txw { background: color-mix(in srgb, var(--tx) 15%, transparent); color: var(--tx); font-weight: 700; }
   .hist { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
   .hist td, .hist th { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: left; }
@@ -101,7 +108,16 @@
   <div class="msg err hidden" id="err"></div>
   <div class="msg txw hidden" id="txwarn">⚠ Transmitiendo: no toques la antena</div>
   <div class="msg off hidden" id="remoteoff">Control remoto apagado: desde aquí solo se puede
-    mirar y parar. Para barrer, enciéndelo en la aplicación de antena del PC (tecla R).</div>
+    mirar y parar. <span id="remoteHow">Para barrer, enciéndelo en la aplicación de antena del
+    PC (tecla R).</span>
+    <form class="pass hidden" id="remoteForm" autocomplete="off">
+      <input type="password" id="remotePass" placeholder="Contraseña del control remoto"
+             autocomplete="current-password" enterkeyhint="go">
+      <button type="submit">Encender</button>
+    </form>
+  </div>
+  <div class="msg on hidden" id="remoteon">Control remoto encendido: el móvil puede barrer.
+    <button type="button" id="remoteOffBtn">Apagar</button></div>
 
   <section class="card">
     <label><span>Antena</span><select id="antenna"></select></label>
@@ -444,6 +460,11 @@ function render() {
   // SWR sweeps need --tx and the remote control, which only the PC can switch on.
   const remote = !!state.remote;
   $("remoteoff").classList.toggle("hidden", remote);
+  $("remoteon").classList.toggle("hidden", !remote);
+  // With [swr] remote_password the phone can switch it on itself.
+  $("remoteForm").classList.toggle("hidden", !state.remote_password);
+  $("remoteHow").textContent = state.remote_password
+    ? "Para barrer, enciéndelo con la contraseña:" : "Para barrer, enciéndelo en la aplicación de antena del PC (tecla R).";
   $("btnSwr").disabled = sw.running || !state.allow_tx || !remote;
   $("btnNoise").disabled = sw.running || !remote;
   $("btnSave").disabled = !remote;
@@ -566,6 +587,20 @@ async function init() {
     const btn = $("entryDel");
     if (!btn.dataset.sure) { btn.dataset.sure = "1"; btn.textContent = "¿Seguro? Toca otra vez"; return; }
     try { await api("/api/entry/delete", { id: entry.id }); closeEntry(); }
+    catch (err) { showError(err.message); }
+  });
+  $("remoteForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    showError("");
+    try {
+      state = await api("/api/remote", { on: true, password: $("remotePass").value });
+      $("remotePass").value = "";
+      $("remotePass").blur();
+      render();
+    } catch (err) { showError(err.message === "wrong password" ? "Contraseña incorrecta" : err.message); }
+  });
+  $("remoteOffBtn").addEventListener("click", async () => {
+    try { state = await api("/api/remote", { on: false }); render(); }
     catch (err) { showError(err.message); }
   });
   $("btnSwr").addEventListener("click", () => startSweep("swr"));

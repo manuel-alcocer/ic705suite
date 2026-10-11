@@ -22,7 +22,7 @@ class Script(configure.Questions):
 
     def _secret(self, prompt: str) -> str:
         self.asked.append(prompt)
-        return self.secrets.pop(0)
+        return self.secrets.pop(0) if self.secrets else ""      # Enter
 
 
 def test_set_values_keeps_the_rest_of_the_file():
@@ -39,13 +39,14 @@ def test_set_values_keeps_the_rest_of_the_file():
 def test_a_new_setup_asks_and_writes_the_template(tmp_path):
     path = tmp_path / "config.toml"
     script = Script("es", "ea7xyz/p", "lan", "192.168.1.84", "manuel", "", "light", "s",
-                    secrets=("secreto",))
+                    secrets=("secreto", "arriba"))
     assert configure.configure(path, script, language="en") == 0
     config = load_config(path)
     assert (config.language, config.callsign, config.connection) == ("es", "EA7XYZ/P", "lan")
     assert (config.host, config.username, config.password) == ("192.168.1.84", "manuel",
                                                                  "secreto")
     assert config.tx_enabled is False and config.theme == "light"
+    assert config.swr_remote_password == "arriba"     # the phone may switch on the remote
     text = path.read_text(encoding="utf-8")
     assert "# Antenna tuning page" in text and "{token}" not in text   # the whole template
     if sys.platform != "win32":

@@ -47,6 +47,9 @@ def summary(config: Config) -> list[tuple[str, str]]:
                  (_("User"), config.username or "-"),
                  (_("Password"), MASK if config.password else "-")]
     rows.append((_("Transmission"), _("enabled") if config.tx_enabled else _("disabled")))
+    rows.append((_("Remote control from the phone"),
+                 _("with a password") if config.swr_remote_password else
+                 _("only from the antenna application")))
     rows.append((_("Graphical client"), config.theme))
     return rows
 
@@ -157,6 +160,9 @@ def configure(path: Path | None = None, questions: Questions | None = None,
             config.password = q.password(_("Network password"), config.password)
         q.write(_("Transmission stays off until the antenna SWR is right for your bands."))
         config.tx_enabled = q.yes(_("Enable transmission?"), config.tx_enabled)
+        config.swr_remote_password = q.password(
+            _("Password for switching on the antenna's remote control from the phone (empty: "
+              "only from the antenna application)"), config.swr_remote_password)
         config.theme = q.choice(
             _("Look of the graphical client (ic705suite --gui): dark, light or auto (as the "
               "system)"), THEMES, config.theme if config.theme in THEMES else "auto")
@@ -177,6 +183,7 @@ def configure(path: Path | None = None, questions: Questions | None = None,
         ("station", "callsign"): config.callsign,
         ("rig", "connection"): config.connection,
         ("ui", "theme"): config.theme,
+        ("swr", "remote_password"): config.swr_remote_password,
         (_section_of(text, "tx_enabled", ("rig", "keyer")), "tx_enabled"): config.tx_enabled,
     }
     if config.connection == "lan":

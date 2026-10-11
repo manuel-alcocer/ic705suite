@@ -460,3 +460,28 @@ def test_transmit_meters_follow_the_radio_keyed_by_hand(tmp_path):
             await station.stop()
 
     asyncio.run(run())
+
+
+def test_phone_switches_the_remote_control_with_the_password(tmp_path):
+    """[swr] remote_password: the phone page switches the remote control on with it (and off
+    at any time); wrong ones are refused and, after a few, so is everything for a while."""
+    from ic705suite.apps.swr.service import REMOTE_ATTEMPTS
+    from ic705suite.apps.swr.web import route
+
+    def post(service, data):
+        return asyncio.run(route(service, "POST", "/api/remote", json.dumps(data).encode()))
+
+    station, service = make_service(tmp_path, FakeRadio(7_100_000))
+    # Without a password only the antenna application can.
+    assert b"400" in post(service, {"on": True, "password": ""})[:20] and not service.remote
+    service.config.swr_remote_password = "arriba"
+    state = json.loads(asyncio.run(route(service, "GET", "/api/state", b"")).split(b"\r\n\r\n")[1])
+    assert state["remote_password"] is True and "arriba" not in json.dumps(state)
+    assert b"wrong password" in post(service, {"on": True, "password": "abajo"})
+    assert not service.remote
+    assert b"200" in post(service, {"on": True, "password": "arriba"})[:20] and service.remote
+    assert b"200" in post(service, {"on": False})[:20] and not service.remote
+    for _ in range(REMOTE_ATTEMPTS):
+        post(service, {"on": True, "password": "nope"})
+    reply = post(service, {"on": True, "password": "arriba"})
+    assert b"too many" in reply and not service.remote

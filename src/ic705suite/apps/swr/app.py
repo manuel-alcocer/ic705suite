@@ -128,6 +128,9 @@ class SweepPanel(Static):
             text.append(" " + _("OFF") + " ", style=glyphs.style("bold white on blue"))
             text.append("  " + _("the phone only watches; no SWR sweeps") + "  "
                         + _("(R switches it on)") + "\n", style="white")
+            if state.get("remote_password"):
+                text.append(_("The phone page can switch it on with the password.") + "\n",
+                            style="dim")
         if not state.get("allow_tx"):
             text.append(_("Receive only: noise sweeps only (start with --tx for SWR sweeps)") + "\n",
                         style="bold yellow")

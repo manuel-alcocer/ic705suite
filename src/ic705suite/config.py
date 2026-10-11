@@ -93,6 +93,10 @@ port = 8705
 # Highest RF power for SWR sweeps, percent (30 % = 3 W on the IC-705). SWR sweeps transmit,
 # so they also need [rig] tx_enabled = true (or --tx); noise sweeps never transmit.
 max_power = 30
+# The remote control (the phone may sweep) is switched on in the antenna application. With
+# a password here the phone page can switch it on too, once it is typed there (up at the
+# antenna, without going down to the computer). Empty: only from the antenna application.
+# remote_password = ""
 
 [ui]
 # Interface language: "en" or "es" (default: the system language; IC705SUITE_LANG overrides)
@@ -155,6 +159,7 @@ class Config:
     swr_host: str = "0.0.0.0"     # antenna page: all interfaces, for the phone
     swr_port: int = 8705
     swr_max_power: int = 30
+    swr_remote_password: str = ""    # lets the phone page switch the remote control on
     # [ui] [server] [client]
     language: str = ""
     glyphs: str = "auto"
@@ -163,6 +168,8 @@ class Config:
     server_token: str = ""
     connect: str = ""
     client_token: str = ""
+    # Where it was read from (the graphical client saves the theme chosen in its menu there).
+    source: Path | None = None
 
     @property
     def channels_url(self) -> str:
@@ -171,7 +178,7 @@ class Config:
 
 def load_config(path: Path | None = None) -> Config:
     path = path or DEFAULT_PATH
-    cfg = Config()
+    cfg = Config(source=path)
     if path.exists():
         with path.open("rb") as fh:
             data = tomllib.load(fh)
@@ -207,6 +214,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.swr_host = str(swr.get("host", cfg.swr_host))
         cfg.swr_port = int(swr.get("port", cfg.swr_port))
         cfg.swr_max_power = int(swr.get("max_power", cfg.swr_max_power))
+        cfg.swr_remote_password = str(swr.get("remote_password", cfg.swr_remote_password))
         server, client = data.get("server", {}), data.get("client", {})
         cfg.listen = str(server.get("listen", cfg.listen))
         cfg.server_token = str(server.get("token", cfg.server_token))

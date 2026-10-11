@@ -151,7 +151,9 @@ the scope or on the frequency digits tunes by the step; the macros and the Anten
 have buttons; sweeps are drawn as a chart. It works with a local core or `--connect` to a
 server, like the terminal client; the installers add a menu entry (Start menu on Windows).
 Dark or light: `[ui] theme = "dark" | "light" | "auto"` (auto, the default, follows the
-desktop), `--theme` for one run, or `ic705suite --configure`; the waterfalls stay dark.
+desktop), `--theme` for one run, `ic705suite --configure`, or **View → Theme** in the window,
+which changes it at once and keeps it in the configuration file; the waterfalls stay dark.
+**Help** has the project page and About; every status line ends with the suite's version.
 
 ### Core on a Raspberry Pi, client here
 
@@ -235,7 +237,10 @@ only), **S** SWR sweep
 (RTTY carrier at `max_power`, 2 s PTT watchdog, settings restored afterwards). An SWR sweep
 needs both `--tx` and the **remote control** switched on with **R** in this application: it is
 off whenever the suite starts and only this application can switch it on (it asks first).
-While it is off the phone page only watches and can stop a sweep.
+While it is off the phone page only watches and can stop a sweep. With `remote_password` set in
+`[swr]` (also asked by `--configure`), the phone page can switch it on itself once the password
+is typed there, and off at any time; five wrong passwords lock it for five minutes. The page is
+plain HTTP on the local network: use a password of its own, not one you use elsewhere.
 **C** records the coil position on the chosen band (with the last SWR sweep's results when it
 was on that band). The verdict says whether to raise or lower the coil and, with the history,
 roughly how much. **A** lists the antennas: each keeps its own history and saved settings

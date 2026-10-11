@@ -110,3 +110,15 @@ msgstr "Cliente gráfico"
 
 msgid "Look of the graphical client (ic705suite --gui): dark, light or auto (as the system)"
 msgstr "Aspecto del cliente gráfico (ic705suite --gui): dark (oscuro), light (claro) o auto (como el sistema)"
+
+msgid "Password for switching on the antenna's remote control from the phone (empty: only from the antenna application)"
+msgstr "Contraseña para encender desde el móvil el control remoto de la antena (vacía: solo desde la aplicación de antena)"
+
+msgid "Remote control from the phone"
+msgstr "Control remoto desde el móvil"
+
+msgid "with a password"
+msgstr "con contraseña"
+
+msgid "only from the antenna application"
+msgstr "solo desde la aplicación de antena"
