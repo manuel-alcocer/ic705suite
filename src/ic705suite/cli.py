@@ -70,6 +70,11 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
                         "(default: auto, from TERM)")
     p.add_argument("--config", type=Path, help="configuration file")
     p.add_argument("--init-config", action="store_true", help="write a configuration template and exit")
+    p.add_argument("--configure", action="store_true",
+                   help="ask for the main settings at the terminal (the current ones are the "
+                        "defaults), save them and exit")
+    p.add_argument("--show-config", action="store_true",
+                   help="show the main settings (password hidden) and exit")
     p.add_argument("--update-scp", action="store_true",
                    help="download MASTER.SCP (callsign database used by the CW skimmer) and exit")
     p.add_argument("--debug", action="store_true", help="debug logging (add -v for packet dumps)")
@@ -239,6 +244,12 @@ def main(argv: list[str] | None = None) -> int:
         migrated = migrate_legacy()
         if migrated is not None:
             print(f"settings imported from ~/.config/cwic705 into {migrated}")
+    if args.configure or args.show_config:
+        from ic705suite import configure
+
+        if args.configure:
+            return configure.run(args.config, args.lang)
+        return configure.show_config(args.config, language=args.lang)
     config = load_config(args.config)
     if args.update_scp:
         return update_scp(config.scp_path)

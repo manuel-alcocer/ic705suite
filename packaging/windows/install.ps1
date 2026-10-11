@@ -8,6 +8,9 @@
 #   .\install.ps1 -Uninstall           remove it; settings and data stay
 #   .\install.ps1 -Uninstall -Purge    remove it along with its settings and data
 #
+# After installing or upgrading it asks for the main settings (ic705suite --configure),
+# with the current ones as defaults when there are any; before uninstalling it shows them.
+#
 # Straight from the web:
 #   irm https://github.com/manuel-alcocer/ic705suite/releases/latest/download/ic705suite-install.ps1 | iex
 #
@@ -24,6 +27,7 @@ param(
     [string]$InstallDir = "",
     [switch]$Force,
     [switch]$Yes,
+    [switch]$NoConfigure,
     [switch]$Help
 )
 
@@ -79,6 +83,8 @@ Uso: install.ps1 [opciones]
   -InstallDir DIR     Instala en DIR (por defecto %LOCALAPPDATA%\Programs\ic705suite).
   -Force              Reinstala la misma versi\u00f3n o permite volver a una anterior.
   -Yes                No pide confirmaci\u00f3n antes de borrar datos.
+  -NoConfigure        No pregunta la configuraci\u00f3n (indicativo, equipo...) al
+                      terminar; se puede hacer luego con ic705suite --configure.
   -Help               Muestra esta ayuda.
 '@ | Write-Host
     } else {
@@ -97,6 +103,8 @@ Usage: install.ps1 [options]
   -InstallDir DIR     Install in DIR (default %LOCALAPPDATA%\Programs\ic705suite).
   -Force              Reinstall the same version or go back to an older one.
   -Yes                Do not ask before deleting data.
+  -NoConfigure        Do not ask for the settings (callsign, radio...) at the
+                      end; ic705suite --configure does it later.
   -Help               Show this help.
 '@ | Write-Host
     }
@@ -216,8 +224,30 @@ function Install-Executable([string]$Source) {
     Info (T "Done: ic705suite {0} (open a new terminal to have it in PATH)" `
             "Hecho: ic705suite {0} (abre un terminal nuevo para tenerlo en el PATH)" $new)
     Info (T "Try it without a radio:  ic705suite --sim" "Pru\u00e9balo sin equipo:  ic705suite --sim --lang es")
-    Info (T "Then set up your radio: ic705suite --init-config  ({0}\config.toml)" `
-            "Luego configura tu equipo: ic705suite --init-config  ({0}\config.toml)" $ConfigDir)
+}
+
+# Asks for the main settings, the current ones as defaults (ic705suite --configure shows
+# them first when there are any). Not without a console to ask at, as in CI.
+function Invoke-Configure {
+    if ($NoConfigure) { return }
+    # (Not [Environment]::UserInteractive: it is false over SSH, console and all.)
+    if ([Console]::IsInputRedirected) {
+        Info (T "No terminal to ask at; set up your radio later with: ic705suite --configure" `
+                "No hay terminal donde preguntar; configura tu equipo luego con: ic705suite --configure")
+        return
+    }
+    Write-Host ""
+    & $Exe --configure
+    if ($LASTEXITCODE -ne 0) {
+        Warn (T "Settings not saved; run ic705suite --configure when you like" `
+                "Configuraci\u00f3n sin guardar; ejecuta ic705suite --configure cuando quieras")
+    }
+}
+
+# The settings that stay (or go, with -Purge), before uninstalling.
+function Show-Settings {
+    # Straight to the console: through a pipe its accents would arrive in another code page.
+    if (Test-Path -LiteralPath $Exe) { & $Exe --show-config }
 }
 
 # Downloads a release, checks it against SHA256SUMS.txt and installs it.
@@ -264,6 +294,7 @@ function Install-Release {
 
 function Uninstall-Suite {
     $current = Get-InstalledVersion
+    Show-Settings
     if ($current) {
         Info (T "Uninstalling ic705suite {0} from {1}" "Desinstalando ic705suite {0} de {1}" $current $InstallDir)
         Remove-FromPath
@@ -319,6 +350,7 @@ function Invoke-Installer {
                    "ic705suite no est\u00e1 instalado en {0}; ejecuta sin -Upgrade para instalarlo" $InstallDir)
         }
         Install-Release
+        Invoke-Configure
     } else {
         $bundled = if ($ScriptDir) { Join-Path $ScriptDir "$App.exe" } else { "" }
         if (-not $Version -and $bundled -and (Test-Path -LiteralPath $bundled)) {
@@ -326,6 +358,7 @@ function Invoke-Installer {
         } else {
             Install-Release
         }
+        Invoke-Configure
     }
 }
 

@@ -23,6 +23,10 @@ Then `install.ps1 -Upgrade` upgrades and `install.ps1 -Uninstall` removes it (`-
 its settings and data too; hamrlog's logbook is left alone). The bare executable is
 `ic705suite-windows-x86_64.exe`.
 
+Both installers ask for the main settings (callsign, radio address, user and password...)
+after installing or upgrading, with the current ones as defaults; `ic705suite --configure`
+asks again at any time.
+
 **With Python 3.11 or newer**: `uv tool install` or `pipx install` the `.whl`
 (add `[postgres]` for PostgreSQL).
 

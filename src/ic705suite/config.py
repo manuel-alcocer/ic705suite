@@ -6,8 +6,10 @@ keep their own settings (F9 inside each of them).
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 import shutil
 import tomllib
 from dataclasses import dataclass, field
@@ -222,6 +224,49 @@ def write_template(path: Path | None = None) -> Path:
     path.write_text(TEMPLATE.replace("{token}", secrets.token_urlsafe(18)), encoding="utf-8")
     path.chmod(0o600)  # contains the radio password
     return path
+
+
+def toml_value(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    return json.dumps(str(value), ensure_ascii=False)   # a valid TOML basic string
+
+
+def set_values(text: str, values: dict[tuple[str, str], object]) -> str:
+    """The config file `text` with each (section, key) set to its value, everything else as
+    it was: the key's line is replaced, a commented-out one ("# key = ...") brought back, or
+    a new line added at the end of the section (the section too, if missing)."""
+    lines = text.splitlines()
+    for (section, key), value in values.items():
+        _set_value(lines, section, key, f"{key} = {toml_value(value)}")
+    return "\n".join(lines) + "\n"
+
+
+def _set_value(lines: list[str], section: str, key: str, line: str) -> None:
+    start, end = None, len(lines)
+    for i, current in enumerate(lines):
+        header = current.strip()
+        if header.startswith("[") and header.endswith("]") and not header.startswith("[["):
+            if start is not None:
+                end = i
+                break
+            if header[1:-1].strip() == section:
+                start = i
+    if start is None:
+        lines.extend(["", f"[{section}]", line] if lines and lines[-1].strip() else
+                     [f"[{section}]", line])
+        return
+    for pattern in (rf"^\s*{re.escape(key)}\s*=", rf"^\s*#\s*{re.escape(key)}\s*="):
+        for i in range(start + 1, end):
+            if re.match(pattern, lines[i]):
+                lines[i] = line
+                return
+    last = end
+    while last - 1 > start and not lines[last - 1].strip():
+        last -= 1
+    lines.insert(last, line)
 
 
 def migrate_legacy(path: Path | None = None, legacy_dir: Path = LEGACY_DIR) -> Path | None:

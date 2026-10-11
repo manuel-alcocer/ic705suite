@@ -34,6 +34,9 @@ def fake_ic705suite(folder: Path, version: str) -> Path:
     binary.write_text(
         "#!/bin/sh\n"
         f'if [ "$1" = "--version" ]; then echo "ic705suite {version}"; exit 0; fi\n'
+        # What the installer asked of it, for the tests that look.
+        'if [ -n "$FAKE_LOG" ]; then echo "$*" >>"$FAKE_LOG"; fi\n'
+        'if [ "$1" = "--configure" ]; then [ -t 0 ] && echo "asked at a terminal"; fi\n'
         "exit 0\n"
     )
     binary.chmod(0o755)
@@ -93,14 +96,37 @@ def prefix(tmp_path):
 
 
 def run(script: Path, env: dict, *args: str) -> subprocess.CompletedProcess:
+    """Without a terminal, as from a pipe or CI: a session of its own has no /dev/tty, so the
+    questions are skipped even when pytest runs in one."""
     return subprocess.run(
         ["bash", str(script), *args],
         env=env,
         capture_output=True,
         text=True,
         stdin=subprocess.DEVNULL,
+        start_new_session=True,
         timeout=60,
     )
+
+
+def run_at_a_terminal(script: Path, env: dict, *args: str) -> str:
+    """As typed by someone at a terminal: /dev/tty is a pseudo-terminal. Returns the output."""
+    import pty
+
+    pid, fd = pty.fork()
+    if pid == 0:                                     # pragma: no cover - the child
+        os.execve("/bin/bash", ["bash", str(script), *args], env)
+    output = b""
+    while True:
+        try:
+            data = os.read(fd, 4096)
+        except OSError:                              # the child is gone
+            break
+        if not data:
+            break
+        output += data
+    os.waitpid(pid, 0)
+    return output.decode(errors="replace")
 
 
 def installed_version(prefix: Path) -> str | None:
@@ -310,3 +336,49 @@ def test_messages_follow_a_spanish_locale(tmp_path, env, prefix):
     result = run(bundle / "install.sh", {**env, "LANG": "es_ES.UTF-8"}, "--prefix", str(prefix))
 
     assert "Instalando ic705suite 0.2.0" in result.stdout
+
+
+def test_after_installing_it_asks_for_the_settings_at_a_terminal(tmp_path, env, prefix):
+    log = tmp_path / "calls"
+    bundle = release_bundle(tmp_path / "bundle", "0.2.0")
+
+    output = run_at_a_terminal(bundle / "install.sh", {**env, "FAKE_LOG": str(log)},
+                               "--prefix", str(prefix))
+
+    assert "asked at a terminal" in output
+    assert log.read_text().splitlines() == ["--configure"]
+    # Installed already: it asks again, the current settings as defaults.
+    run_at_a_terminal(bundle / "install.sh", {**env, "FAKE_LOG": str(log)},
+                      "--prefix", str(prefix))
+    assert log.read_text().splitlines() == ["--configure", "--configure"]
+
+
+def test_without_a_terminal_the_settings_are_left_for_later(tmp_path, env, prefix):
+    log = tmp_path / "calls"
+    bundle = release_bundle(tmp_path / "bundle", "0.2.0")
+
+    result = run(bundle / "install.sh", {**env, "FAKE_LOG": str(log)}, "--prefix", str(prefix))
+
+    assert result.returncode == 0, result.stderr
+    assert "ic705suite --configure" in result.stdout
+    assert not log.exists()
+
+
+def test_no_configure_skips_the_questions(tmp_path, env, prefix):
+    log = tmp_path / "calls"
+    bundle = release_bundle(tmp_path / "bundle", "0.2.0")
+
+    output = run_at_a_terminal(bundle / "install.sh", {**env, "FAKE_LOG": str(log)},
+                               "--prefix", str(prefix), "--no-configure")
+
+    assert "asked at a terminal" not in output and not log.exists()
+
+
+def test_uninstall_shows_the_settings_first(tmp_path, env, prefix):
+    log = tmp_path / "calls"
+    run(release_bundle(tmp_path / "bundle", "0.2.0") / "install.sh", env, "--prefix", str(prefix))
+
+    result = run(INSTALLER, {**env, "FAKE_LOG": str(log)}, "--prefix", str(prefix), "--uninstall")
+
+    assert result.returncode == 0, result.stderr
+    assert log.read_text().splitlines() == ["--show-config"]

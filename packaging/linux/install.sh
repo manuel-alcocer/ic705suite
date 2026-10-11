@@ -9,6 +9,10 @@
 #   ./install.sh --uninstall          remove it; settings and data stay
 #   ./install.sh --uninstall --purge  remove it along with its settings and data
 #
+# After installing or upgrading it asks for the main settings (ic705suite
+# --configure), with the current ones as defaults when there are any; before
+# uninstalling it shows them.
+#
 # Straight from the web:
 #   curl -fsSL https://github.com/manuel-alcocer/ic705suite/releases/latest/download/ic705suite-install.sh | bash
 #
@@ -49,6 +53,8 @@ Uso: install.sh [opciones]
   --prefix DIR       Instala en DIR (por defecto ~/.local).
   --force            Reinstala la misma versión, permite volver a una anterior
                      o sustituye un ic705suite instalado por otro medio.
+  --no-configure     No pregunta la configuración (indicativo, equipo...) al
+                     terminar; se puede hacer luego con ic705suite --configure.
   -y, --yes          No pide confirmación antes de borrar datos.
   -h, --help         Muestra esta ayuda.
 EOF
@@ -69,6 +75,8 @@ Usage: install.sh [options]
   --prefix DIR       Install under DIR (default ~/.local).
   --force            Reinstall the same version, go back to an older one or
                      replace an ic705suite installed by other means.
+  --no-configure     Do not ask for the settings (callsign, radio...) at the
+                     end; ic705suite --configure does it later.
   -y, --yes          Do not ask before deleting data.
   -h, --help         Show this help.
 EOF
@@ -82,6 +90,7 @@ pinned_version=""
 purge=0
 force=0
 assume_yes=0
+no_configure=0
 
 while (($#)); do
     case "$1" in
@@ -100,6 +109,7 @@ while (($#)); do
         --version=*) pinned_version="${1#*=}"; pinned_version="${pinned_version#v}" ;;
         --force) force=1 ;;
         -y|--yes) assume_yes=1 ;;
+        --no-configure) no_configure=1 ;;
         -h|--help) usage; exit 0 ;;
         *) die "$(t "Unknown option: $1 (see --help)" "Opción desconocida: $1 (mira --help)")" ;;
     esac
@@ -231,12 +241,39 @@ install_binary() {
             printf '\n    export PATH="%s:$PATH"\n\n' "$BIN_DIR"
             ;;
     esac
-    # The settings are left to the user: writing a template here would stop
-    # the first run from importing cwic705's.
     info "$(t "Try it without a radio:  ic705suite --sim" \
               "Pruébalo sin equipo:  ic705suite --sim --lang es")"
-    info "$(t "Then set up your radio: ic705suite --init-config  (~/.config/ic705suite/config.toml)" \
-              "Luego configura tu equipo: ic705suite --init-config  (~/.config/ic705suite/config.toml)")"
+}
+
+# A terminal to ask at: the script may come through a pipe (curl | bash).
+have_terminal() {
+    { : </dev/tty; } 2>/dev/null
+}
+
+# Asks for the main settings, the current ones as defaults (ic705suite --configure
+# shows them first when there are any).
+configure_settings() {
+    ((no_configure)) && return 0
+    if ((system)); then
+        info "$(t "Each user sets up their radio with: ic705suite --configure" \
+                  "Cada usuario configura su equipo con: ic705suite --configure")"
+        return 0
+    fi
+    if ! have_terminal; then
+        info "$(t "No terminal to ask at; set up your radio later with: ic705suite --configure" \
+                  "No hay terminal donde preguntar; configura tu equipo luego con: ic705suite --configure")"
+        return 0
+    fi
+    echo
+    "$BIN" --configure </dev/tty ||
+        warn "$(t "Settings not saved; run ic705suite --configure when you like" \
+                  "Configuración sin guardar; ejecuta ic705suite --configure cuando quieras")"
+}
+
+# The settings that stay (or go, with --purge), before uninstalling.
+show_settings() {
+    [[ -x $BIN ]] || return 0
+    "$BIN" --show-config 2>/dev/null || true
 }
 
 # Downloads a release, checks it against SHA256SUMS.txt and installs it.
@@ -279,6 +316,7 @@ install_release() {
 uninstall() {
     local current
     current="$(installed_version)"
+    show_settings
     if [[ -n $current ]]; then
         info "$(t "Uninstalling ic705suite $current from $prefix" "Desinstalando ic705suite $current de $prefix")"
         while IFS= read -r file; do
@@ -334,6 +372,7 @@ case "$action" in
             die "$(t "ic705suite is not installed in $prefix; run without --upgrade to install it" \
                      "ic705suite no está instalado en $prefix; ejecuta sin --upgrade para instalarlo")"
         install_release
+        configure_settings
         ;;
     install)
         if [[ -z $pinned_version && -n $SCRIPT_DIR && -f $SCRIPT_DIR/$APP && -x $SCRIPT_DIR/$APP ]]; then
@@ -341,5 +380,6 @@ case "$action" in
         else
             install_release
         fi
+        configure_settings
         ;;
 esac

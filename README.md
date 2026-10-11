@@ -98,11 +98,18 @@ user's PATH and in the Start menu. The `install.ps1` inside the release's
 (`-Status`) and uninstalls (`-Uninstall`; `-Purge` deletes the suite's settings and data too,
 never hamrlog's logbook). It runs in Windows Terminal or the classic console.
 
+Both installers check what is installed, and after installing or upgrading ask for the main
+settings at the terminal (`ic705suite --configure`): language, callsign, how to reach the
+radio, its address, user and password, and whether it may transmit. Settings already there
+are shown first and are the defaults (Enter keeps each one); a new file starts from the
+template. Before uninstalling they show them (`ic705suite --show-config`). `--no-configure`
+(`-NoConfigure`) skips the questions, as does running without a terminal.
+
 From the source:
 
 ```sh
 uv sync                                # add --extra postgres for PostgreSQL
-uv run ic705suite --init-config        # writes config.toml (the path is printed; edit it)
+uv run ic705suite --configure          # asks for the main settings (or --init-config: template)
 uv run ic705suite --update-scp         # MASTER.SCP for the CW skimmer
 uv run ic705suite                      # dashboard, core in this process
 uv run ic705suite --sim                # try it without a radio

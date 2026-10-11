@@ -96,7 +96,7 @@ jobs:
           bundle="ic705suite-${{ needs.meta.outputs.version }}-linux-x86_64"
           prefix="$RUNNER_TEMP/prefix"
           tar -xzf "artifacts/$bundle.tar.gz" -C "$RUNNER_TEMP"
-          "$RUNNER_TEMP/$bundle/install.sh" --prefix "$prefix"
+          "$RUNNER_TEMP/$bundle/install.sh" --prefix "$prefix" --no-configure
           "$prefix/bin/ic705suite" --version
           "$RUNNER_TEMP/$bundle/install.sh" --prefix "$prefix" --status
           "$RUNNER_TEMP/$bundle/install.sh" --prefix "$prefix" --uninstall
@@ -160,7 +160,7 @@ jobs:
           $dir = "$env:RUNNER_TEMP\programs"
           Expand-Archive "artifacts/$bundle.zip" $env:RUNNER_TEMP
           $installer = "$env:RUNNER_TEMP\$bundle\install.ps1"
-          & $installer -InstallDir $dir
+          & $installer -InstallDir $dir -NoConfigure
           if ($LASTEXITCODE) { exit 1 }
           & "$dir\ic705suite.exe" --version
           & $installer -InstallDir $dir -Status

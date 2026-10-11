@@ -1,0 +1,106 @@
+# Spanish translations of ic705suite --configure / --show-config (the installers' questions).
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "That does not look like a callsign (for example EA7XYZ or EA7XYZ/P)"
+msgstr "Eso no parece un indicativo (por ejemplo EA7XYZ o EA7XYZ/P)"
+
+msgid "It cannot be empty"
+msgstr "No puede quedar vacío"
+
+msgid "Language"
+msgstr "Idioma"
+
+msgid "Connection"
+msgstr "Conexión"
+
+msgid "Transmission"
+msgstr "Transmisión"
+
+msgid "Enter keeps the current one"
+msgstr "Intro conserva la actual"
+
+msgid "Enter leaves it empty"
+msgstr "Intro la deja vacía"
+
+msgid "[Y/n]"
+msgstr "[S/n]"
+
+msgid "[y/N]"
+msgstr "[s/N]"
+
+msgid "Your callsign"
+msgstr "Tu indicativo"
+
+msgid "How to reach the radio: lan (WiFi/Ethernet) or sim (simulator, no radio)"
+msgstr "Cómo llegar al equipo: lan (WiFi/Ethernet) o sim (simulador, sin equipo)"
+
+msgid "Transmission stays off until the antenna SWR is right for your bands."
+msgstr "Deja la transmisión apagada hasta que la ROE de la antena esté bien en tus bandas."
+
+msgid "Enable transmission?"
+msgstr "¿Activar la transmisión?"
+
+msgid "The settings will be:"
+msgstr "La configuración quedará así:"
+
+msgid "automatic ({language})"
+msgstr "automático ({language})"
+
+msgid "Radio address"
+msgstr "Dirección del equipo"
+
+msgid "User"
+msgstr "Usuario"
+
+msgid "Password"
+msgstr "Contraseña"
+
+msgid "enabled"
+msgstr "activada"
+
+msgid "disabled"
+msgstr "desactivada"
+
+msgid "Settings in {path}:"
+msgstr "Configuración en {path}:"
+
+msgid "Enter keeps each value as it is."
+msgstr "Intro conserva cada valor tal como está."
+
+msgid "On the IC-705: MENU > SET > WLAN Set (Connection Status shows its address; Remote Settings, its Network User1)."
+msgstr "En el IC-705: MENU > SET > WLAN Set (Connection Status muestra su dirección; Remote Settings, su Network User1)."
+
+msgid "Radio address (IP or name)"
+msgstr "Dirección del equipo (IP o nombre)"
+
+msgid "Network user"
+msgstr "Usuario de red"
+
+msgid "Network password"
+msgstr "Contraseña de red"
+
+msgid "Settings not changed."
+msgstr "La configuración no ha cambiado."
+
+msgid "Saved in {path}."
+msgstr "Guardada en {path}."
+
+msgid "No settings yet ({path})"
+msgstr "Todavía no hay configuración ({path})"
+
+msgid "Choose one of: {options}"
+msgstr "Elige una de estas: {options}"
+
+msgid "No terminal to ask at: edit {path} or run ic705suite --configure in a terminal."
+msgstr "No hay terminal donde preguntar: edita {path} o ejecuta ic705suite --configure en un terminal."
+
+msgid "ic705suite is already set up in {path}:"
+msgstr "ic705suite ya está configurado en {path}:"
+
+msgid "Setting up ic705suite ({path})."
+msgstr "Configuración de ic705suite ({path})."
+
+msgid "Save them in {path}?"
+msgstr "¿Guardarla en {path}?"
