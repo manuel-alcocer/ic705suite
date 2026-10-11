@@ -20,7 +20,7 @@ from ic705suite import i18n
 from ic705suite.config import DEFAULT_PATH, TEMPLATE, Config, load_config, set_values
 from ic705suite.i18n import _
 
-CONNECTIONS = ("lan", "sim", "none")
+CONNECTIONS = ("lan", "sim", "none", "server")
 THEMES = ("dark", "light", "auto")
 CALLSIGN = re.compile(r"^[A-Z0-9]+(/[A-Z0-9]+)*$")
 MASK = "********"
@@ -42,6 +42,8 @@ def summary(config: Config) -> list[tuple[str, str]]:
     rows = [(_("Language"), language),
             (_("Callsign"), config.callsign or "-"),
             (_("Connection"), config.connection)]
+    if config.connection == "server":
+        rows.append((_("Radio's core"), config.connect or "-"))
     if config.connection == "lan":
         rows += [(_("Radio address"), config.host or "-"),
                  (_("User"), config.username or "-"),
@@ -254,8 +256,8 @@ def configure(path: Path | None = None, questions: Questions | None = None,
         i18n.set_language(config.language)
         config.callsign = q.text(_("Your callsign"), config.callsign, _callsign, upper=True)
         config.connection = q.choice(
-            _("How to reach the radio: lan (WiFi/Ethernet), sim (simulator) or none (no radio: "
-              "a core for packet only)"),
+            _("How to reach the radio: lan (WiFi/Ethernet), sim (simulator), none (no radio: "
+              "a core for packet only) or server (through another machine's core)"),
             CONNECTIONS, config.connection if config.connection in CONNECTIONS else "lan")
         if config.connection == "lan":
             q.write(_("On the IC-705: MENU > SET > WLAN Set (Connection Status shows its "
@@ -263,6 +265,12 @@ def configure(path: Path | None = None, questions: Questions | None = None,
             config.host = q.text(_("Radio address (IP or name)"), config.host, _not_empty)
             config.username = q.text(_("Network user"), config.username, _not_empty)
             config.password = q.password(_("Network password"), config.password)
+        if config.connection == "server":
+            config.connect = q.text(_("Address of the machine with the radio's core "
+                                      "(ic705suite --serve), host or host:port"),
+                                    config.connect, _tnc_address)
+            config.client_token = q.password(_("Its token ([server] token there)"),
+                                             config.client_token)
         q.write(_("Transmission stays off until the antenna SWR is right for your bands."))
         config.tx_enabled = q.yes(_("Enable transmission?"), config.tx_enabled)
         config.swr_remote_password = q.password(
@@ -305,6 +313,9 @@ def configure(path: Path | None = None, questions: Questions | None = None,
     if config.packet_tnc == "direwolf":
         values.update({("packet", "audio"): config.packet_audio,
                        ("packet", "ptt"): config.packet_ptt})
+    if config.connection == "server":
+        values.update({("client", "connect"): config.connect,
+                       ("client", "token"): config.client_token})
     if config.connection == "lan":
         values.update({("rig", "host"): config.host, ("rig", "username"): config.username,
                        ("rig", "password"): config.password})

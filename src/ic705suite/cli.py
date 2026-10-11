@@ -260,6 +260,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.update_scp:
         return update_scp(config.scp_path)
     apply_overrides(args, config)
+    if config.connection == "server" and args.connect is None and not args.serve \
+            and not args.wav:
+        args.connect = ""        # the radio is on another machine's core: [client] connect
     set_language(args.lang, config.language)
     glyphs.configure(args.glyphs or config.glyphs)
     log_file = setup_logging(args.debug or args.verbose, args.verbose)

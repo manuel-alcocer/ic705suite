@@ -296,3 +296,22 @@ def test_simulator_uses_the_demo_logbook(monkeypatch):
         url = os.environ["HAMRLOG_DATABASE_URL"]
         assert url != real and folder.as_posix() in url and os.path.exists(url.split("///")[1])
     assert os.environ["HAMRLOG_DATABASE_URL"] == real and not folder.exists()
+
+
+def test_with_the_radio_on_a_server_it_connects_there(tmp_path, monkeypatch):
+    """[rig] connection = "server": ic705suite opens a remote link to [client] connect."""
+    from ic705suite import cli
+    from ic705suite.station.links import RemoteLink
+
+    path = tmp_path / "config.toml"
+    path.write_text('[rig]\nconnection = "server"\n[station]\ncallsign = "EA7KLX"\n'
+                    '[client]\nconnect = "pi.local:7373"\ntoken = "t"\n', encoding="utf-8")
+    seen = {}
+
+    async def fake_suite(link, config, scp=None, start_app=None, problem=""):
+        seen["link"] = link
+        return 0
+
+    monkeypatch.setattr("ic705suite.launcher.run_suite", fake_suite)
+    assert cli.main(["--config", str(path)]) == 0
+    assert isinstance(seen["link"], RemoteLink) and seen["link"].uri == "ws://pi.local:7373"

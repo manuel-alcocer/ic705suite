@@ -216,3 +216,14 @@ def test_a_core_with_no_radio_for_packet(tmp_path, monkeypatch):
     config = load_config(path)
     assert config.connection == "none" and config.packet_tnc == "direwolf"
     assert config.packet_bbs and config.packet_bbs_call == "EA7KLX-1"
+
+
+def test_the_radio_on_another_machine(tmp_path):
+    path = tmp_path / "config.toml"
+    script = Script("en", "ea7klx", "server", "pi.local:7373", "", "", "none", "y",
+                    secrets=("the-token",))
+    assert configure.configure(path, script, language="en") == 0
+    config = load_config(path)
+    assert (config.connection, config.connect, config.client_token) == \
+        ("server", "pi.local:7373", "the-token")
+    assert "Radio's core" in "\n".join(script.said)

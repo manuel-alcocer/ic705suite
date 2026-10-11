@@ -41,6 +41,9 @@ def _transport(model: RigModel, config) -> Transport:
         from ic705suite.rig.transport import NoRadio
 
         return NoRadio(config.sample_rate)
+    if connection == "server":
+        raise ValueError('the radio is on another machine\'s core ([rig] connection = '
+                         '"server", [client] connect): this one cannot open it')
     if connection not in model.connections:
         raise ValueError(f"{model.name} cannot connect over {connection}")
     if model.family == "icom":

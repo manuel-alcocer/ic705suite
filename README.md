@@ -307,7 +307,11 @@ F7 open packet there, terminal and graphical client alike, while the rest of the
 with the radio on the computer's own core (whose packet then stays off). On a Raspberry Pi
 OS of 32 bits, numpy and the like come best from its packages
 (`apt install python3-numpy python3-sqlalchemy python3-websockets python3-soundfile`) and
-the suite in a `python3 -m venv --system-site-packages` environment.
+the suite in a `python3 -m venv --system-site-packages` environment. That core can have the
+radio too (`connection = "lan"`): a Raspberry Pi 4 runs it all with room to spare. Then, on
+the computer, `[rig] connection = "server"` with `[client] connect` and `token` makes
+`ic705suite` (and `--gui`) always use that core, with no `--connect` to type; `--sim` still
+opens the simulator here.
 
 ## Development
 

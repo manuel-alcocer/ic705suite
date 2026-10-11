@@ -42,7 +42,9 @@ TEMPLATE = """\
 # Radio model: "ic705" (more models to come)
 model = "ic705"
 # How to reach it: "lan" (WiFi/Ethernet), "usb" (next version), "sim" (built-in simulator)
-# or "none" (no radio: a core that serves packet only, e.g. a Raspberry Pi with a Digirig)
+# or "none" (no radio: a core that serves packet only, e.g. a Raspberry Pi with a Digirig),
+# or "server" (the radio is on another machine's core, ic705suite --serve: [client] connect;
+# ic705suite then always connects there)
 connection = "lan"
 # IP address of the IC-705 (MENU > SET > WLAN Set > Connection Status shows it)
 host = "192.168.1.50"

@@ -33,8 +33,8 @@ msgstr "[s/N]"
 msgid "Your callsign"
 msgstr "Tu indicativo"
 
-msgid "How to reach the radio: lan (WiFi/Ethernet), sim (simulator) or none (no radio: a core for packet only)"
-msgstr "Cómo llegar al equipo: lan (WiFi/Ethernet), sim (simulador) o none (sin equipo: un core solo para packet)"
+msgid "How to reach the radio: lan (WiFi/Ethernet), sim (simulator), none (no radio: a core for packet only) or server (through another machine's core)"
+msgstr "Cómo llegar al equipo: lan (WiFi/Ethernet), sim (simulador), none (sin equipo: un core solo para packet) o server (a través del core de otra máquina)"
 
 msgid "Transmission stays off until the antenna SWR is right for your bands."
 msgstr "Deja la transmisión apagada hasta que la ROE de la antena esté bien en tus bandas."
@@ -182,3 +182,12 @@ msgstr "¿Terminal de packet (F7) con indicativo propio?"
 
 msgid "no terminal"
 msgstr "sin terminal"
+
+msgid "Address of the machine with the radio's core (ic705suite --serve), host or host:port"
+msgstr "Dirección de la máquina con el core de la radio (ic705suite --serve), máquina o máquina:puerto"
+
+msgid "Its token ([server] token there)"
+msgstr "Su token ([server] token allí)"
+
+msgid "Radio's core"
+msgstr "Core de la radio"
