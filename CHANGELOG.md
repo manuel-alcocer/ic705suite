@@ -2,6 +2,23 @@
 
 <!-- version list -->
 
+## v0.5.0 (2026-10-11)
+
+### Features
+
+- **cw**: The macro keys alone, and ? for what each sends
+  ([`88050fa`](https://github.com/manuel-alcocer/ic705suite/commit/88050fad57fef9b4d6f9b56f3ec61d7b187cf48e))
+
+- **gui**: View > Theme switches dark, light or the system's at once
+  ([`ee1792b`](https://github.com/manuel-alcocer/ic705suite/commit/ee1792b7a9a9e4a213109f73c30fc6682a3bc667))
+
+- **swr**: The phone switches the remote control on with a password
+  ([`74b6514`](https://github.com/manuel-alcocer/ic705suite/commit/74b6514ed153d66673863b1857e9a48750ba0784))
+
+- **view**: The front panel with knobs, switches and drop-downs
+  ([`257c414`](https://github.com/manuel-alcocer/ic705suite/commit/257c4148c93e62dbe8b34c966d01e07fa7def71d))
+
+
 ## v0.4.0 (2026-10-11)
 
 ### Features
