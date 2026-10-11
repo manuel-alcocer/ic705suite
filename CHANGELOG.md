@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v0.4.0 (2026-10-11)
+
+### Features
+
+- **log**: Duplicates are by day, with a rule per profile
+  ([`6019fc3`](https://github.com/manuel-alcocer/ic705suite/commit/6019fc35cee1e2ceb5518a608c43fc742e2b3b0c))
+
+- **ui**: The version always shown, and a Help menu with About
+  ([`43e7493`](https://github.com/manuel-alcocer/ic705suite/commit/43e7493dd64060e0625756eebb3b3248fd02b7d0))
+
+
 ## v0.3.1 (2026-10-11)
 
 ### Bug Fixes
