@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.2.1 (2026-10-11)
+
+### Bug Fixes
+
+- **windows**: The release's smoke test waits for the suite to say it is ready
+  ([`fdece83`](https://github.com/manuel-alcocer/ic705suite/commit/fdece834e614f8a39826bd442c96e71cebc74443))
+
+
 ## v0.2.0 (2026-10-11)
 
 ### Continuous Integration
