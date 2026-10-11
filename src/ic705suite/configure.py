@@ -41,6 +41,7 @@ def summary(config: Config) -> list[tuple[str, str]]:
         language=i18n.detect_language())
     rows = [(_("Language"), language),
             (_("Callsign"), config.callsign or "-"),
+            (_("Locator"), config.locator or "-"),
             (_("Connection"), config.connection)]
     if config.connection == "server":
         rows.append((_("Radio's core"), config.connect or "-"))
@@ -227,6 +228,12 @@ def _tnc_address(value: str) -> str | None:
     return _not_empty(value) or _tnc(value)
 
 
+def _locator(value: str) -> str | None:
+    if not value or re.match(r"^[A-R]{2}\d{2}([A-X]{2}(\d{2})?)?$", value):
+        return None
+    return _("That does not look like a locator (for example IM77 or IM77AJ)")
+
+
 def _not_empty(value: str) -> str | None:
     return None if value else _("It cannot be empty")
 
@@ -255,6 +262,8 @@ def configure(path: Path | None = None, questions: Questions | None = None,
         config.language = q.choice(_("Language"), i18n.AVAILABLE, i18n.language())
         i18n.set_language(config.language)
         config.callsign = q.text(_("Your callsign"), config.callsign, _callsign, upper=True)
+        config.locator = q.text(_("Your locator (Maidenhead, e.g. IM77; FT8 sends it)"),
+                                config.locator, _locator, upper=True)
         config.connection = q.choice(
             _("How to reach the radio: lan (WiFi/Ethernet), sim (simulator), none (no radio: "
               "a core for packet only) or server (through another machine's core)"),
@@ -295,6 +304,7 @@ def configure(path: Path | None = None, questions: Questions | None = None,
     values = {
         ("ui", "language"): config.language,
         ("station", "callsign"): config.callsign,
+        ("station", "locator"): config.locator,
         ("rig", "connection"): config.connection,
         ("ui", "theme"): config.theme,
         ("swr", "remote_password"): config.swr_remote_password,

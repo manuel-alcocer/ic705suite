@@ -1,16 +1,24 @@
 """FT8 in the core: the radio's audio cut into the 15-second cycles of the UTC clock, each
-decoded by jt9 while the next one is heard.
+decoded by jt9 while the next one is heard; and the QSO, sent in our turn.
 
 Events (server -> client):
-  ft8        {on, jt9, band, dial, cycle, decoding, last, error}  when it changes
-  ft8.cycle  {start, seconds, depth, deep, decodes: [{time, snr, dt, freq, message,
-             doubtful, kind, sender, to, grid, report, end, cq_to}]}  each cycle decoded: a
-             quick pass first; when the machine has time, a deeper one ("deep") adds the
-             weaker signals it found
+  ft8        {on, jt9, band, dial, cycle, decoding, last, error, tx: {...}}  when it changes
+  ft8.cycle  {start, pass, seconds, depth, dial, decodes: [{time, snr, dt, freq, message,
+             doubtful, kind, sender, to, grid, report, end, cq_to}]}  what a pass found in a
+             cycle: "early" (in a QSO, near the other station, at second 13), "quick", then
+             "deep" when the machine has time; a cycle seen before gets the new decodes
+  ft8.tx     {start, message, freq}  a message sent
+  ft8.qso    {qso: {ADIF fields}, path}  a QSO completed, added to ft8_log.adi
+  info       a QSO completed, given up, or a transmission refused (and why)
+Calls ("ft8.*"): state, start, stop, history {cycles}, band {band}, cq {freq}, reply
+  {decode, start}, halt, txfreq {freq}, log (the QSOs completed and ft8_log.adi)
 Decoding ([ft8] depth 0, the default): as WSJT-X, the deepest pass that is done in about
 3 s first, then a deeper one if it fits before the next cycle, from what each depth took
-here (a Raspberry Pi 4: depth 1 in 3 s, 2 in 9 s, 3 in 23 s).
-Calls ("ft8.*"): state, start, stop, history {cycles}, band {band}
+here (a Raspberry Pi 4: depth 1 in 3 s, 2 in 9 s, 3 in 23 s). In a QSO a narrow pass near
+the other station at second 13 (under a second, even on the Pi) decides what goes next.
+Transmitting: our turn is every other cycle, the other parity from the station we answer;
+the message starts 0.5 s into the cycle, as audio over the radio's own link, keyed by CI-V;
+only with tx_enabled and the radio in a data mode (its DATA1 MOD input set to WLAN).
 """
 
 from __future__ import annotations
@@ -29,9 +37,11 @@ from pathlib import Path
 
 import numpy as np
 
-from ic705suite.apps.ft8 import jt9
+from ic705suite.apps.ft8 import adif, encode, jt9
 from ic705suite.apps.ft8.messages import parse
+from ic705suite.apps.ft8.sequence import Qso
 from ic705suite.i18n import N_
+from ic705suite.paths import data_dir
 from ic705suite.rig import bands
 from ic705suite.rig.base import RigError
 from ic705suite.rig.transport import TransportError
@@ -41,8 +51,20 @@ log = logging.getLogger(__name__)
 CYCLE = jt9.CYCLE
 KEEP_CYCLES = 40           # decoded cycles kept for a screen opened later
 SHORTEST = 0.8             # of a cycle: less audio than this (a gap, a reconnection) is skipped
-QUICK = 3.5                # seconds the first pass may take: answers go in the next cycle
+QUICK = 3.5                # seconds the first pass may take
 DEEP = 13.5                # seconds the second pass may take: done before the next cycle ends
+EARLY = 13.2               # second of the cycle when, in a QSO, the narrow pass runs
+NEAR = 250                 # Hz each side of the other station for that pass
+START = 0.5                # seconds into our cycle when the message starts
+LATE = 2.0                 # starting later than this would not be decoded well: next turn
+LEAD = 0.1                 # audio sent this much ahead (the radio keeps a small buffer)
+PIECE = 0.02               # seconds of audio per piece sent
+TAIL = 0.3                 # after the last piece, before unkeying
+LEVEL = 0.5                # of full scale (the radio's LAN MOD level sets the drive)
+LONGEST_KEY = 16.0         # the PTT watchdog while a message goes out
+CQ_TURNS = 20              # CQs with nobody answering (5 minutes): stop
+DATA1_MOD = b"\x1a\x05\x01\x19"
+MOD_WLAN = 0x03
 
 # FT8 dial frequencies (USB), as WSJT-X has them for IARU Region 1.
 DIALS = {"160m": 1_840_000, "80m": 3_573_000, "60m": 5_357_000, "40m": 7_074_000,
@@ -61,6 +83,11 @@ def cycle_start(now: float) -> float:
     return math.floor(now / CYCLE) * CYCLE
 
 
+def parity(start: float) -> int:
+    """0 for the even cycles (:00, :30), 1 for the odd ones (:15, :45)."""
+    return int(round(start / CYCLE)) % 2
+
+
 class Ft8Service:
     def __init__(self, station, config, hub) -> None:
         self.station = station
@@ -72,6 +99,7 @@ class Ft8Service:
         self.decoding = False
         self.last: dict = {}
         self.program: str | None = None
+        self.coder: str | None = None
         self._chunks: list[np.ndarray] = []
         self._start: float | None = None       # the cycle being heard (None: a partial one)
         self._task: asyncio.Task | None = None
@@ -80,6 +108,19 @@ class Ft8Service:
         self._changed = True
         self.timings: dict[int, float] = {}       # seconds each depth took here, lately
         self._deep_busy = False
+        self._known: dict[float, set[str]] = {}   # messages already sent out, per cycle
+        # Transmitting
+        self.qso = Qso(config.callsign.upper(), config.locator.upper()[:4])
+        self.tx_on = False
+        self.tx_parity = 0
+        self.tx_freq = config.ft8_tx_freq
+        self.their_freq = 0                       # the other station's audio frequency
+        self.transmitting = False
+        self.cq_turns = 0
+        self._sending: asyncio.Task | None = None
+        self._mod_set = False
+        self.qso_began: float | None = None      # our first message to the other station
+        self.logged: list[dict] = []
 
     # ---- life ---------------------------------------------------------------------------------
 
@@ -92,6 +133,7 @@ class Ft8Service:
                             "Ubuntu, Raspberry Pi OS: apt install wsjtx) or set [ft8] jt9")
             self._touch()
             raise Ft8Error(self.error)
+        self.coder = encode.find_ft8code(self.config.ft8_jt9)
         self.error = ""
         self._work = Path(tempfile.mkdtemp(prefix="ic705suite-ft8-"))
         self._chunks, self._start = [], None
@@ -101,6 +143,7 @@ class Ft8Service:
         self._touch()
 
     async def stop(self) -> None:
+        await self.halt()
         if not self.on:
             return
         self.on = False
@@ -124,6 +167,12 @@ class Ft8Service:
     def _touch(self) -> None:
         self._changed = True
 
+    def _background(self, coroutine) -> asyncio.Task:
+        task = asyncio.create_task(coroutine)
+        self._pending.add(task)
+        task.add_done_callback(self._pending.discard)
+        return task
+
     # ---- the cycles ---------------------------------------------------------------------------
 
     def _audio(self, samples: np.ndarray) -> None:
@@ -132,15 +181,27 @@ class Ft8Service:
 
     async def _run(self) -> None:
         while True:
-            boundary = cycle_start(time.time()) + CYCLE
+            now = time.time()
+            boundary = cycle_start(now) + CYCLE
+            early_at = boundary - CYCLE + EARLY
+            if self._listening_for_them() and now < early_at:
+                await asyncio.sleep(max(0.0, early_at - time.time()))
+                if self._start is not None and self._listening_for_them():
+                    self._background(self._early(self._start, list(self._chunks)))
             await asyncio.sleep(max(0.0, boundary - time.time()))
             heard, start = self._chunks, self._start
             self._chunks, self._start = [], boundary
             if start is not None and heard:
-                task = asyncio.create_task(self._decode(start, heard))
-                self._pending.add(task)
-                task.add_done_callback(self._pending.discard)
+                self._background(self._decode(start, heard))
+            if self.tx_on and parity(boundary) == self.tx_parity:
+                self._sending = self._background(self._transmit(boundary))
             self._touch()
+
+    def _listening_for_them(self) -> bool:
+        """In a QSO, and this cycle is the other station's turn."""
+        if not self.tx_on or self.qso.step in ("idle", "done"):
+            return False
+        return parity(cycle_start(time.time())) != self.tx_parity
 
     def depths(self) -> tuple[int, int | None]:
         """The first pass's depth and the second's (None: no second pass)."""
@@ -151,26 +212,55 @@ class Ft8Service:
         deep = next((d for d in (3, 2) if d > quick and self.timings.get(d, 0) <= DEEP), None)
         return quick, deep
 
-    async def _decode(self, start: float, chunks: list[np.ndarray]) -> None:
+    def _samples(self, chunks: list[np.ndarray], whole: bool) -> np.ndarray | None:
         rate = self.station.transport.sample_rate
+        if not chunks:
+            return None
         samples = np.concatenate(chunks)
-        if len(samples) < SHORTEST * CYCLE * rate:
-            log.info("ft8: cycle %s too short (%.1f s), skipped", start, len(samples) / rate)
+        if whole and len(samples) < SHORTEST * CYCLE * rate:
+            return None
+        if len(samples) < CYCLE * rate:          # the early pass: the rest is still to come
+            samples = np.concatenate([samples, np.zeros(CYCLE * rate - len(samples),
+                                                        np.float32)])
+        return samples[:CYCLE * rate]
+
+    async def _early(self, start: float, chunks: list[np.ndarray]) -> None:
+        """At second 13 of their turn: what the other station said, in time to answer."""
+        samples = self._samples(chunks, whole=False)
+        if samples is None:
             return
-        samples = samples[:CYCLE * rate]
-        folder = self._work / str(int(start))       # jt9 leaves its files where it runs
-        folder.mkdir(exist_ok=True)
+        centre = self.their_freq or self.tx_freq
+        band = (max(100, centre - NEAR), min(3500, centre + NEAR))
+        folder = self._folder(start, "early")
+        wav = folder / jt9.cycle_name(start)
+        try:
+            await asyncio.to_thread(jt9.write_wav, wav, samples,
+                                    self.station.transport.sample_rate)
+            await self._pass(start, wav, 3 if self.timings.get(3, 99) <= QUICK else 2,
+                             "early", band=band, limit=QUICK * 2)
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            log.warning("ft8: early pass: %s", exc)
+        finally:
+            shutil.rmtree(folder, ignore_errors=True)
+
+    async def _decode(self, start: float, chunks: list[np.ndarray]) -> None:
+        samples = self._samples(chunks, whole=True)
+        if samples is None:
+            log.info("ft8: cycle %s too short, skipped", start)
+            return
+        folder = self._folder(start, "full")
         wav = folder / jt9.cycle_name(start)
         quick, deep = self.depths()
         self.decoding = True
         self._touch()
         try:
-            await asyncio.to_thread(jt9.write_wav, wav, samples, rate)
-            first = await self._pass(start, wav, quick, set())
+            await asyncio.to_thread(jt9.write_wav, wav, samples,
+                                    self.station.transport.sample_rate)
+            await self._pass(start, wav, quick, "quick", limit=QUICK * 8)
             if deep is not None and not self._deep_busy:
                 self._deep_busy = True
                 try:
-                    await self._pass(start, wav, deep, {d["message"] for d in first})
+                    await self._pass(start, wav, deep, "deep", limit=DEEP + 5)
                 finally:
                     self._deep_busy = False
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
@@ -181,32 +271,43 @@ class Ft8Service:
             shutil.rmtree(folder, ignore_errors=True)
             self._touch()
 
-    async def _pass(self, start: float, wav: Path, depth: int, known: set[str]) -> list[dict]:
-        """One jt9 run; sends what is new (the second pass: what the first missed)."""
+    def _folder(self, start: float, name: str) -> Path:
+        folder = self._work / f"{int(start)}-{name}"      # jt9 leaves its files where it runs
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder
+
+    async def _pass(self, start: float, wav: Path, depth: int, kind: str,
+                    band: tuple[int, int] | None = None, limit: float = 30.0) -> list[dict]:
+        """One jt9 run; sends what is new in this cycle, and lets the QSO hear it."""
         began = time.monotonic()
-        limit = QUICK * 8 if not known else DEEP + 5
         try:
-            decodes = await asyncio.to_thread(jt9.decode, self.program, wav, depth, limit)
+            decodes = await asyncio.to_thread(jt9.decode, self.program, wav, depth, limit, band)
         except subprocess.TimeoutExpired:
-            self.timings[depth] = limit         # too slow here: not chosen again
+            if band is None:
+                self.timings[depth] = limit     # too slow here: not chosen again
             log.info("ft8: depth %d took over %.0f s here", depth, limit)
             return []
         took = round(time.monotonic() - began, 1)
-        # Smoothed: one slow cycle (the machine busy) does not change the choice.
-        before = self.timings.get(depth)
-        self.timings[depth] = took if before is None else round(0.7 * before + 0.3 * took, 1)
+        if band is None:
+            # Smoothed: one slow cycle (the machine busy) does not change the choice.
+            before = self.timings.get(depth)
+            self.timings[depth] = took if before is None else round(0.7 * before + 0.3 * took, 1)
+        known = self._known.setdefault(start, set())
+        for old in [s for s in self._known if s < start - 4 * CYCLE]:
+            del self._known[old]
         entries = [self._entry(d) for d in decodes if d.message not in known]
-        cycle = {"start": start, "seconds": took, "depth": depth, "deep": bool(known),
+        known.update(e["message"] for e in entries)
+        cycle = {"start": start, "pass": kind, "seconds": took, "depth": depth,
                  "dial": self.station.rig.state.frequency, "decodes": entries}
-        if known:
-            merged = next((c for c in self.history if c["start"] == start), None)
-            if merged is not None:
-                merged["decodes"] = merged["decodes"] + entries
+        seen = next((c for c in self.history if c["start"] == start), None)
+        if seen is not None:
+            seen["decodes"] = seen["decodes"] + entries
         else:
-            self.history.append(dict(cycle))
-        count = len(entries) + (len(known) if known else 0)
-        self.last = {"start": start, "count": count, "seconds": took, "depth": depth}
+            self.history.append({**cycle, "decodes": list(entries)})
+        if kind != "early":
+            self.last = {"start": start, "count": len(known), "seconds": took, "depth": depth}
         self.hub.emit({"type": "ft8.cycle", **cycle})
+        self._hear(start, entries)
         self._touch()
         return entries
 
@@ -214,6 +315,198 @@ class Ft8Service:
     def _entry(decode: jt9.Decode) -> dict:
         message = parse(decode.message)
         return {**asdict(decode), **asdict(message)}
+
+    # ---- the QSO ------------------------------------------------------------------------------
+
+    def _hear(self, start: float, entries: list[dict]) -> None:
+        """Decodes of the other station's turn move the QSO on."""
+        if not self.tx_on or parity(start) == self.tx_parity:
+            return
+        for entry in entries:
+            if self.qso.heard(entry):
+                if self.qso.them and entry.get("sender") == self.qso.them:
+                    self.their_freq = entry["freq"]
+                self.cq_turns = 0
+                self._touch()
+        if self.qso.step == "done":
+            self._finished()
+
+    async def call_cq(self, freq: int | None = None) -> str:
+        self._check_tx()
+        if freq:
+            self.tx_freq = int(freq)
+        message = self.qso.call_cq()
+        self.their_freq, self.cq_turns, self.qso_began = 0, 0, None
+        # The next cycle is ours.
+        self.tx_parity = parity(cycle_start(time.time()) + CYCLE)
+        self.tx_on = True
+        self._touch()
+        return message
+
+    async def reply(self, decode: dict, start: float) -> str:
+        """Answer a station heard in the cycle that began at `start`."""
+        self._check_tx()
+        if not decode.get("sender") or decode.get("kind") not in ("cq", "call"):
+            raise Ft8Error(N_("Nobody to answer in that message"))
+        message = self.qso.answer(decode)
+        self.their_freq = int(decode.get("freq") or 0)
+        self.qso_began = None
+        self.tx_parity = 1 - parity(start)
+        self.tx_on = True
+        self._touch()
+        return message
+
+    async def halt(self) -> None:
+        """Stop transmitting now (and the QSO)."""
+        self.tx_on = False
+        self.qso.stop()
+        sending, self._sending = self._sending, None
+        if sending is not None and not sending.done():
+            sending.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await sending
+        if self.transmitting:
+            await self._unkey()
+        self._touch()
+
+    def _check_tx(self) -> None:
+        if not self.on:
+            raise Ft8Error(N_("FT8 is stopped: S starts it"))
+        if not self.config.tx_enabled:
+            raise Ft8Error(N_("Transmission is off ([rig] tx_enabled, --tx)"))
+        if not self.config.callsign:
+            raise Ft8Error(N_("No callsign: [station] callsign"))
+        if self.coder is None:
+            raise Ft8Error(N_("WSJT-X's ft8code is not installed here (it comes with jt9)"))
+        self.qso.mycall = self.config.callsign.upper()
+        self.qso.mygrid = self.config.locator.upper()[:4]
+
+    @property
+    def log_path(self) -> Path:
+        return data_dir() / "ft8" / "ft8_log.adi"
+
+    def _finished(self) -> None:
+        them = self.qso.them
+        if self.qso.complete:
+            self._log()
+            self.hub.info(N_("FT8 QSO with {call} complete (reports {sent} and {got})"),
+                          call=them, sent=self.qso.sent_report, got=self.qso.got_report)
+        self.tx_on = False
+        self.qso.stop()
+        self.qso_began = None
+        self._touch()
+
+    def _log(self) -> None:
+        """The QSO into ft8_log.adi, and to the clients (each one's logbook)."""
+        qso, rig = self.qso, self.station.rig
+        power = rig.state.power
+        watts = round(power * self.station.model.max_power_w / 100, 1) \
+            if power is not None else None
+        fields = adif.record(call=qso.them, grid=qso.their_grid, sent=qso.sent_report,
+                             received=qso.got_report, began=self.qso_began or time.time(),
+                             ended=time.time(), dial=rig.state.frequency or 0,
+                             audio=self.tx_freq, mycall=qso.mycall, mygrid=qso.mygrid,
+                             power_w=watts)
+        try:
+            adif.append(self.log_path, fields)
+        except OSError as exc:
+            self.hub.error(N_("FT8: cannot write {path}: {error}"), path=str(self.log_path),
+                           error=str(exc))
+        self.logged.append(fields)
+        self.hub.emit({"type": "ft8.qso", "qso": fields, "path": str(self.log_path)})
+
+    # ---- sending ------------------------------------------------------------------------------
+
+    async def _transmit(self, start: float) -> None:
+        qso = self.qso
+        if qso.step == "cq":
+            self.cq_turns += 1
+            if self.cq_turns > CQ_TURNS:
+                self.hub.info(N_("FT8: nobody answered {count} CQs; calling stopped"),
+                              count=CQ_TURNS)
+                await self.halt()
+                return
+        if qso.gave_up:
+            self.hub.info(N_("FT8: no answer from {call}; stopped"), call=qso.them or "?")
+            await self.halt()
+            return
+        message = qso.message
+        if not message:
+            return
+        begin = start + START
+        lateness = time.time() - begin
+        if lateness > LATE:
+            log.info("ft8: too late for this turn (%.1f s)", lateness)
+            return
+        problem = await self._cannot_key()
+        if problem is not None:
+            msgid, args = problem
+            self.hub.info(msgid, **args)
+            await self.halt()
+            return
+        rate = self.station.transport.sample_rate
+        try:
+            sound = await asyncio.to_thread(encode.audio, self.coder, message, self.tx_freq)
+        except encode.EncodeError as exc:
+            self.hub.error(N_("FT8 cannot send {message}: {error}"), message=message,
+                           error=str(exc))
+            await self.halt()
+            return
+        sound = jt9.resample(sound, encode.RATE, rate) * LEVEL
+        pcm = (np.clip(sound, -1, 1) * 32767).astype("<i2").tobytes()
+        piece = int(rate * PIECE) * 2
+        try:
+            await asyncio.sleep(max(0.0, begin - LEAD - 0.2 - time.time()))
+            await self.station.rig.ptt(True, longest=LONGEST_KEY)
+            self.transmitting = True
+            if qso.them and self.qso_began is None:
+                self.qso_began = time.time()          # TIME_ON: our first word to them
+            self._touch()
+            self.hub.emit({"type": "ft8.tx", "start": start, "message": message,
+                           "freq": self.tx_freq})
+            began = max(begin, time.time())
+            for index, offset in enumerate(range(0, len(pcm), piece)):
+                await asyncio.sleep(max(0.0, began + index * PIECE - LEAD - time.time()))
+                self.station.transport.send_audio(pcm[offset:offset + piece])
+            await asyncio.sleep(max(0.0, began + len(pcm) / 2 / rate - time.time()) + TAIL)
+        except (RigError, TransportError) as exc:
+            self.hub.error(N_("FT8 transmission failed: {error}"), error=str(exc))
+            await self.halt()
+            return
+        finally:
+            if self.transmitting:
+                await self._unkey()
+        qso.sent()
+        self._touch()
+        if qso.step == "done":
+            self._finished()
+
+    async def _unkey(self) -> None:
+        with contextlib.suppress(RigError, TransportError):
+            await self.station.rig.unkey()
+        self.transmitting = False
+        self._touch()
+
+    async def _cannot_key(self) -> tuple[str, dict] | None:
+        if not self.config.tx_enabled:
+            return N_("FT8 cannot transmit: transmission is off ([rig] tx_enabled, --tx)"), {}
+        if not self.station.connected:
+            return N_("FT8 cannot transmit: the radio is not connected"), {}
+        if not self.station.transport.can_send_audio:
+            return N_("FT8 cannot transmit: this connection cannot send the radio audio"), {}
+        rig = self.station.rig
+        try:
+            data_mode, _filter = await rig.read_data_mode()
+            if not data_mode:
+                return N_("FT8 cannot transmit: the radio is not in a data mode (USB-D); "
+                          "←→ tunes it for FT8"), {}
+            if not self._mod_set:
+                await rig.transact(DATA1_MOD + bytes([MOD_WLAN]))
+                self._mod_set = True
+        except (RigError, TransportError) as exc:
+            return N_("FT8 cannot transmit: the radio does not answer ({error})"), \
+                {"error": str(exc)}
+        return None
 
     # ---- the band -----------------------------------------------------------------------------
 
@@ -236,11 +529,16 @@ class Ft8Service:
     def state(self) -> dict:
         dial = self.station.rig.state.frequency
         band = bands.band_for(dial) if dial else None
+        qso = self.qso
         return {"on": self.on, "jt9": self.program or "", "error": self.error,
                 "dial": dial, "band": band.name if band else "",
                 "ft8_dial": bool(dial and dial in DIALS.values()),
                 "cycle": self._start, "decoding": self.decoding, "last": self.last,
-                "depths": list(self.depths())}
+                "depths": list(self.depths()),
+                "tx": {"on": self.tx_on, "transmitting": self.transmitting,
+                       "message": qso.message if self.tx_on else "", "step": qso.step,
+                       "them": qso.them, "freq": self.tx_freq, "parity": self.tx_parity,
+                       "tries": qso.tries, "mycall": qso.mycall, "grid": qso.mygrid}}
 
     async def call(self, method: str, params: dict) -> dict:
         try:
@@ -255,9 +553,28 @@ class Ft8Service:
                 return {"cycles": list(self.history)[-cycles:]}
             elif method == "band":
                 return {"dial": await self.tune(str(params.get("band", "")))}
+            elif method == "cq":
+                return {"message": await self.call_cq(params.get("freq"))}
+            elif method == "reply":
+                return {"message": await self.reply(dict(params["decode"]),
+                                                    float(params["start"]))}
+            elif method == "halt":
+                await self.halt()
+            elif method == "log":
+                try:
+                    text = self.log_path.read_text(encoding="utf-8")
+                except OSError:
+                    text = ""
+                return {"qsos": self.logged, "path": str(self.log_path), "adif": text}
+            elif method == "txfreq":
+                self.tx_freq = max(200, min(3000, int(params["freq"])))
+                self._touch()
+                return {"freq": self.tx_freq}
             else:
                 return {"error": f"unknown method ft8.{method}"}
         except Ft8Error as exc:
             return {"error": str(exc), "msgid": exc.msgid, "args": {
                 k: str(v) for k, v in exc.args_.items()}}
+        except (KeyError, ValueError) as exc:
+            return {"error": f"bad request: {exc}"}
         return {"ok": True}

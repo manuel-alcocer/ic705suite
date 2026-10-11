@@ -62,3 +62,39 @@ def test_band_activity_in_the_window(tmp_path, run, monkeypatch):
             win.close()
 
     run(scenario())
+
+
+def test_a_qso_from_the_window(tmp_path, run, monkeypatch):
+    from tests.ft8.test_ft8 import short_turns
+
+    short_turns(monkeypatch)
+
+    async def scenario():
+        from ic705suite.gui.app import MainWindow
+
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        win = MainWindow(link, config, start_app="ft8")
+        win.resize(1300, 800)
+        win.show()
+        page = win.page
+        try:
+            await until(lambda: page.state.get("on"))
+            await link.call("ft8.band", band="20m")
+            await until(lambda: any(d and d.get("message") == "CQ DL1ABC JO62"
+                                    for _s, d, _c, _st in page.lines))
+            row = next(i for i, (_s, d, _c, _st) in enumerate(page.lines)
+                       if d and d.get("message") == "CQ DL1ABC JO62")
+            page.table.cellDoubleClicked.emit(row, 4)         # the mouse answers
+            await until(lambda: any(cells[4] == "DL1ABC EA7KLX 73"
+                                    for _s, _d, cells, _st in page.lines), 15)
+            await until(lambda: not (page.state.get("tx") or {}).get("on"))
+            texts = [page.table.item(r, 4).text() for r in range(page.table.rowCount())]
+            assert "DL1ABC EA7KLX 73" in texts
+            assert page.table.item(texts.index("DL1ABC EA7KLX 73"), 1).text() == "TX"
+        finally:
+            await link.close()
+            win.close()
+
+    run(scenario())

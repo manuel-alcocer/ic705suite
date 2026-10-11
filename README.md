@@ -11,7 +11,7 @@ to the radio; a dashboard opens the applications, which all share that one conne
 | F5 | **Antenna** | SWR and noise sweeps, which way to move the coil, per-band history; also a page for the phone (formerly *swr-remote*) |
 | F6 | **Logbook** | *hamrlog*: contacts, ADIF, repeaters, address book |
 | F7 | **Packet** | BayCom-style terminal: 8 AX.25 channels and the monitor, over a Direwolf TNC (here or on another machine) |
-| F8 | **FT8** | the band's activity, decoded every 15 s with WSJT-X's jt9 (receive; transmit and the logbook to come) |
+| F8 | **FT8** | the band's activity decoded every 15 s with WSJT-X's jt9, CQ and answers with WSJT-X's automatic sequence |
 
 Everything runs in a console (Textual) with the HAMRLOG look, in English or Spanish, and only
 with the keyboard — no mouse: Tab, function keys and `/commands` (and the cursor keys on the
@@ -297,6 +297,25 @@ and leaving it stops it. As WSJT-X, a quick pass comes first (on a Raspberry Pi 
 in about 3-6 s after the cycle) and, when the machine has time before the next cycle, a
 deeper one adds the weaker signals; the depths follow what each one takes there
 (`[ft8] depth` fixes one). It needs the clock on time (NTP).
+
+Transmitting, as WSJT-X does: **Enter** (or a double click) answers the chosen station,
+**Q** calls CQ, **H** halts at once, **F** puts the transmit frequency on the chosen
+line's (`[ft8] tx_freq`, 1500 Hz by default). The QSO then runs by itself with the six
+standard messages (grid, report, R-report, RR73, 73), in our turn: the cycles of the other
+parity from the station answered. In a QSO a narrow pass near the other station at second
+13 of its turn (under a second, even on a Raspberry Pi) decides the next message in time;
+the same message goes again while the other station repeats theirs, and after six tries
+without an answer, or twenty CQs, it stops. The messages' tones come from WSJT-X's
+`ft8code` (installed with jt9); the suite makes the audio and sends it to the radio over its
+own link, keying it by CI-V, only with `tx_enabled` and the radio in a data mode (its DATA1
+MOD input set to WLAN). What we send shows in yellow. `[station] locator` is the grid sent
+(asked by `--configure`).
+
+Each QSO completed (reports both ways) is added to `ft8/ft8_log.adi` in the core's data
+folder (`~/.local/share/ic705suite` on Linux), as WSJT-X keeps `wsjtx_log.adi`: call, grid,
+mode, both reports, the start and end times, band, frequency (dial plus audio), our call,
+grid and power. That file is the one to upload to LoTW, eQSL or QRZ. The FT8 screen also
+puts the QSO into the logbook (hamrlog) of the machine it runs on, once.
 
 **The BBS.** With `[packet] bbs = true` the core also runs a BBS on its own callsign
 (`bbs_call`, by default your callsign `-1`): personal messages and bulletins, with the

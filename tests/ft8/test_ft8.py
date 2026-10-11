@@ -106,7 +106,7 @@ def fake_jt9(monkeypatch, slow: dict[int, float] | None = None) -> list[int]:
     depths: list[int] = []
     monkeypatch.setattr(service_module.jt9, "find_jt9", lambda configured="": "jt9")
 
-    def decode(program, wav, depth=3, timeout=30.0):
+    def decode(program, wav, depth=3, timeout=30.0, band=None):
         import time
 
         depths.append(depth)
@@ -152,16 +152,16 @@ def test_cycles_decoded_by_the_core(tmp_path, monkeypatch):
             sim = link.core.station.transport
             assert sim.frequency == 14_074_000 and sim.data_mode == (1, 1)
             assert (await link.call("ft8.start")) == {"ok": True}
-            await until(lambda: len([c for c in cycles if not c["deep"]]) >= 2)
+            await until(lambda: len([c for c in cycles if c["pass"] == "quick"]) >= 2)
             first = cycles[0]
-            assert first["depth"] == 1 and not first["deep"]
+            assert first["depth"] == 1 and first["pass"] == "quick"
             assert {d["message"] for d in first["decodes"]} == {
                 "CQ EA1ABC IN73", "EA7KLX DL1ABC -12", "G4XYZ F5ABC JN12"}
             cq = next(d for d in first["decodes"] if d["kind"] == "cq")
             assert (cq["sender"], cq["grid"], cq["snr"]) == ("EA1ABC", "IN73", -10)
             # The deeper pass, done in time, adds only what the first one missed.
-            await until(lambda: any(c["deep"] for c in cycles))
-            deep = next(c for c in cycles if c["deep"])
+            await until(lambda: any(c["pass"] == "deep" for c in cycles))
+            deep = next(c for c in cycles if c["pass"] == "deep")
             assert [d["message"] for d in deep["decodes"]] == ["CQ DX JA1ZZZ PM95"]
             assert deep["depth"] == 3
             history = (await link.call("ft8.history"))["cycles"]
@@ -257,3 +257,224 @@ def test_the_terminal_screen(tmp_path, monkeypatch):
         assert not link.core.ft8.on                                  # stopped on leaving
 
     asyncio.run(scenario())
+
+
+# ---- transmitting ------------------------------------------------------------------------------
+
+def short_turns(monkeypatch) -> dict:
+    """1-second cycles, 0.2-second messages, and the other station (DL1ABC) scripted: what it
+    sends in its turns follows what it heard from us, as WSJT-X would."""
+    monkeypatch.setattr(service_module, "CYCLE", 1)
+    for name, value in (("EARLY", 0.75), ("START", 0.1), ("LATE", 0.6), ("LEAD", 0.0),
+                        ("TAIL", 0.02), ("PIECE", 0.02)):
+        monkeypatch.setattr(service_module, name, value)
+    monkeypatch.setattr(service_module.jt9, "find_jt9", lambda configured="": "jt9")
+    monkeypatch.setattr(service_module.encode, "find_ft8code", lambda configured="": "ft8code")
+    air = {"sent": [], "says": "CQ DL1ABC JO62"}
+
+    def audio(program, message, frequency, rate=12_000):
+        air["sent"].append(message)
+        answers = {"DL1ABC EA7KLX IM77": "EA7KLX DL1ABC -07",
+                   "DL1ABC EA7KLX R-11": "EA7KLX DL1ABC RR73"}
+        air["says"] = answers.get(message, air["says"])
+        return np.zeros(int(rate * 0.2), np.float32)
+
+    def decode(program, wav, depth=3, timeout=30.0, band=None):
+        stamp = wav.stem.split("_")[1]
+        return jt9.parse(f"{stamp} -11  0.1 1200 ~  {air['says']}")
+
+    monkeypatch.setattr(service_module.encode, "audio", audio)
+    monkeypatch.setattr(service_module.jt9, "decode", decode)
+    return air
+
+
+def test_a_qso_answering_a_cq(tmp_path, monkeypatch):
+    short_turns(monkeypatch)
+    monkeypatch.setattr(service_module, "data_dir", lambda: tmp_path)
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        events: list[dict] = []
+        link.attach(lambda e: e.get("type") in ("ft8.tx", "info", "ft8.cycle", "ft8.qso")
+                    and events.append(e))
+        sim = link.core.station.transport
+        keyed: list[bool] = []
+        sim.on_tx_audio = lambda pcm, ptt: keyed.append(ptt)
+        try:
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            await until(lambda: any(e.get("type") == "ft8.cycle" and e["decodes"]
+                                    for e in events))
+            cycle = next(e for e in events if e.get("type") == "ft8.cycle" and e["decodes"])
+            cq = cycle["decodes"][0]
+            reply = await link.call("ft8.reply", decode=cq, start=cycle["start"])
+            assert reply == {"message": "DL1ABC EA7KLX IM77"}
+            state = (await link.call("ft8.state"))["tx"]
+            assert state["on"] and state["parity"] == 1 - service_module.parity(cycle["start"])
+            await until(lambda: any("complete" in e.get("text", "") for e in events), 15)
+            sent = [e["message"] for e in events if e.get("type") == "ft8.tx"]
+            assert sent[0] == "DL1ABC EA7KLX IM77"
+            assert "DL1ABC EA7KLX R-11" in sent and sent[-1] == "DL1ABC EA7KLX 73"
+            assert keyed and all(keyed)                   # audio only while keyed
+            assert not sim.ptt                            # released
+            done = next(e for e in events if "complete" in e.get("text", ""))
+            assert done["text"] == "FT8 QSO with DL1ABC complete (reports -11 and -07)"
+            # Logged: ft8_log.adi, and an ft8.qso event for the screens' logbooks.
+            qso = next(e for e in events if e.get("type") == "ft8.qso")["qso"]
+            assert {k: qso[k] for k in ("CALL", "GRIDSQUARE", "MODE", "RST_SENT", "RST_RCVD",
+                                        "BAND", "FREQ", "STATION_CALLSIGN", "MY_GRIDSQUARE")} \
+                == {"CALL": "DL1ABC", "GRIDSQUARE": "JO62", "MODE": "FT8", "RST_SENT": "-11",
+                    "RST_RCVD": "-07", "BAND": "20M", "FREQ": "14.075500",
+                    "STATION_CALLSIGN": "EA7KLX", "MY_GRIDSQUARE": "IM77"}
+            written = (tmp_path / "ft8" / "ft8_log.adi").read_text()
+            assert written.startswith("ic705suite FT8 log") and "<EOH>" in written
+            assert "<CALL:6>DL1ABC" in written and written.count("<EOR>") == 1
+            log = await link.call("ft8.log")
+            assert log["qsos"][0]["CALL"] == "DL1ABC" and "<CALL:6>DL1ABC" in log["adif"]
+            assert not (await link.call("ft8.state"))["tx"]["on"]
+            # Every message of a turn starts in it, on our side (odd or even) only.
+            starts = [e["start"] for e in events if e.get("type") == "ft8.tx"]
+            assert {service_module.parity(s) for s in starts} == {state["parity"]}
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_calling_cq_and_halting(tmp_path, monkeypatch):
+    air = short_turns(monkeypatch)
+    air["says"] = "G4XYZ F5ABC JN12"                     # nobody for us
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        try:
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            assert (await link.call("ft8.txfreq", freq=1800)) == {"freq": 1800}
+            assert (await link.call("ft8.cq")) == {"message": "CQ EA7KLX IM77"}
+            await until(lambda: len(air["sent"]) >= 2)
+            assert air["sent"][:2] == ["CQ EA7KLX IM77"] * 2
+            await link.call("ft8.halt")
+            count = len(air["sent"])
+            await asyncio.sleep(2.5)
+            assert len(air["sent"]) == count and not link.core.station.transport.ptt
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_what_stops_a_transmission(tmp_path, monkeypatch):
+    short_turns(monkeypatch)
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=False, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        texts: list[str] = []
+        link.attach(lambda e: e.get("type") == "info" and texts.append(e["text"]))
+        try:
+            assert (await link.call("ft8.cq"))["msgid"] == "FT8 is stopped: S starts it"
+            await link.call("ft8.start")
+            assert (await link.call("ft8.cq"))["msgid"].startswith("Transmission is off")
+            # Allowed to transmit, but not in a data mode: refused at the first turn.
+            link.core.config.tx_enabled = True
+            link.core.station.rig.tx_enabled = True
+            assert "message" in await link.call("ft8.cq")
+            await until(lambda: any("not in a data mode" in t for t in texts))
+            assert not link.core.ft8.tx_on and not link.core.station.transport.ptt
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_a_qso_from_the_terminal(tmp_path, monkeypatch):
+    from ic705suite.apps.ft8.app import STYLE_TX, Ft8App
+
+    short_turns(monkeypatch)
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        app = Ft8App(link, owns_link=True)
+        async with app.run_test(size=(140, 40)) as pilot:
+            await until(lambda: app.state.get("on"))
+            await pilot.press("right")                         # onto an FT8 frequency
+            await until(lambda: app.state.get("ft8_dial"))
+            await until(lambda: any(d and d.get("message") == "CQ DL1ABC JO62"
+                                    for _s, d, _c, _st in app.lines))
+            row = next(i for i, (_s, d, _c, _st) in enumerate(app.lines)
+                       if d and d.get("message") == "CQ DL1ABC JO62")
+            from textual.widgets import DataTable
+
+            app.query_one(DataTable).move_cursor(row=row)
+            await pilot.press("enter")
+            await until(lambda: any(cells[4] == "DL1ABC EA7KLX 73"
+                                    for _s, _d, cells, _st in app.lines), 15)
+            await until(lambda: not (app.state.get("tx") or {}).get("on"))
+            assert any(style == STYLE_TX and cells[4] == "DL1ABC EA7KLX 73"
+                       for _s, _d, cells, style in app.lines)
+            await pilot.press("q")                              # and now our own CQ
+            await until(lambda: (app.state.get("tx") or {}).get("message") ==
+                        "CQ EA7KLX IM77")
+            await pilot.press("h")
+            await until(lambda: not (app.state.get("tx") or {}).get("on"))
+            await pilot.press("escape")
+            await pilot.pause(0.3)
+
+    asyncio.run(scenario())
+
+
+
+def test_the_adif_record():
+    import calendar
+
+    from ic705suite.apps.ft8 import adif
+
+    began = calendar.timegm((2026, 10, 11, 18, 1, 15, 0, 0, 0))
+    fields = adif.record(call="DL1ABC", grid="JO62", sent="-11", received="-07", began=began,
+                         ended=began + 45, dial=14_074_000, audio=1500, mycall="EA7KLX",
+                         mygrid="IM77", power_w=5.0)
+    assert fields["QSO_DATE"] == "20261011" and fields["TIME_ON"] == "180115"
+    assert fields["TIME_OFF"] == "180200" and fields["FREQ"] == "14.075500"
+    assert fields["TX_PWR"] == "5" and fields["BAND"] == "20M"
+    text = adif.text(fields)
+    assert text.startswith("<CALL:6>DL1ABC <GRIDSQUARE:4>JO62 <MODE:3>FT8")
+    assert text.endswith("<EOR>\n")
+    assert "GRIDSQUARE" not in adif.text(adif.record(
+        call="DL1ABC", grid="", sent="-11", received="-07", began=began, ended=began,
+        dial=14_074_000, audio=1500, mycall="EA7KLX", mygrid="", power_w=None))
+
+
+def test_into_the_logbook_once(tmp_path):
+    """A QSO completed goes into hamrlog's log with its data, and only once."""
+    import datetime as dt
+
+    from ic705suite.apps.ft8.logbook import log_qso
+    from ic705suite.apps.log.core.services import OperatorService, QsoService, SettingsService
+    from ic705suite.apps.log.db.session import init_engine
+
+    init_engine(None)                      # the test's own logbook (tests/conftest.py)
+    operator = OperatorService.create("EA7KLX", "Manuel")
+    state = SettingsService.load_state()
+    state.operator_id = operator.id
+    SettingsService.save_state(state)
+    fields = {"CALL": "DL1ABC", "GRIDSQUARE": "JO62", "MODE": "FT8", "RST_SENT": "-11",
+              "RST_RCVD": "-07", "QSO_DATE": "20261011", "TIME_ON": "180115",
+              "BAND": "20M", "FREQ": "14.075500", "TX_PWR": "5", "COMMENT": "FT8 ic705suite"}
+    row, why = log_qso(fields)
+    assert row is not None and why == ""
+    assert (row.call, row.mode, row.band, row.freq_hz, row.rst_sent, row.rst_rcvd,
+            row.gridsquare) == ("DL1ABC", "FT8", "20m", 14_075_500, "-11", "-07", "JO62")
+    assert row.qso_utc == dt.datetime(2026, 10, 11, 18, 1, 15)
+    assert log_qso(fields) == (None, "already logged")
+    assert len([r for r in QsoService.recent(limit=10) if r.call == "DL1ABC"]) == 1

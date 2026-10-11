@@ -1,7 +1,9 @@
 """FT8 in the terminal: the band's activity, cycle by cycle, as WSJT-X's Band Activity.
 
 The core decodes (apps.ft8.service); this screen starts it when it opens, shows what each
-cycle brings (a CQ in green, what is sent to us in red) and stops it when it closes.
+cycle brings (a CQ in green, what is sent to us in red, what we send in yellow) and stops
+it when it closes. Enter answers the chosen station, Q calls CQ, H halts, F puts our
+transmit frequency on the chosen line's.
 """
 
 from __future__ import annotations
@@ -20,14 +22,17 @@ from ic705suite.station.links import Link
 from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.widgets import clock_footer, css
 
-HINT = N_("←→ Band · C CQ only · S Stop/Start · ↑↓ PgUp/PgDn · Esc Back")
-SHORT_HINT = N_("←→ Band · C CQ only · S Stop/Start · Esc Back")
+HINT = N_("Enter Answer · Q CQ · H Halt · F TX freq · ←→ Band · C CQ only · S Stop/Start · "
+          "Esc Back")
+SHORT_HINT = N_("Enter Answer · Q CQ · H Halt · ←→ Band · Esc Back")
 FT8_BANDS = list(DIALS)
 
 # How each kind of line is drawn (Rich styles; the graphical client maps them too).
 STYLE_CQ = "bold green"
 STYLE_ME = "bold white on dark_red"
 STYLE_DOUBT = "dim italic"
+STYLE_TX = "bold yellow"
+STYLE_HEADING = "dim"
 
 
 def kind_style(decode: dict, mycall: str) -> str:
@@ -52,6 +57,57 @@ def heading(cycle: dict) -> str:
         (f" · {bands.format_frequency(dial)}" if dial else "") + " " + "─" * 24
 
 
+def merge(cycles: list[dict], event: dict) -> None:
+    """A pass of a cycle (or a message we sent in it) into the list: a cycle seen before
+    gets the new lines."""
+    known = next((c for c in cycles if c["start"] == event["start"]), None)
+    if known is not None:
+        known["decodes"] = known["decodes"] + event["decodes"]
+        if event.get("dial"):
+            known["dial"] = event["dial"]
+    else:
+        cycles.append({**event, "decodes": list(event["decodes"])})
+        cycles.sort(key=lambda c: c["start"])
+        del cycles[:-60]
+
+
+def sent_line(event: dict) -> dict:
+    """An ft8.tx event as a line of its cycle."""
+    return {"start": event["start"], "dial": None,
+            "decodes": [{"kind": "tx", "time": time.strftime("%H%M%S", time.gmtime(
+                event["start"])), "snr": None, "dt": None, "freq": event["freq"],
+                "message": event["message"]}]}
+
+
+def rows(cycles: list[dict], cq_only: bool, mycall: str) -> list[tuple]:
+    """(cycle start, decode or None, cells, style) for each line of the list."""
+    out = []
+    for cycle in cycles:
+        out.append((cycle["start"], None, ["────────", "", "", "", heading(cycle)],
+                    STYLE_HEADING))
+        shown = [d for d in cycle["decodes"] if not cq_only or d.get("kind") in ("cq", "tx")
+                 or kind_style(d, mycall) == STYLE_ME]
+        for d in sorted(shown, key=lambda d: (d.get("kind") != "tx", d["freq"])):
+            stamp = f"{d['time'][:2]}:{d['time'][2:4]}:{d['time'][4:]}"
+            if d.get("kind") == "tx":
+                out.append((cycle["start"], d, [stamp, "TX", "", str(d["freq"]),
+                                                d["message"]], STYLE_TX))
+            else:
+                out.append((cycle["start"], d, [stamp, str(d["snr"]), f"{d['dt']:.1f}",
+                                                str(d["freq"]), d["message"]],
+                            kind_style(d, mycall)))
+    return out
+
+
+def tx_piece(state: dict) -> tuple[str, str] | None:
+    """What we are sending, for the status line."""
+    tx = state.get("tx") or {}
+    if not tx.get("on"):
+        return None
+    turn = _("even") if tx.get("parity") == 0 else _("odd")
+    return ("TX", f"{tx.get('message', '')} · {tx.get('freq')} Hz · {turn}")
+
+
 def extra(state: dict, now: float | None = None) -> list[tuple[str, str]]:
     """FT8's pieces of the status line."""
     now = time.time() if now is None else now
@@ -61,6 +117,9 @@ def extra(state: dict, now: float | None = None) -> list[tuple[str, str]]:
     if state.get("dial") and not state.get("ft8_dial"):
         pieces.append(("", _("not on an FT8 frequency (←→)")))
     pieces.append((_("CYCLE"), f"{int(now % CYCLE):02d}/{CYCLE} s"))
+    sending = tx_piece(state)
+    if sending:
+        pieces.append(sending)
     last = state.get("last") or {}
     if last:
         pieces.append((_("LAST"), _("{count} decoded in {seconds} s").format(
@@ -76,6 +135,10 @@ class Ft8App(App[int]):
     ENABLE_COMMAND_PALETTE = False
 
     BINDINGS = [
+        Binding("enter", "reply", show=False, priority=True),
+        Binding("q", "cq", show=False),
+        Binding("h", "halt", show=False),
+        Binding("f", "tx_freq", show=False),
         Binding("left", "band(-1)", show=False, priority=True),
         Binding("right", "band(1)", show=False, priority=True),
         Binding("c", "cq_only", show=False),
@@ -89,7 +152,8 @@ class Ft8App(App[int]):
         self.link = link
         self.owns_link = owns_link
         self.state: dict = {}
-        self.cycles: list[dict] = []         # oldest first, as decoded (deep passes merged)
+        self.cycles: list[dict] = []         # oldest first, as decoded (passes merged)
+        self.lines: list[tuple] = []         # what each row of the table shows
         self.cq_only = False
         self.started_here = False
         self.mycall = ""
@@ -149,41 +213,39 @@ class Ft8App(App[int]):
         elif kind == "ft8.cycle":
             self._add(event)
             self._message("info", "")
+        elif kind == "ft8.qso":
+            self.run_worker(self._logbook(event["qso"]))
+        elif kind == "ft8.tx":
+            self._add(sent_line(event))
         elif kind in ("info", "error"):
             self._message(kind, render(event))
 
     def _add(self, cycle: dict) -> None:
-        if cycle.get("deep"):
-            known = next((c for c in self.cycles if c["start"] == cycle["start"]), None)
-            if known is not None:
-                known["decodes"] = known["decodes"] + cycle["decodes"]
-        else:
-            self.cycles.append(dict(cycle))
-            del self.cycles[:-60]
+        merge(self.cycles, cycle)
         self._fill(keep_end=True)
-
-    def _visible(self, decodes: list[dict]) -> list[dict]:
-        shown = [d for d in decodes if not self.cq_only or d.get("kind") == "cq"
-                 or kind_style(d, self.mycall) == STYLE_ME]
-        return sorted(shown, key=lambda d: d["freq"])
 
     def _fill(self, keep_end: bool = False) -> None:
         table = self.query_one("#activity", DataTable)
         at_end = not table.row_count or table.cursor_row >= table.row_count - 2
+        row = table.cursor_row
         table.clear()
-        for cycle in self.cycles:
-            decodes = self._visible(cycle["decodes"])
-            table.add_row(Text("────────", style="dim"), "", "", "",
-                          Text(heading(cycle), style="dim"))
-            for d in decodes:
-                style = kind_style(d, self.mycall)
-                table.add_row(f"{d['time'][:2]}:{d['time'][2:4]}:{d['time'][4:]}",
-                              Text(str(d["snr"]), justify="right"),
-                              Text(f"{d['dt']:.1f}", justify="right"),
-                              Text(str(d["freq"]), justify="right"),
-                              Text(d["message"], style=style))
-        if table.row_count and (at_end or not keep_end):
-            table.move_cursor(row=table.row_count - 1)
+        self.lines = rows(self.cycles, self.cq_only, self.mycall)
+        for _start, _decode, cells, style in self.lines:
+            stamp, snr, dt, freq, message = cells
+            table.add_row(Text(stamp, style=STYLE_HEADING if style == STYLE_HEADING else ""),
+                          Text(snr, justify="right"), Text(dt, justify="right"),
+                          Text(freq, justify="right"), Text(message, style=style))
+        if table.row_count:
+            table.move_cursor(row=table.row_count - 1 if at_end or not keep_end
+                              else min(row, table.row_count - 1))
+
+    def _chosen(self) -> tuple[float, dict] | None:
+        table = self.query_one("#activity", DataTable)
+        if 0 <= table.cursor_row < len(self.lines):
+            start, decode, _cells, _style = self.lines[table.cursor_row]
+            if decode is not None and decode.get("kind") != "tx":
+                return start, decode
+        return None
 
     def _tick(self) -> None:
         if not self.is_running:
@@ -218,6 +280,58 @@ class Ft8App(App[int]):
         else:
             self._message("info", _("FT8 on {band}: {frequency} USB-D").format(
                 band=band, frequency=bands.format_frequency(reply["dial"])))
+
+    async def _logbook(self, fields: dict) -> None:
+        """The QSO completed into this machine's logbook (hamrlog), besides the core's
+        ft8_log.adi."""
+        import asyncio
+
+        from ic705suite.apps.ft8.logbook import log_qso
+
+        try:
+            row, why = await asyncio.to_thread(log_qso, fields)
+        except Exception as exc:  # noqa: BLE001 - shown on screen
+            row, why = None, str(exc)
+        if row is not None:
+            self._message("info", _("{call} logged in the logbook (FT8 {band}, sent {sent}, "
+                                    "received {rcvd})").format(
+                call=fields["CALL"], band=fields.get("BAND", ""),
+                sent=fields.get("RST_SENT", ""), rcvd=fields.get("RST_RCVD", "")))
+        elif why != "already logged":
+            self._message("error", _("Not in the logbook: {error} (it is in ft8_log.adi)")
+                          .format(error=why))
+
+    def action_reply(self) -> None:
+        chosen = self._chosen()
+        if chosen is None:
+            self._message("error", _("Choose a station's line first (↑↓)"))
+            return
+        self.run_worker(self._call(_("Answering: {message}"), "ft8.reply",
+                                   decode=chosen[1], start=chosen[0]), group="tx")
+
+    def action_cq(self) -> None:
+        self.run_worker(self._call(_("Calling: {message}"), "ft8.cq"), group="tx")
+
+    def action_halt(self) -> None:
+        self.run_worker(self._call(_("Transmission halted"), "ft8.halt"), group="tx")
+
+    def action_tx_freq(self) -> None:
+        chosen = self._chosen()
+        if chosen is None:
+            self._message("error", _("Choose a line first (↑↓): its frequency"))
+            return
+        self.run_worker(self._call(_("Transmitting on {freq} Hz"), "ft8.txfreq",
+                                   freq=chosen[1]["freq"]), group="tx")
+
+    async def _call(self, done: str, method: str, **params) -> None:
+        reply = await self.link.call(method, **params)
+        if reply.get("error"):
+            self._message("error", render({"msgid": reply.get("msgid"),
+                                           "args": reply.get("args", {}),
+                                           "text": reply["error"]}))
+        else:
+            self._message("info", done.format(**{k: v for k, v in reply.items()
+                                                 if isinstance(v, (str, int))}))
 
     def action_cq_only(self) -> None:
         self.cq_only = not self.cq_only

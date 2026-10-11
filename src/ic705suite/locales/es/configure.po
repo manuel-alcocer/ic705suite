@@ -191,3 +191,12 @@ msgstr "Su token ([server] token allí)"
 
 msgid "Radio's core"
 msgstr "Core de la radio"
+
+msgid "Locator"
+msgstr "Locator"
+
+msgid "Your locator (Maidenhead, e.g. IM77; FT8 sends it)"
+msgstr "Tu locator (Maidenhead, p. ej. IM77; FT8 lo envía)"
+
+msgid "That does not look like a locator (for example IM77 or IM77AJ)"
+msgstr "Eso no parece un locator (por ejemplo IM77 o IM77AJ)"

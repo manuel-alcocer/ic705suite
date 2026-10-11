@@ -1,5 +1,6 @@
 """FT8 in the graphical client: the terminal's screen (apps.ft8.app) with the same keys, and
-the mouse: the band from a list, Stop/Start, the CQ-only box."""
+the mouse: a double click answers a station, buttons call CQ and halt, the band from a list,
+Stop/Start, the CQ-only box."""
 
 from __future__ import annotations
 
@@ -23,11 +24,14 @@ from ic705suite.apps.ft8.app import (
     SHORT_HINT,
     STYLE_CQ,
     STYLE_DOUBT,
+    STYLE_HEADING,
     STYLE_ME,
+    STYLE_TX,
     Ft8App,
     extra,
-    heading,
-    kind_style,
+    merge,
+    rows,
+    sent_line,
 )
 from ic705suite.gui import theme
 from ic705suite.gui.page import Page
@@ -46,6 +50,7 @@ class Ft8Page(Page):
         self.setWindowTitle("FT8")
         self.state: dict = {}
         self.cycles: list[dict] = []
+        self.lines: list[tuple] = []
         self.cq_only = False
         self.started_here = False
         self.mycall = ""
@@ -71,6 +76,14 @@ class Ft8Page(Page):
         self.cq_box.toggled.connect(lambda on: on != self.cq_only and self.action_cq_only())
         controls.addWidget(self.cq_box)
         controls.addStretch(1)
+        for key, label, action in (("Enter", _("Answer"), self.action_reply),
+                                   ("Q", "CQ", self.action_cq),
+                                   ("H", _("Halt"), self.action_halt),
+                                   ("F", _("TX freq"), self.action_tx_freq)):
+            button = QPushButton(f"{key}  {label}")
+            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            button.clicked.connect(lambda _c=False, a=action: a())
+            controls.addWidget(button)
         self.frame.body.addLayout(controls)
         self.table = self.frame.add(Table(0, 5), 1)
         self.table.pass_letters = True                       # C, S are the page's
@@ -88,6 +101,7 @@ class Ft8Page(Page):
         for column in range(4):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         header.setStretchLastSection(True)
+        self.table.cellDoubleClicked.connect(self._double_click)
         self.message = QLabel()
         self.message.setTextFormat(Qt.TextFormat.RichText)
         self.footer = Footer([HINT, SHORT_HINT])
@@ -148,15 +162,14 @@ class Ft8Page(Page):
             self.state = event
             self._tick()
         elif kind == "ft8.cycle":
-            if event.get("deep"):
-                known = next((c for c in self.cycles if c["start"] == event["start"]), None)
-                if known is not None:
-                    known["decodes"] = known["decodes"] + event["decodes"]
-            else:
-                self.cycles.append(dict(event))
-                del self.cycles[:-60]
+            merge(self.cycles, event)
             self._fill(keep_end=True)
             self._message("info", "")
+        elif kind == "ft8.qso":
+            self.run_worker(self._logbook(event["qso"]))
+        elif kind == "ft8.tx":
+            merge(self.cycles, sent_line(event))
+            self._fill(keep_end=True)
         elif kind in ("info", "error"):
             self._message(kind, render(event))
 
@@ -166,27 +179,21 @@ class Ft8Page(Page):
             return QColor("#ffffff"), QColor("#8b1a1a"), True
         if style == STYLE_CQ:
             return QColor(theme.GREEN), None, True
-        if style == STYLE_DOUBT:
+        if style == STYLE_DOUBT or style == STYLE_HEADING:
             return QColor(theme.DIM), None, False
+        if style == STYLE_TX:
+            return QColor(theme.YELLOW), None, True
         return None, None, False
 
     def _fill(self, keep_end: bool = False) -> None:
         table = self.table
         bar = table.verticalScrollBar()
         at_end = bar.value() >= bar.maximum() - 4
-        rows: list[tuple[list[str], str]] = []
-        for cycle in self.cycles:
-            rows.append((["────────", "", "", "", heading(cycle)], "heading"))
-            shown = [d for d in cycle["decodes"] if not self.cq_only or d.get("kind") == "cq"
-                     or kind_style(d, self.mycall) == STYLE_ME]
-            for d in sorted(shown, key=lambda d: d["freq"]):
-                rows.append(([f"{d['time'][:2]}:{d['time'][2:4]}:{d['time'][4:]}",
-                              str(d["snr"]), f"{d['dt']:.1f}", str(d["freq"]), d["message"]],
-                             kind_style(d, self.mycall)))
-        table.setRowCount(len(rows))
-        for row, (cells, style) in enumerate(rows):
-            fg, bg, bold = (QColor(theme.DIM), None, False) if style == "heading" \
-                else self._colours(style)
+        chosen = table.currentRow()
+        self.lines = rows(self.cycles, self.cq_only, self.mycall)
+        table.setRowCount(len(self.lines))
+        for row, (_start, _decode, cells, style) in enumerate(self.lines):
+            fg, bg, bold = self._colours(style)
             for column, text in enumerate(cells):
                 item = QTableWidgetItem(text)
                 if fg is not None:
@@ -198,8 +205,22 @@ class Ft8Page(Page):
                     font.setBold(True)
                     item.setFont(font)
                 table.setItem(row, column, item)
-        if rows and (at_end or not keep_end):
+        if self.lines and (at_end or not keep_end):
             table.scrollToBottom()
+        if 0 <= chosen < len(self.lines):
+            table.selectRow(chosen)
+
+    def _double_click(self, row: int, _column: int) -> None:
+        self.table.selectRow(row)
+        self.action_reply()
+
+    def _chosen(self) -> tuple[float, dict] | None:
+        row = self.table.currentRow()
+        if 0 <= row < len(self.lines):
+            start, decode, _cells, _style = self.lines[row]
+            if decode is not None and decode.get("kind") != "tx":
+                return start, decode
+        return None
 
     def _tick(self) -> None:
         self.status.extra = extra(self.state)
@@ -235,6 +256,56 @@ class Ft8Page(Page):
         else:
             self._message("info", _("FT8 on {band}: {frequency} USB-D").format(
                 band=band, frequency=bands.format_frequency(reply["dial"])))
+
+    async def _logbook(self, fields: dict) -> None:
+        """The QSO completed into this machine's logbook (hamrlog), besides the core's
+        ft8_log.adi."""
+        import asyncio
+
+        from ic705suite.apps.ft8.logbook import log_qso
+
+        try:
+            row, why = await asyncio.to_thread(log_qso, fields)
+        except Exception as exc:  # noqa: BLE001 - shown on screen
+            row, why = None, str(exc)
+        if row is not None:
+            self._message("info", _("{call} logged in the logbook (FT8 {band}, sent {sent}, "
+                                    "received {rcvd})").format(
+                call=fields["CALL"], band=fields.get("BAND", ""),
+                sent=fields.get("RST_SENT", ""), rcvd=fields.get("RST_RCVD", "")))
+        elif why != "already logged":
+            self._message("error", _("Not in the logbook: {error} (it is in ft8_log.adi)")
+                          .format(error=why))
+
+    def action_reply(self) -> None:
+        chosen = self._chosen()
+        if chosen is None:
+            self._message("error", _("Choose a station's line first (↑↓)"))
+            return
+        self.run_worker(self._call(_("Answering: {message}"), "ft8.reply",
+                                   decode=chosen[1], start=chosen[0]), group="tx")
+
+    def action_cq(self) -> None:
+        self.run_worker(self._call(_("Calling: {message}"), "ft8.cq"), group="tx")
+
+    def action_halt(self) -> None:
+        self.run_worker(self._call(_("Transmission halted"), "ft8.halt"), group="tx")
+
+    def action_tx_freq(self) -> None:
+        chosen = self._chosen()
+        if chosen is None:
+            self._message("error", _("Choose a line first (↑↓): its frequency"))
+            return
+        self.run_worker(self._call(_("Transmitting on {freq} Hz"), "ft8.txfreq",
+                                   freq=chosen[1]["freq"]), group="tx")
+
+    async def _call(self, done: str, method: str, **params) -> None:
+        reply = await self.link.call(method, **params)
+        if reply.get("error"):
+            self._message("error", self._error(reply))
+        else:
+            self._message("info", done.format(**{k: v for k, v in reply.items()
+                                                 if isinstance(v, (str, int))}))
 
     def action_cq_only(self) -> None:
         self.cq_only = not self.cq_only

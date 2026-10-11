@@ -61,6 +61,8 @@ tx_enabled = false
 
 [station]
 callsign = "N0CALL"
+# Maidenhead locator (FT8 sends its first four characters), e.g. "IM77"
+# locator = ""
 
 [database]
 # Any SQLAlchemy URL. PostgreSQL is recommended (pip install ic705suite[postgres]):
@@ -137,6 +139,8 @@ max_power = 30
 # the default: a quick pass and, when there is time, a deeper one, as this machine allows)
 # jt9 = "jt9"
 # depth = 0
+# Audio frequency (Hz) of our transmissions, until a click or a key moves it
+# tx_freq = 1500
 
 [ui]
 # Interface language: "en" or "es" (default: the system language; IC705SUITE_LANG overrides)
@@ -183,6 +187,7 @@ class Config:
     tx_enabled: bool = False
     # [station]
     callsign: str = ""
+    locator: str = ""
     # [database]
     database_url: str = ""           # SQLAlchemy URL; "" = SQLite in the data folder
     # CW
@@ -214,6 +219,7 @@ class Config:
     # [ft8]
     ft8_jt9: str = ""
     ft8_depth: int = 0               # 0: chosen from how long each depth takes here
+    ft8_tx_freq: int = 1500
     packet_core: str = ""            # "host:port" of the core packet runs on ("" = this one)
     packet_core_token: str = ""
     packet_bbs_call: str = ""        # "" = the station callsign -1
@@ -254,6 +260,7 @@ def load_config(path: Path | None = None) -> Config:
         keyer = data.get("keyer", {})
         cfg.tx_enabled = bool(rig.get("tx_enabled", keyer.get("tx_enabled", cfg.tx_enabled)))
         cfg.callsign = str(data.get("station", {}).get("callsign", cfg.callsign)).upper()
+        cfg.locator = str(data.get("station", {}).get("locator", cfg.locator)).upper()
         cfg.database_url = str(data.get("database", {}).get("url", cfg.database_url))
         cfg.wpm = int(keyer.get("wpm", cfg.wpm))
         cfg.afc = bool(data.get("decoder", {}).get("afc", cfg.afc))
@@ -293,6 +300,7 @@ def load_config(path: Path | None = None) -> Config:
         ft8 = data.get("ft8", {})
         cfg.ft8_jt9 = str(ft8.get("jt9", cfg.ft8_jt9))
         cfg.ft8_depth = int(ft8.get("depth", cfg.ft8_depth))
+        cfg.ft8_tx_freq = int(ft8.get("tx_freq", cfg.ft8_tx_freq))
         server, client = data.get("server", {}), data.get("client", {})
         cfg.listen = str(server.get("listen", cfg.listen))
         cfg.server_token = str(server.get("token", cfg.server_token))

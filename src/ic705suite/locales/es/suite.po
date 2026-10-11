@@ -1124,8 +1124,97 @@ msgstr "no está en una frecuencia de FT8 (←→)"
 msgid "{count} decoded in {seconds} s"
 msgstr "{count} decodificados en {seconds} s"
 
-msgid "←→ Band · C CQ only · S Stop/Start · Esc Back"
-msgstr "←→ Banda · C Solo CQ · S Parar/Seguir · Esc Volver"
+# FT8: transmitting
 
-msgid "←→ Band · C CQ only · S Stop/Start · ↑↓ PgUp/PgDn · Esc Back"
-msgstr "←→ Banda · C Solo CQ · S Parar/Seguir · ↑↓ PgUp/PgDn · Esc Volver"
+msgid "Answer"
+msgstr "Responder"
+
+msgid "Answering: {message}"
+msgstr "Respondiendo: {message}"
+
+msgid "Calling: {message}"
+msgstr "Llamando: {message}"
+
+msgid "Choose a line first (↑↓): its frequency"
+msgstr "Elige antes una línea (↑↓): su frecuencia"
+
+msgid "Choose a station's line first (↑↓)"
+msgstr "Elige antes la línea de una estación (↑↓)"
+
+msgid "Enter Answer · Q CQ · H Halt · F TX freq · ←→ Band · C CQ only · S Stop/Start · Esc Back"
+msgstr "Intro Responder · Q CQ · H Parar TX · F Frec TX · ←→ Banda · C Solo CQ · S Parar/Seguir · Esc Volver"
+
+msgid "Enter Answer · Q CQ · H Halt · ←→ Band · Esc Back"
+msgstr "Intro Responder · Q CQ · H Parar TX · ←→ Banda · Esc Volver"
+
+msgid "FT8 QSO with {call} complete (reports {sent} and {got})"
+msgstr "QSO FT8 con {call} completo (informes {sent} y {got})"
+
+msgid "FT8 cannot send {message}: {error}"
+msgstr "FT8 no puede enviar {message}: {error}"
+
+msgid "FT8 cannot transmit: the radio does not answer ({error})"
+msgstr "FT8 no puede transmitir: la radio no responde ({error})"
+
+msgid "FT8 cannot transmit: the radio is not connected"
+msgstr "FT8 no puede transmitir: la radio no está conectada"
+
+msgid "FT8 cannot transmit: the radio is not in a data mode (USB-D); ←→ tunes it for FT8"
+msgstr "FT8 no puede transmitir: la radio no está en un modo de datos (USB-D); ←→ la sintoniza para FT8"
+
+msgid "FT8 cannot transmit: this connection cannot send the radio audio"
+msgstr "FT8 no puede transmitir: esta conexión no puede enviar audio a la radio"
+
+msgid "FT8 cannot transmit: transmission is off ([rig] tx_enabled, --tx)"
+msgstr "FT8 no puede transmitir: la transmisión está desactivada ([rig] tx_enabled, --tx)"
+
+msgid "FT8 is stopped: S starts it"
+msgstr "FT8 está parado: S lo pone en marcha"
+
+msgid "FT8 transmission failed: {error}"
+msgstr "Falló la transmisión FT8: {error}"
+
+msgid "FT8: no answer from {call}; stopped"
+msgstr "FT8: {call} no responde; parado"
+
+msgid "FT8: nobody answered {count} CQs; calling stopped"
+msgstr "FT8: nadie ha respondido a {count} CQ; se deja de llamar"
+
+msgid "Halt"
+msgstr "Parar TX"
+
+msgid "No callsign: [station] callsign"
+msgstr "Sin indicativo: [station] callsign"
+
+msgid "Nobody to answer in that message"
+msgstr "No hay nadie a quien responder en ese mensaje"
+
+msgid "TX freq"
+msgstr "Frec TX"
+
+msgid "Transmission halted"
+msgstr "Transmisión parada"
+
+msgid "Transmission is off ([rig] tx_enabled, --tx)"
+msgstr "La transmisión está desactivada ([rig] tx_enabled, --tx)"
+
+msgid "Transmitting on {freq} Hz"
+msgstr "Transmitiendo en {freq} Hz"
+
+msgid "WSJT-X's ft8code is not installed here (it comes with jt9)"
+msgstr "El ft8code de WSJT-X no está instalado aquí (viene con jt9)"
+
+msgid "even"
+msgstr "par"
+
+msgid "odd"
+msgstr "impar"
+
+msgid "{call} logged in the logbook (FT8 {band}, sent {sent}, received {rcvd})"
+msgstr "{call} apuntado en el diario (FT8 {band}, enviado {sent}, recibido {rcvd})"
+
+msgid "Not in the logbook: {error} (it is in ft8_log.adi)"
+msgstr "No está en el diario: {error} (sí está en ft8_log.adi)"
+
+msgid "FT8: cannot write {path}: {error}"
+msgstr "FT8: no se puede escribir {path}: {error}"

@@ -97,10 +97,14 @@ def parse(output: str) -> list[Decode]:
     return decodes
 
 
-def decode(program: str, wav: Path, depth: int = 3, timeout: float = 30.0) -> list[Decode]:
-    """Run jt9 on one cycle's WAV (in its folder, where it leaves its own files)."""
+def decode(program: str, wav: Path, depth: int = 3, timeout: float = 30.0,
+           band: tuple[int, int] | None = None) -> list[Decode]:
+    """Run jt9 on one cycle's WAV (in its folder, where it leaves its own files); `band`
+    (lowest, highest Hz) limits it to part of the passband, much faster."""
     flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-    result = subprocess.run([program, "-8", "-d", str(depth), wav.name], cwd=str(wav.parent),
+    limits = ["-L", str(band[0]), "-H", str(band[1])] if band else []
+    result = subprocess.run([program, "-8", "-d", str(depth), *limits, wav.name],
+                            cwd=str(wav.parent),
                             capture_output=True, text=True, timeout=timeout, check=False,
                             creationflags=flags)
     return parse(result.stdout)
