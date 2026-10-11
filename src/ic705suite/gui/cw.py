@@ -48,7 +48,7 @@ from ic705suite.apps.cw.tui import (
     station_marks,
 )
 from ic705suite.gui import theme
-from ic705suite.gui.page import Overlay, Page
+from ic705suite.gui.page import Overlay, Page, show_text
 from ic705suite.gui.widgets import (
     Footer,
     Frame,
@@ -60,6 +60,7 @@ from ic705suite.gui.widgets import (
     esc,
     hint_html,
     span,
+    with_load_html,
 )
 from ic705suite.i18n import N_, _, render
 from ic705suite.rig import bands
@@ -121,6 +122,10 @@ class TextPane(QTextEdit):
         if not self._timer.isActive():
             self._timer.start()
 
+    def redraw(self) -> None:
+        """Drawn again (the theme changed: the lines keep their kind, not their colour)."""
+        self._draw()
+
     def clear_lines(self) -> None:
         self.lines.clear()
         self._draw()
@@ -178,18 +183,7 @@ class CwStatus(StatusLine):
         chunks.append(span(f"{_('LINK')} ", theme.DIM) + span(self.link_description, theme.BLUE,
                                                                True))
         separator = span(" · ", theme.DIM)
-        self.setText(f'<table width="100%"><tr><td>{"".join(parts)}{separator.join(chunks)}'
-                     f'</td><td align="right">{self._load()}</td></tr></table>')
-
-    @staticmethod
-    def _load() -> str:
-        from ic705suite.ui.sysload import LOAD
-
-        load = LOAD.sample()
-        text = span("CPU ", theme.DIM) + span(f"{load.cpu:.0f}%", theme.TEXT, True)
-        if load.ram is not None:
-            text += span(" · RAM ", theme.DIM) + span(f"{load.ram:.1f}%", theme.TEXT, True)
-        return text
+        self.setText(with_load_html("".join(parts) + separator.join(chunks)))
 
 
 class CwPage(ChannelSaving, Page):
@@ -276,11 +270,18 @@ class CwPage(ChannelSaving, Page):
                 self.action_command(f"/macro F{n}")))
             self.macro_buttons[f"F{n}"] = button
             self.macro_bar.addWidget(button, 1)
+        # The keys only (a long macro would widen the window); ? lists what each one sends,
+        # and the mouse over a key shows it too.
+        self.macro_help = QPushButton("?")
+        self.macro_help.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.macro_help.setToolTip(_("What each macro sends"))
+        self.macro_help.clicked.connect(lambda: self.run_worker(self.show_macros()))
+        self.macro_bar.addWidget(self.macro_help)
 
         self.entry_frame = Frame()
         row = QHBoxLayout()
         self.entry_label = QLabel()
-        self.entry_label.setStyleSheet(f"color:{theme.CYAN};font-weight:bold;")
+        self.entry_label.setObjectName("heading")
         self.entry = QLineEdit()
         self.entry.setPlaceholderText(_("type /help for the commands"))
         self.entry.returnPressed.connect(lambda: self.run_worker(self._submit()))
@@ -487,6 +488,10 @@ class CwPage(ChannelSaving, Page):
 
     # ---- detail, macros, entry ----------------------------------------------------------------
 
+    def retheme(self) -> None:
+        self._show_detail()
+        self._show_macros()
+
     def _show_detail(self) -> None:
         """Three lines, as the terminal's DetailPanel: the decoder (or, skimming, the range
         and the chosen station) and what to do next."""
@@ -547,9 +552,18 @@ class CwPage(ChannelSaving, Page):
         call = self.welcome.get("callsign") or self.config.callsign or "N0CALL"
         for key, button in self.macro_buttons.items():
             text = macros.get(key, "").replace("{call}", call)
-            button.setText(f"{key}  {text}" if text else key)
+            button.setText(key)
             button.setToolTip(text)
             button.setEnabled(bool(text))
+
+    def macro_lines(self) -> list[str]:
+        macros = self.welcome.get("macros") or self.config.macros
+        call = self.welcome.get("callsign") or self.config.callsign or "N0CALL"
+        return [f"{key}  {macros.get(key, '').replace('{call}', call) or '—'}"
+                for key in self.macro_buttons]
+
+    async def show_macros(self) -> None:
+        await show_text(self, _("Macros"), self.macro_lines())
 
     def _update_entry_title(self) -> None:
         tx = self.state.get("tx_enabled", self.welcome.get("tx_enabled", False))
