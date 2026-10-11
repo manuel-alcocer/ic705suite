@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.3.1 (2026-10-11)
+
+### Bug Fixes
+
+- **rig**: The transmit meters follow the radio, however it is keyed
+  ([`ce82b73`](https://github.com/manuel-alcocer/ic705suite/commit/ce82b73ec46671baa87f325fb81001711d795909))
+
+### Testing
+
+- **cw**: The skimmer's scope is checked once it is laid out
+  ([`ff06fd4`](https://github.com/manuel-alcocer/ic705suite/commit/ff06fd4b521d67e7c821b76a67f62fd48fb74f6c))
+
+
 ## v0.3.0 (2026-10-11)
 
 ### Features
