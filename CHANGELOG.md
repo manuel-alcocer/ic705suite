@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.7.0 (2026-10-11)
+
+### Features
+
+- **gui**: Theme and help as buttons: sun, moon or auto, and ? for About
+  ([`dac65f1`](https://github.com/manuel-alcocer/ic705suite/commit/dac65f1cda1b9a2ef170c55b128ac2095b6fb7bd))
+
+
 ## v0.6.0 (2026-10-11)
 
 ### Features
