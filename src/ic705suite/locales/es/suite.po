@@ -676,11 +676,8 @@ msgstr "Suite de estación para el Icom IC-705: panel, vista del equipo, CW, aju
 msgid "Close"
 msgstr "Cerrar"
 
-msgid "View"
-msgstr "Ver"
-
-msgid "Theme"
-msgstr "Tema"
+msgid "Theme: {now} (click: {next})"
+msgstr "Tema: {now} (clic: {next})"
 
 msgid "Dark"
 msgstr "Oscuro"

@@ -151,9 +151,11 @@ the scope or on the frequency digits tunes by the step; the macros and the Anten
 have buttons; sweeps are drawn as a chart. It works with a local core or `--connect` to a
 server, like the terminal client; the installers add a menu entry (Start menu on Windows).
 Dark or light: `[ui] theme = "dark" | "light" | "auto"` (auto, the default, follows the
-desktop), `--theme` for one run, `ic705suite --configure`, or **View → Theme** in the window,
-which changes it at once and keeps it in the configuration file; the waterfalls stay dark.
-**Help** has the project page and About; every status line ends with the suite's version.
+desktop), `--theme` for one run, `ic705suite --configure`, or the **☀ / ☾ / ◐** button at the
+top right of the window (light, dark, auto: each click goes to the next), which changes it at
+once and keeps it in the configuration file; the waterfalls stay dark. Beside it, **?** opens
+About, with the links to the project page and the help; every status line ends with the
+suite's version.
 
 ### Core on a Raspberry Pi, client here
 

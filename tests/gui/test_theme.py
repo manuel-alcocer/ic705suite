@@ -44,19 +44,22 @@ def test_the_waterfall_is_dark_in_the_light_theme(light, qapp):
 
 
 def test_help_menu_and_the_version_always_shown(tmp_path, run):
-    """Help > About says the version; every status line ends with it."""
+    """? opens About: the version and the project's and the help's links; every status
+    line ends with the version."""
+    from PySide6.QtWidgets import QMessageBox
+
     from ic705suite import __version__
+    from ic705suite.gui.app import HELP_URL, PROJECT_URL
     from tests.gui.test_pages import window
 
     async def scenario():
         win, link = await window(tmp_path)
         try:
-            menus = [a.text() for a in win.menuBar().actions()]
-            assert menus == ["View", "Help"]
-            items = [a.text() for a in win.menuBar().actions()[1].menu().actions() if a.text()]
-            assert items == ["Project page", "About ic705suite"]
-            box = win.show_about()
+            assert win.help_button.text() == "?"
+            win.help_button.click()
+            box = win.findChild(QMessageBox)
             assert f"ic705suite {__version__}" in box.text()
+            assert PROJECT_URL in box.text() and HELP_URL in box.text()
             box.close()
             assert f"v{__version__}" in win.dashboard.status.text()
         finally:
@@ -76,9 +79,10 @@ def test_terminal_status_lines_keep_the_version():
         assert line.plain.rstrip().endswith(f"v{__version__}") and line.cell_len <= width
 
 
-def test_view_menu_switches_the_theme_at_once_and_keeps_it(tmp_path, run):
-    """View > Theme: the palette changes on the open window (the status line's colours
-    too) and [ui] theme is written in the configuration file, the rest of it unchanged."""
+def test_theme_button_switches_the_theme_at_once_and_keeps_it(tmp_path, run):
+    """The theme button goes light, dark, auto showing the one in use; the palette changes
+    on the open window (the status line's colours too) and [ui] theme is written in the
+    configuration file, the rest of it unchanged."""
     from ic705suite.gui import theme
     from tests.gui.test_pages import window
 
@@ -94,7 +98,13 @@ def test_view_menu_switches_the_theme_at_once_and_keeps_it(tmp_path, run):
             assert dark_cyan in win.dashboard.status.text()
             win.set_theme("light")
             assert theme.NAME == "light" and theme.CYAN != dark_cyan
-            assert win.theme_actions["light"].isChecked()
+            assert win.theme_button.text() == "\u2600"        # the sun
+            win.theme_button.click()
+            assert win.config.theme == "dark" and win.theme_button.text() == "\u263e"
+            win.theme_button.click()
+            assert win.config.theme == "auto" and win.theme_button.text() == "\u25d0"
+            win.theme_button.click()
+            assert win.config.theme == "light"
             assert theme.CYAN in win.dashboard.status.text()
             assert dark_cyan not in win.dashboard.status.text()
             saved = config_file.read_text(encoding="utf-8")

@@ -200,6 +200,24 @@ QLabel#toast {{
 QMenuBar {{
     background: {PANEL};
     border-bottom: 1px solid {BORDER};
+    min-height: 26px;
+}}
+QWidget#menucorner {{
+    background: transparent;
+}}
+QToolButton#cornerbutton {{
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: {TEXT};
+    font-size: 17px;
+    font-weight: bold;
+    min-width: 26px;
+    padding: 0px 4px;
+}}
+QToolButton#cornerbutton:hover {{
+    background: {RAISED};
+    border-color: {BORDER};
 }}
 QMenuBar::item:selected, QMenu::item:selected {{
     background: {SELECTED};

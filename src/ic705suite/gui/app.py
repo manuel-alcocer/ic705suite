@@ -38,7 +38,15 @@ def save_theme(config: Config) -> None:
     except (OSError, ValueError) as exc:
         log.warning("cannot save the theme in %s: %s", path, exc)
 
+
 PROJECT_URL = "https://github.com/manuel-alcocer/ic705suite"
+# The user's guide, once it is published (GitHub Pages of the project).
+HELP_URL = "https://manuel-alcocer.github.io/ic705suite/"
+
+# The theme button goes round these, showing the one in use.
+THEMES = ("light", "dark", "auto")
+THEME_ICONS = {"light": "\u2600", "dark": "\u263e", "auto": "\u25d0"}   # sun, moon, half
+THEME_NAMES = {"light": N_("Light"), "dark": N_("Dark"), "auto": N_("As the system")}
 
 
 class MainWindow(QMainWindow):
@@ -59,41 +67,65 @@ class MainWindow(QMainWindow):
         self.dashboard = DashboardPage(self, link, config, problem)
         self.stack.addWidget(self.dashboard)
         self.page: Page | None = None
-        self._view_menu()
-        self._help_menu()
+        self._corner_buttons()
         QApplication.instance().installEventFilter(self)
         if start_app is None:
             self.show_page(self.dashboard)
         else:
             self.open_app(start_app, standalone=True)
 
-    # ---- the View menu: the theme ---------------------------------------------------------
+    # ---- the corner of the menu bar: the theme and the help ------------------------------
 
-    def _view_menu(self) -> None:
-        from PySide6.QtGui import QActionGroup
+    def _corner_buttons(self) -> None:
+        """Two buttons instead of menus: the theme (sun, moon or auto: a click goes to the
+        next one) and ? for About, which has the project's and the help's links."""
+        from PySide6.QtWidgets import QHBoxLayout, QToolButton, QWidget
 
-        menu = self.menuBar().addMenu(_("View")).addMenu(_("Theme"))
-        group = QActionGroup(self)
-        group.setExclusive(True)
-        self.theme_actions = {}
-        for name, label in (("dark", N_("Dark")), ("light", N_("Light")),
-                            ("auto", N_("As the system"))):
-            action = menu.addAction(_(label))
-            action.setCheckable(True)
-            action.setChecked(name == (self.config.theme or "auto"))
-            action.triggered.connect(lambda _c=False, n=name: self.set_theme(n))
-            group.addAction(action)
-            self.theme_actions[name] = action
-        # "As the system" follows the desktop while the window is open.
+        bar = self.menuBar()
+        bar.setNativeMenuBar(False)     # macOS: the corner stays in the window
+        corner = QWidget(bar)            # owned by the bar (PySide would delete it)
+        corner.setObjectName("menucorner")
+        row = QHBoxLayout(corner)
+        row.setContentsMargins(0, 0, 6, 0)
+        row.setSpacing(2)
+        self.theme_button = QToolButton()
+        self.theme_button.clicked.connect(self.next_theme)
+        self.help_button = QToolButton()
+        self.help_button.setText("?")
+        self.help_button.setToolTip(_("About ic705suite"))
+        self.help_button.clicked.connect(self.show_about)
+        for button in (self.theme_button, self.help_button):
+            button.setObjectName("cornerbutton")
+            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)   # the keys stay with the page
+            button.setAutoRaise(True)
+            row.addWidget(button)
+        bar.setCornerWidget(corner, Qt.Corner.TopRightCorner)
+        self._show_theme()
+        # Auto follows the desktop while the window is open.
         with contextlib.suppress(AttributeError):
             QApplication.instance().styleHints().colorSchemeChanged.connect(
                 lambda _scheme: self.config.theme == "auto" and self.set_theme("auto", save=False))
 
+    def _show_theme(self) -> None:
+        name = self.config.theme or "auto"
+        if name not in THEMES:
+            name = "auto"
+        following = THEMES[(THEMES.index(name) + 1) % len(THEMES)]
+        self.theme_button.setText(THEME_ICONS[name])
+        self.theme_button.setToolTip(_("Theme: {now} (click: {next})").format(
+            now=_(THEME_NAMES[name]), next=_(THEME_NAMES[following])))
+
+    def next_theme(self) -> None:
+        """Sun, moon, auto, and round again."""
+        name = self.config.theme or "auto"
+        index = THEMES.index(name) if name in THEMES else -1
+        self.set_theme(THEMES[(index + 1) % len(THEMES)])
+
     def set_theme(self, name: str, save: bool = True) -> None:
         """Dark, light or as the system, at once; kept in the configuration file."""
         self.config.theme = name
-        self.theme_actions[name].setChecked(True)
         theme.switch(name)
+        self._show_theme()
         for index in range(self.stack.count()):
             page = self.stack.widget(index)
             if hasattr(page, "retheme"):
@@ -101,22 +133,7 @@ class MainWindow(QMainWindow):
         if save:
             save_theme(self.config)
 
-    # ---- the Help menu ------------------------------------------------------------------
-
-    def _help_menu(self) -> None:
-        menu = self.menuBar().addMenu(_("Help"))
-        project = menu.addAction(_("Project page"))
-        project.triggered.connect(self._open_project)
-        menu.addSeparator()
-        about = menu.addAction(_("About ic705suite"))
-        about.triggered.connect(self.show_about)
-
-    @staticmethod
-    def _open_project() -> None:
-        from PySide6.QtCore import QUrl
-        from PySide6.QtGui import QDesktopServices
-
-        QDesktopServices.openUrl(QUrl(PROJECT_URL))
+    # ---- About --------------------------------------------------------------------------
 
     def show_about(self) -> QMessageBox:
         """Name, version, what it is, the author and licence, and what it runs on."""
@@ -126,6 +143,7 @@ class MainWindow(QMainWindow):
 
         from ic705suite import __version__
 
+        link = f"color:{theme.CYAN}"
         box = QMessageBox(self)
         box.setWindowTitle(_("About ic705suite"))
         box.setTextFormat(Qt.TextFormat.RichText)
@@ -133,8 +151,9 @@ class MainWindow(QMainWindow):
                     + "<p>" + _("Station suite for the Icom IC-705: dashboard, rig view, CW, "
                                 "antenna tuning, logbook and packet; in the terminal and in "
                                 "this window.") + "</p>"
-                    + f"<p>© Manuel Alcocer · PolyForm Noncommercial 1.0.0<br>"
-                    f'<a href="{PROJECT_URL}" style="color:{theme.CYAN}">{PROJECT_URL}</a></p>'
+                    + "<p>© Manuel Alcocer · PolyForm Noncommercial 1.0.0</p>"
+                    + f'<p><a href="{PROJECT_URL}" style="{link}">' + _("Project page")
+                    + f'</a> · <a href="{HELP_URL}" style="{link}">' + _("Help") + "</a></p>"
                     + f"<p><small>Python {platform.python_version()} · Qt {PySide6.__version__}"
                     f" · {platform.system()} {platform.release()}</small></p>")
         box.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)  # the link
