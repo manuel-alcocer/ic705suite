@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.11.0 (2026-10-11)
+
+### Features
+
+- **packet**: A BBS in the core, and the footer's keys clicked in the window
+  ([`f2d0e75`](https://github.com/manuel-alcocer/ic705suite/commit/f2d0e75b7ac7a279cecb12b1a9c4e1126428f98e))
+
+
 ## v0.10.0 (2026-10-11)
 
 ### Features
