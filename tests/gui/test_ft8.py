@@ -98,3 +98,23 @@ def test_a_qso_from_the_window(tmp_path, run, monkeypatch):
             win.close()
 
     run(scenario())
+
+
+def test_opened_from_the_dashboard(tmp_path, run, monkeypatch):
+    """F8 on the dashboard opens FT8 in the window (not 'not in the graphical client yet')."""
+    fake_jt9(monkeypatch)
+
+    async def scenario():
+        from ic705suite.gui.ft8 import Ft8Page
+        from tests.gui.test_pages import window
+
+        win, link = await window(tmp_path)
+        try:
+            assert win.page is win.dashboard
+            await key(Qt.Key.Key_F8)
+            await until(lambda: isinstance(win.page, Ft8Page))
+            await until(lambda: link.latest.get("ft8", {}).get("on"))
+        finally:
+            await link.close()
+
+    run(scenario())

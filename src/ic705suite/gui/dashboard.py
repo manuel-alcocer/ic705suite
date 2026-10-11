@@ -62,7 +62,7 @@ from ic705suite.ui.panelmodel import PanelModel
 from ic705suite.ui.rigkeys import tune_target
 
 # The applications the graphical client has so far; the others still open in the terminal.
-GUI_APPS = {"view", "cw", "swr", "log", "packet"}
+GUI_APPS = {"view", "cw", "swr", "log", "packet", "ft8"}
 NOT_YET = N_("{name}: not in the graphical client yet; in the terminal: ic705suite {app}")
 
 
