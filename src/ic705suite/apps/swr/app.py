@@ -19,9 +19,10 @@ from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui import glyphs
 from ic705suite.ui.widgets import ChoiceScreen, NameScreen, clock_footer, css
 
-HINT = N_("F2-F9 Band · ↑↓ Band or preset · P Presets · A Antennas · R Remote control · "
-          "N Noise sweep (RX) · S SWR sweep (TX) · C Save position · Esc Stop/Back")
-SHORT_HINT = N_("F2-F9 Band · ↑↓ · P Presets · N Noise · S SWR · Esc Back")
+HINT = N_("F2-F9 Band · ↑↓ Band or preset · P Presets · H History · A Antennas · "
+          "R Remote control · N Noise sweep (RX) · S SWR sweep (TX) · C Save position · "
+          "Esc Stop/Back")
+SHORT_HINT = N_("F2-F9 Band · ↑↓ · P Presets · H History · N Noise · S SWR · Esc Back")
 BAR = 40
 
 
@@ -161,19 +162,32 @@ class SweepPanel(Static):
                 text.append(f"   {_('Off target')} ", style="dim")
                 text.append(f"{a['delta_khz']:+.0f} kHz", style="bold white")
             text.append("\n")
-        values = [p["v"] for p in points]
-        if values:
-            lo, hi = (1.0, max(3.0, max(values))) if is_swr else (min(values), max(values) or 1)
-            span = (hi - lo) or 1
-            best = min(values) if is_swr else max(values)
-            for p in points:
-                cells = round((p["v"] - lo) / span * BAR)
-                style = "bold green" if p["v"] == best else "green" if is_swr and p["v"] <= 1.5 \
-                    else "yellow" if is_swr and p["v"] <= 2 else "red" if is_swr else "cyan"
-                text.append(f"{bands.format_frequency(p['f'])} ", style="dim")
-                text.append("█" * max(1, cells), style=style)
-                text.append(f" {p['v']:.2f}\n" if is_swr else f" {p['v']:.0f}\n", style="white")
+        text.append_text(sweep_bars(sweep["kind"], points))
         return text
+
+
+def sweep_bars(kind: str, points: list[dict], target: int | None = None) -> Text:
+    """A sweep as one bar per frequency: the SWR (green, yellow, red) or the noise; the
+    best point bold, and the target marked when given."""
+    text = Text()
+    is_swr = kind == "swr"
+    values = [p["v"] for p in points]
+    if not values:
+        return text
+    lo, hi = (1.0, max(3.0, max(values))) if is_swr else (min(values), max(values) or 1)
+    span = (hi - lo) or 1
+    best = min(values) if is_swr else max(values)
+    nearest = min(points, key=lambda p: abs(p["f"] - target))["f"] if target else None
+    for p in points:
+        cells = round((p["v"] - lo) / span * BAR)
+        style = "bold green" if p["v"] == best else "green" if is_swr and p["v"] <= 1.5 \
+            else "yellow" if is_swr and p["v"] <= 2 else "red" if is_swr else "cyan"
+        text.append(f"{bands.format_frequency(p['f'])} ",
+                    style="bold cyan" if p["f"] == nearest else "dim")
+        text.append("█" * max(1, cells), style=style)
+        text.append(f" {p['v']:.2f}" if is_swr else f" {p['v']:.0f}", style="white")
+        text.append(" ◀\n" if p["f"] == nearest else "\n", style="bold cyan")
+    return text
 
 
 class SwrApp(App[int]):
@@ -192,6 +206,7 @@ class SwrApp(App[int]):
         Binding("up", "move(-1)", show=False),
         Binding("down", "move(1)", show=False),
         Binding("p", "presets", show=False),
+        Binding("h", "history", show=False),
         Binding("escape", "back", show=False),
         Binding("ctrl+q", "leave", show=False, priority=True),
     ]
@@ -375,6 +390,18 @@ class SwrApp(App[int]):
         await self.push_screen_wait(PresetScreen(self.link))
         await self._load_rows()
         await self._fill_bands()
+
+    def action_history(self) -> None:
+        self.run_worker(self._history(), exclusive=True, group="history")
+
+    async def _history(self) -> None:
+        from ic705suite.apps.swr.history import HistoryScreen
+
+        band = self._band()
+        if band is None:
+            return
+        await self.push_screen_wait(HistoryScreen(self.link, band, row_label(band)))
+        await self._fill_bands()          # a position changed or deleted moves the saved one
 
     def action_antennas(self) -> None:
         self.run_worker(self._antennas(), exclusive=True, group="antennas")

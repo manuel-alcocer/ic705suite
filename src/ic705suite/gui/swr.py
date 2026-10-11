@@ -24,6 +24,24 @@ from PySide6.QtWidgets import (
 )
 
 from ic705suite.apps.swr.antennas import SIGNS, AntennaScreen, PresetScreen, settings_text
+from ic705suite.apps.swr.history import (
+    EntryScreen,
+    HistoryScreen,
+    best_text,
+    coil_text,
+    details_facts,
+    kind_text,
+    marks,
+    mine,
+)
+from ic705suite.apps.swr.photos import (
+    PhotoError,
+    download,
+    open_with_viewer,
+    read_photo,
+    save_copy,
+    upload,
+)
 from ic705suite.apps.swr.app import (
     HINT,
     SHORT_HINT,
@@ -36,7 +54,7 @@ from ic705suite.apps.swr.app import (
 )
 from ic705suite.gui import theme
 from ic705suite.gui.page import Overlay, Page, ask_text, choose
-from ic705suite.gui.widgets import Footer, Frame, StatusLine, Table, badge, esc, span
+from ic705suite.gui.widgets import Footer, Frame, StatusLine, Table, badge, esc, rich_html, span
 from ic705suite.i18n import N_, _, render
 from ic705suite.rig import bands
 from ic705suite.station.links import Link
@@ -154,6 +172,7 @@ class SwrPage(Page):
         self.table = self.bands_frame.add(Table(0, 6), 1)
         self.table.setHorizontalHeaderLabels([_("Key"), _("Band"), _("Target"), _("Position"),
                                               _("Resonance"), _("SWR")])
+        self.table.right_align(2, 3, 4, 5)
         self.table.verticalHeader().hide()
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -168,6 +187,7 @@ class SwrPage(Page):
                                    ("S", N_("SWR sweep (TX)"), lambda: self.action_sweep("swr")),
                                    ("C", N_("Save position"), self.action_final),
                                    ("P", N_("Presets"), self.action_presets),
+                                   ("H", N_("History"), self.action_history),
                                    ("A", N_("Antennas"), self.action_antennas),
                                    ("R", N_("Remote control"), self.action_remote),
                                    ("Esc", N_("Stop/Back"), self.action_back)):
@@ -357,6 +377,17 @@ class SwrPage(Page):
         await view.closed
         await self._load_rows()
         await self._fill_bands()
+
+    def action_history(self) -> None:
+        band = self._band()
+        if band is not None:
+            self.run_worker(self._history(band))
+
+    async def _history(self, band: dict) -> None:
+        view = HistoryView(self, band)
+        self.push_overlay(view)
+        await view.closed
+        await self._fill_bands()          # a position changed or deleted moves the saved one
 
     def action_band(self, index: int) -> None:
         if 0 <= index < len(self.bands):
@@ -625,6 +656,7 @@ class PresetsView(Overlay):
         self.frame = Frame(_("Presets"))
         self.table = self.frame.add(Table(0, 3), 1)
         self.table.setHorizontalHeaderLabels([_("Preset"), _("Band"), _("Target")])
+        self.table.right_align(2)
         self.table.verticalHeader().hide()
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -747,3 +779,318 @@ class PresetsView(Overlay):
             self._message(reply["error"])
             return
         await self._load()
+
+
+async def pick_photo(parent: QWidget) -> str | None:
+    """A photo chosen in the desktop's file dialog (None when cancelled)."""
+    from PySide6.QtWidgets import QFileDialog
+
+    dialog = QFileDialog(parent, _("Photo"))
+    dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+    dialog.setNameFilter(_("Photos") + " (*.jpg *.jpeg *.png *.webp *.gif)")
+    done = asyncio.get_event_loop().create_future()
+    dialog.finished.connect(lambda result: done.done() or done.set_result(result))
+    dialog.open()
+    accepted = await done
+    files = dialog.selectedFiles()
+    dialog.deleteLater()
+    return files[0] if accepted and files else None
+
+
+def _setup_rows(table: Table) -> None:
+    table.verticalHeader().hide()
+    table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+    table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+    table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+    table.setShowGrid(False)
+
+
+def _buttons(frame: Frame, entries) -> None:
+    row = QHBoxLayout()
+    for key, label, action in entries:
+        button = QPushButton(f"{key}  {_(label)}")
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        button.clicked.connect(lambda _c=False, a=action: a())
+        row.addWidget(button)
+    row.addStretch(1)
+    frame.body.addLayout(row)
+
+
+class HistoryView(Overlay):
+    """The history of the chosen band or preset (the terminal's HistoryScreen): every sweep
+    and saved position, newest first; Enter or a double click shows one."""
+
+    TUI = HistoryScreen
+
+    def __init__(self, page: SwrPage, row: dict) -> None:
+        super().__init__(page)
+        self.link, self.row, self.label = page.link, row, row_label(row)
+        self.entries: list[dict] = []
+        self.closed = asyncio.get_event_loop().create_future()
+        self.frame = Frame(_("History of {band}").format(band=self.label))
+        self.table = self.frame.add(Table(0, 6), 1)
+        self.table.setHorizontalHeaderLabels([_("Date"), _("What"), _("Position"),
+                                              _("Resonance"), _("Best"), ""])
+        self.table.right_align(2, 3, 4)
+        _setup_rows(self.table)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.cellDoubleClicked.connect(lambda *_a: self.action_open())
+        self.notes = self.frame.add(QLabel())
+        self.notes.setTextFormat(Qt.TextFormat.RichText)
+        _buttons(self.frame, (("Enter", N_("details"), self.action_open),
+                              ("D", N_("delete"), self.action_delete),
+                              ("Esc", N_("back"), self.action_dismiss)))
+        box = QVBoxLayout(self)
+        box.setContentsMargins(60, 40, 60, 40)
+        box.addWidget(self.frame)
+
+    def start(self) -> None:
+        self.table.setFocus()
+        self.run_worker(self._load())
+
+    def resumed(self) -> None:
+        self.table.setFocus()
+        self.run_worker(self._load(keep=getattr(self, "_opened", None)))
+
+    async def _load(self, keep: int | None = None) -> None:
+        reply = await self.link.call("swr.history", band=self.row.get("band", self.row["name"]))
+        self.entries = mine(reply.get("history", []), self.row)
+        current = self.table.currentRow()
+        self.table.setRowCount(len(self.entries))
+        row = max(0, current)
+        for i, entry in enumerate(self.entries):
+            cells = (entry["ts"][5:16], kind_text(entry), coil_text(entry),
+                     bands.format_frequency(entry["resonance"]) if entry.get("resonance")
+                     else "", best_text(entry), marks(entry))
+            for column, text in enumerate(cells):
+                self.table.setItem(i, column, QTableWidgetItem(text))
+            if entry["id"] == keep:
+                row = i
+        if self.entries:
+            self.table.selectRow(min(row, len(self.entries) - 1))
+        self.notes.setText(span(
+            _("Every sweep and saved position, the newest first (📷 photo, ✎ note).")
+            if self.entries else _("Nothing yet: the sweeps and saved positions appear here."),
+            theme.DIM))
+
+    def _chosen(self) -> dict | None:
+        row = self.table.currentRow()
+        return self.entries[row] if 0 <= row < len(self.entries) else None
+
+    # ---- keys (the terminal's HistoryScreen actions) ----
+
+    def action_dismiss(self) -> None:
+        self.page.pop_overlay()
+        if not self.closed.done():
+            self.closed.set_result(None)
+
+    def action_pop_screen(self) -> None:
+        self.action_dismiss()
+
+    def action_open(self) -> None:
+        entry = self._chosen()
+        if entry is not None:
+            self._opened = entry["id"]
+            self.page.push_overlay(EntryView(self.page, entry["id"], self.label))
+
+    def action_delete(self) -> None:
+        entry = self._chosen()
+        if entry is not None:
+            self.run_worker(self._delete(entry))
+
+    async def _delete(self, entry: dict) -> None:
+        if await ask_delete(self, entry):
+            reply = await self.link.call("swr.entry.delete", id=entry["id"])
+            if reply.get("error"):
+                self.notes.setText(span(reply["error"], theme.RED, True))
+            await self._load()
+
+
+async def ask_delete(parent: QWidget, entry: dict) -> bool:
+    return await choose(
+        parent, _("Delete from the history"),
+        _("Delete from the history: {what}, {date}? Its photo goes with it.").format(
+            what=kind_text(entry), date=entry["ts"][:16]),
+        [("no", _("Keep it")), ("yes", _("Delete"))]) == "yes"
+
+
+class EntryView(Overlay):
+    """One entry of the history (the terminal's EntryScreen): its facts, note, photo and
+    curve; the position and note can be changed and the photo added, replaced or removed."""
+
+    TUI = EntryScreen
+
+    def __init__(self, page: SwrPage, entry_id: int, label: str) -> None:
+        super().__init__(page)
+        self.link, self.entry_id = page.link, entry_id
+        self.entry: dict = {}
+        self.frame = Frame(_("History of {band}").format(band=label))
+        body = QHBoxLayout()
+        side = QVBoxLayout()
+        self.facts = QLabel()
+        self.facts.setTextFormat(Qt.TextFormat.RichText)
+        self.facts.setWordWrap(True)
+        self.facts.setAlignment(Qt.AlignmentFlag.AlignTop)
+        side.addWidget(self.facts)
+        self.photo = QLabel()
+        self.photo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.photo.setMinimumSize(200, 150)
+        self.photo.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+        self.photo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.photo.mousePressEvent = lambda _e: self.action_view()
+        side.addWidget(self.photo, 1)
+        body.addLayout(side, 2)
+        self.chart = SweepChart()
+        body.addWidget(self.chart, 3)
+        self.frame.body.addLayout(body, 1)
+        self.message = self.frame.add(QLabel())
+        self.message.setTextFormat(Qt.TextFormat.RichText)
+        _buttons(self.frame, (("C", N_("position"), self.action_position),
+                              ("O", N_("note"), self.action_note),
+                              ("F", N_("photo"), self.action_photo),
+                              ("V", N_("view photo"), self.action_view),
+                              ("X", N_("remove photo"), self.action_remove_photo),
+                              ("D", N_("delete"), self.action_delete),
+                              ("Esc", N_("back"), self.action_dismiss)))
+        box = QVBoxLayout(self)
+        box.setContentsMargins(30, 20, 30, 20)
+        box.addWidget(self.frame)
+        self._pixmap = None
+
+    def start(self) -> None:
+        self.setFocus()
+        self.run_worker(self._load())
+
+    async def _load(self, photo: bool = True) -> None:
+        reply = await self.link.call("swr.entry", id=self.entry_id)
+        if reply.get("error"):
+            self._message(reply["error"])
+            return
+        self.entry = entry = reply["entry"]
+        self.facts.setText(rich_html(details_facts(entry)))
+        self.chart.set_sweep(entry if entry.get("points") else {}, entry.get("target"))
+        self.chart.setVisible(bool(entry.get("points")))
+        if photo:
+            await self._load_photo()
+
+    async def _load_photo(self) -> None:
+        from PySide6.QtGui import QPixmap
+
+        self._pixmap = None
+        if self.entry.get("photo"):
+            try:
+                found = await download(self.link, self.entry_id)
+            except PhotoError as exc:
+                self._message(str(exc))
+                found = None
+            if found is not None:
+                pixmap = QPixmap()
+                if pixmap.loadFromData(found[0]):
+                    self._pixmap = pixmap
+        self._show_photo()
+
+    def _show_photo(self) -> None:
+        if self._pixmap is None:
+            self.photo.clear()
+            self.photo.setText(span(_("none (F adds one)"), theme.DIM))
+            return
+        self.photo.setPixmap(self._pixmap.scaled(
+            self.photo.size(), Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation))
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        super().resizeEvent(event)
+        if self._pixmap is not None:
+            self._show_photo()
+
+    def _message(self, text: str, error: bool = True) -> None:
+        self.message.setText(span(text, theme.RED if error else theme.CYAN, error))
+
+    async def _after(self, error: str | None, done: str, photo: bool = False) -> None:
+        if error is None:
+            return
+        if error:
+            self._message(error)
+            return
+        await self._load(photo=photo)
+        self._message(done, error=False)
+
+    # ---- keys (the terminal's EntryScreen actions) ----
+
+    def action_dismiss(self) -> None:
+        self.page.pop_overlay()
+
+    def action_pop_screen(self) -> None:
+        self.action_dismiss()
+
+    def action_position(self) -> None:
+        self.run_worker(self._edit("coil"))
+
+    def action_note(self) -> None:
+        self.run_worker(self._edit("note"))
+
+    async def _edit(self, field: str) -> None:
+        if field == "coil":
+            value = await ask_text(self, _("Position"), _("Which number was the coil (or "
+                                   "adjustment) on? (empty: none)"), "", coil_text(self.entry))
+        else:
+            value = await ask_text(self, _("Note"), _("A note on this measurement (the "
+                                   "weather, what was changed...)"), "",
+                                   self.entry.get("note", ""))
+        if value is None:
+            return
+        reply = await self.link.call("swr.entry.update", id=self.entry_id, **{field: value})
+        await self._after(reply.get("error", ""), _("Saved."))
+
+    def action_photo(self) -> None:
+        self.run_worker(self._photo())
+
+    async def _photo(self) -> None:
+        path = await pick_photo(self)
+        if not path:
+            return
+        try:
+            self._message(_("Sending the photo..."), error=False)
+            await upload(self.link, self.entry_id, read_photo(path))
+        except (PhotoError, OSError) as exc:
+            self._message(str(exc))
+            return
+        await self._load()
+        self._message(_("Photo saved."), error=False)
+
+    def action_view(self) -> None:
+        self.run_worker(self._view())
+
+    async def _view(self) -> None:
+        if not self.entry.get("photo"):
+            self._message(_("No photo yet: F adds one."))
+            return
+        try:
+            found = await download(self.link, self.entry_id)
+            if found is None:
+                self._message(_("No photo yet: F adds one."))
+                return
+            open_with_viewer(save_copy(self.entry_id, *found))
+        except (PhotoError, OSError) as exc:
+            self._message(str(exc))
+            return
+        self._message(_("Photo opened in the image viewer."), error=False)
+
+    def action_remove_photo(self) -> None:
+        if self.entry.get("photo"):
+            self.run_worker(self._remove_photo())
+
+    async def _remove_photo(self) -> None:
+        reply = await self.link.call("swr.photo.delete", id=self.entry_id)
+        await self._after(reply.get("error", ""), _("Photo removed."), photo=True)
+
+    def action_delete(self) -> None:
+        self.run_worker(self._delete())
+
+    async def _delete(self) -> None:
+        if await ask_delete(self, self.entry):
+            reply = await self.link.call("swr.entry.delete", id=self.entry_id)
+            if reply.get("error"):
+                self._message(reply["error"])
+                return
+            self.action_dismiss()

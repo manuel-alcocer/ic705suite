@@ -30,7 +30,7 @@ from pathlib import Path
 
 import sqlalchemy as sa
 
-from ic705suite import db
+from ic705suite import db, paths
 from ic705suite.apps.swr.analysis import COIL_SIGN, DEFAULT_KHZ_PER_UNIT, analyze
 from ic705suite.config import Config
 from ic705suite.i18n import N_
@@ -53,6 +53,26 @@ TUNE_BANDS = [("40m", 7_074_000, 10_000), ("30m", 10_136_000, 5_000), ("20m", 14
               ("17m", 18_100_000, 10_000), ("15m", 21_074_000, 25_000), ("12m", 24_915_000, 10_000),
               ("10m", 28_074_000, 50_000), ("6m", 50_313_000, 50_000)]
 TEN_METRE_SWEEP_END = 29_000_000  # the whole 10 m band is too wide for one useful sweep
+
+# Photos of the antenna kept with the sweeps (the phone's camera, a file): their formats by
+# their first bytes, and the largest accepted.
+PHOTO_TYPES = {b"\xff\xd8\xff": ("jpg", "image/jpeg"), b"\x89PNG": ("png", "image/png"),
+               b"RIFF": ("webp", "image/webp"), b"GIF8": ("gif", "image/gif")}
+MAX_PHOTO = 16 * 1024 * 1024
+PHOTO_CHUNK = 32 * 1024          # per call over the link (its messages are at most 64 kB)
+
+
+def photo_type(data: bytes) -> tuple[str, str] | None:
+    """(extension, media type) of an image, by its first bytes; None if it is not one."""
+    for magic, kind in PHOTO_TYPES.items():
+        if data.startswith(magic) and (magic != b"RIFF" or data[8:12] == b"WEBP"):
+            return kind
+    return None
+
+
+def summary(entry: dict) -> dict:
+    """An entry of the history without its points and analysis: for the lists."""
+    return {k: v for k, v in entry.items() if k not in ("points", "analysis")}
 
 # History of the standalone swr-remote, imported once into the database.
 LEGACY_HISTORY = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share") \
@@ -112,6 +132,7 @@ class Sweep:
     band: str = ""
     target: int = 0
     preset: int | None = None  # the preset swept, if one was
+    entry_id: int | None = None  # its entry in the history, once finished
     total: int = 0
     points: list[dict] = field(default_factory=list)
     analysis: dict | None = None
@@ -240,7 +261,8 @@ class HistoryStore:
         each, by setting_key()."""
         out: dict[str, dict] = {}
         for entry in self.entries(antenna_id=antenna_id):
-            if entry.get("kind") == "final":
+            # A saved position, or a sweep given the position it was made at.
+            if entry.get("kind") == "final" or entry.get("coil") is not None:
                 out[setting_key(entry["band"], entry.get("preset"))] = entry
         return out
 
@@ -289,26 +311,56 @@ class HistoryStore:
         log.info("imported %d antenna sweeps from %s", len(entries), path)
 
     @staticmethod
-    def _insert(conn, entry: dict, antenna_id: int | None) -> None:
-        conn.execute(history_table.insert().values(
+    def _insert(conn, entry: dict, antenna_id: int | None) -> int:
+        return conn.execute(history_table.insert().values(
             ts=entry.get("ts", ""), band=entry.get("band", ""), kind=entry.get("kind", ""),
-            data=json.dumps(entry), antenna_id=antenna_id))
+            data=json.dumps(entry), antenna_id=antenna_id)).inserted_primary_key[0]
 
-    def add(self, entry: dict, antenna_id: int | None = None) -> None:
+    def add(self, entry: dict, antenna_id: int | None = None) -> int:
         antenna_id = antenna_id if antenna_id is not None else self.antenna()["id"]
         with self.engine.begin() as conn:
-            self._insert(conn, entry, antenna_id)
+            return self._insert(conn, entry, antenna_id)
 
     def entries(self, band: str = "", limit: int | None = None,
                 antenna_id: int | None = None) -> list[dict]:
         antenna_id = antenna_id if antenna_id is not None else self.antenna()["id"]
-        query = sa.select(history_table.c.data).order_by(history_table.c.id) \
-            .where(history_table.c.antenna_id == antenna_id)
+        query = sa.select(history_table.c.id, history_table.c.data) \
+            .order_by(history_table.c.id).where(history_table.c.antenna_id == antenna_id)
         if band:
             query = query.where(history_table.c.band == band)
         with self.engine.connect() as conn:
-            rows = [json.loads(r[0]) for r in conn.execute(query)]
+            rows = [{**json.loads(r.data), "id": r.id} for r in conn.execute(query)]
         return rows[-limit:] if limit else rows
+
+    # ---- one entry of the history: its details, position, note, photo ----
+
+    def entry(self, entry_id: int) -> dict:
+        with self.engine.connect() as conn:
+            row = conn.execute(sa.select(history_table.c.id, history_table.c.data)
+                               .where(history_table.c.id == entry_id)).first()
+        if row is None:
+            raise SweepError("that entry of the history no longer exists")
+        return {**json.loads(row.data), "id": row.id}
+
+    def update_entry(self, entry_id: int, **changes) -> dict:
+        """Change fields of an entry (coil, note, photo); None removes one."""
+        entry = self.entry(entry_id)
+        for key, value in changes.items():
+            if value is None or value == "":
+                entry.pop(key, None)
+            else:
+                entry[key] = value
+        data = {k: v for k, v in entry.items() if k != "id"}
+        with self.engine.begin() as conn:
+            conn.execute(history_table.update().where(history_table.c.id == entry_id)
+                         .values(data=json.dumps(data)))
+        return entry
+
+    def delete_entry(self, entry_id: int) -> dict:
+        entry = self.entry(entry_id)
+        with self.engine.begin() as conn:
+            conn.execute(history_table.delete().where(history_table.c.id == entry_id))
+        return entry
 
     def close(self) -> None:
         self.engine.dispose()
@@ -324,6 +376,8 @@ class SwrService:
         self.sweep = Sweep()
         self._task: asyncio.Task | None = None
         self._history: HistoryStore | None = None
+        self.photos_dir = paths.data_dir() / "swr" / "photos"
+        self._uploads: dict[int, bytearray] = {}      # photos arriving in pieces
         self._web = None
         self._version = 0
         self._sent = -1
@@ -471,6 +525,7 @@ class SwrService:
             self.station.paused.discard("swr")
             sweep.running = False
             sweep.finished_at = time.time()
+            self._record(sweep)
             self._version += 1
             if sweep.analysis and sweep.analysis["confident"] and not sweep.error:
                 self.ui.info(N_("antenna: resonance at {freq} MHz"),
@@ -522,14 +577,29 @@ class SwrService:
         if result is None:
             return
         sweep.analysis = result.to_dict()
-        if not result.confident:
+
+    def _record(self, sweep: Sweep) -> None:
+        """Every finished sweep goes into the history whole (points, analysis, what went
+        wrong), so it can be looked at again; a photo and the position may be added later.
+        The advice only learns from the saved positions, so a doubtful sweep does no harm."""
+        if len(sweep.points) < 2:
             return
-        entry = {"ts": _now(), "band": sweep.band, "kind": sweep.kind,
-                 "target": sweep.target, "resonance": result.resonance,
-                 "best": result.best_value, "at_edge": result.at_edge}
+        a = sweep.analysis or {}
+        entry = {"ts": _now(), "band": sweep.band, "kind": sweep.kind, "target": sweep.target,
+                 "points": sweep.points, "analysis": sweep.analysis,
+                 "confident": bool(a.get("confident"))}
+        if a.get("confident"):
+            entry.update(resonance=a["resonance"], best=a["best_value"], at_edge=a["at_edge"])
         if sweep.preset:
             entry["preset"] = sweep.preset
-        self.history.add(entry)
+        if sweep.warning:
+            entry["warning"] = sweep.warning
+        if sweep.error:
+            entry["error"] = sweep.error
+        try:
+            sweep.entry_id = self.history.add(entry)
+        except Exception:  # noqa: BLE001 - the sweep itself is not lost for that
+            log.exception("cannot record the sweep")
 
     def save_final(self, coil_text: str, band: str = "", note: str = "",
                    preset: int | None = None) -> dict:
@@ -553,8 +623,13 @@ class SwrService:
                 int(preset) if preset else None) and not sweep.error:
             entry.update({"target": sweep.target, "resonance": a["resonance"],
                           "best": a["best_value"], "at_edge": a["at_edge"], "tuned": a["tuned"],
-                          "swr_at_target": a.get("swr_at_target")})
-        self.history.add(entry)
+                          "swr_at_target": a.get("swr_at_target"),
+                          "points": sweep.points, "analysis": a})
+            if sweep.entry_id is not None:
+                # The sweep in the history gets the position it was made at, as well.
+                with contextlib.suppress(SweepError):
+                    self.history.update_entry(sweep.entry_id, coil=coil)
+        entry["id"] = self.history.add(entry)
         self._version += 1
         return entry
 
@@ -572,10 +647,63 @@ class SwrService:
                 "allow_tx": self.allow_tx, "remote": self.remote, "max_power": self.max_power, "port": self.port,
                 "frequency": st.frequency, "mode": st.mode,
                 "sweep": {"kind": s.kind, "running": s.running, "band": s.band, "target": s.target,
-                          "preset": s.preset,
+                          "preset": s.preset, "entry_id": s.entry_id,
                           "total": s.total, "points": s.points,
                           "analysis": s.analysis, "warning": s.warning, "error": s.error,
                           "finished_at": s.finished_at}}
+
+    # ---- photos ----
+
+    def set_photo(self, entry_id: int, data: bytes) -> dict:
+        """Keep `data` (an image) as the entry's photo, replacing the one it had."""
+        if len(data) > MAX_PHOTO:
+            raise SweepError("the photo is too large (16 MB at most)")
+        kind = photo_type(data)
+        if kind is None:
+            raise SweepError("that is not a photo (JPEG, PNG, WebP or GIF)")
+        entry = self.history.entry(entry_id)
+        self.photos_dir.mkdir(parents=True, exist_ok=True)
+        name = f"{entry_id}-{int(time.time())}.{kind[0]}"
+        (self.photos_dir / name).write_bytes(data)
+        self._remove_photo(entry.get("photo"))
+        self._version += 1
+        return self.history.update_entry(entry_id, photo=name)
+
+    def photo(self, entry_id: int) -> tuple[bytes, str] | None:
+        """(the image, its media type), or None when the entry has none."""
+        name = self.history.entry(entry_id).get("photo")
+        path = self.photos_dir / name if name else None
+        if path is None or not path.is_file():
+            return None
+        data = path.read_bytes()
+        return data, (photo_type(data) or ("", "application/octet-stream"))[1]
+
+    def delete_photo(self, entry_id: int) -> dict:
+        entry = self.history.entry(entry_id)
+        self._remove_photo(entry.get("photo"))
+        self._version += 1
+        return self.history.update_entry(entry_id, photo=None)
+
+    def _remove_photo(self, name: str | None) -> None:
+        if name and "/" not in name and "\\" not in name:
+            with contextlib.suppress(OSError):
+                (self.photos_dir / name).unlink()
+
+    def update_entry(self, entry_id: int, params: dict) -> dict:
+        """The position (coil) and the note of an entry; an empty one removes it."""
+        changes: dict = {}
+        if "coil" in params:
+            text = str(params["coil"] if params["coil"] is not None else "").strip()
+            changes["coil"] = float(text.replace(",", ".")) if text else None
+        if "note" in params:
+            changes["note"] = str(params["note"] or "").strip() or None
+        self._version += 1
+        return self.history.update_entry(entry_id, **changes)
+
+    def delete_entry(self, entry_id: int) -> None:
+        entry = self.history.delete_entry(entry_id)
+        self._remove_photo(entry.get("photo"))
+        self._version += 1
 
     def antennas(self) -> dict:
         """Every antenna with its saved settings (band -> latest saved position)."""
@@ -630,7 +758,45 @@ class SwrService:
             if method == "bands":
                 return {"bands": self.bands()}
             if method == "history":
-                return {"history": self.history.entries(params.get("band", ""), limit=20)}
+                entries = self.history.entries(params.get("band", ""),
+                                               limit=params.get("limit"))
+                return {"history": [summary(e) for e in reversed(entries)]}
+            if method == "entry":
+                return {"entry": self.history.entry(int(params["id"]))}
+            if method == "entry.update":
+                return {"entry": self.update_entry(int(params["id"]), params)}
+            if method == "entry.delete":
+                self.delete_entry(int(params["id"]))
+                return {"deleted": int(params["id"])}
+            if method == "photo.put":
+                # In pieces: base64 "data" at "offset"; "done" with the last one.
+                import base64
+
+                entry_id = int(params["id"])
+                buffer = self._uploads.setdefault(entry_id, bytearray())
+                if int(params.get("offset", 0)) != len(buffer):
+                    self._uploads.pop(entry_id, None)
+                    raise SweepError("photo upload out of step: start again")
+                buffer += base64.b64decode(params.get("data", ""))
+                if len(buffer) > MAX_PHOTO:
+                    self._uploads.pop(entry_id, None)
+                    raise SweepError("the photo is too large (16 MB at most)")
+                if not params.get("done"):
+                    return {"received": len(buffer)}
+                return {"entry": self.set_photo(entry_id, bytes(self._uploads.pop(entry_id)))}
+            if method == "photo.get":
+                import base64
+
+                found = self.photo(int(params["id"]))
+                if found is None:
+                    return {"error": "no photo"}
+                data, media = found
+                offset = int(params.get("offset", 0))
+                piece = data[offset:offset + PHOTO_CHUNK]
+                return {"data": base64.b64encode(piece).decode(), "size": len(data),
+                        "type": media}
+            if method == "photo.delete":
+                return {"entry": self.delete_photo(int(params["id"]))}
             if method == "sweep":
                 self.start_sweep(params)
                 return self.state()

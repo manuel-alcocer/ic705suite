@@ -43,6 +43,8 @@ PAGES = {"dashboard": ("ic705suite.gui.dashboard", "DashboardPage"),
          "antenna": ("ic705suite.gui.swr", "SwrPage"),
          "antennas": ("ic705suite.gui.swr", "AntennasView"),
          "presets": ("ic705suite.gui.swr", "PresetsView"),
+         "history": ("ic705suite.gui.swr", "HistoryView"),
+         "entry": ("ic705suite.gui.swr", "EntryView"),
          "logbook": ("ic705suite.gui.log", "LogPage"),
          "packet": ("ic705suite.gui.packet", "PacketPage")}
 

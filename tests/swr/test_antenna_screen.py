@@ -147,3 +147,78 @@ def test_presets_from_the_keyboard(tmp_path, monkeypatch):
             await link.close()
 
     asyncio.run(run())
+
+
+def test_history_from_the_keyboard(tmp_path, monkeypatch):
+    """H: the band's sweeps and positions, newest first; Enter shows one with its curve; there
+    C changes the position, O the note, F adds a photo from a file, V opens it, X removes it
+    and D deletes the entry."""
+    from ic705suite.apps.swr import history as history_module
+    from ic705suite.apps.swr.app import SwrApp
+    from ic705suite.apps.swr.history import EntryScreen, HistoryScreen
+
+    monkeypatch.setattr(service_module, "LEGACY_HISTORY", tmp_path / "none.json")
+    opened = []
+    monkeypatch.setattr(history_module, "open_with_viewer", opened.append)
+    photo = tmp_path / "antenna.png"
+    photo.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 100)
+    points = [{"f": 7_000_000 + i * 10_000, "v": 1.1 + abs(i - 10) / 10} for i in range(21)]
+
+    def typed(text):
+        names = {" ": "space", "-": "minus", ".": "full_stop", "/": "slash", "_": "underscore"}
+        return [names.get(c, c) for c in text]
+
+    async def run():
+        link = LocalLink(None, Config(connection="sim", swr_web=False,
+                                      database_url=f"sqlite:///{tmp_path / 'suite.db'}"))
+        swr = link.core.swr
+        swr.photos_dir = tmp_path / "photos"
+        swr.history.add({"ts": "2026-10-11 10:00:00", "band": "40m", "kind": "swr",
+                         "target": 7_100_000, "points": points, "confident": True,
+                         "resonance": 7_100_000, "best": 1.1, "at_edge": ""})
+        swr.history.add({"ts": "2026-10-11 10:05:00", "band": "40m", "kind": "final",
+                         "coil": 12.0})
+        swr.history.add({"ts": "2026-10-11 10:06:00", "band": "20m", "kind": "final",
+                         "coil": 3.0})
+        app = SwrApp(link, owns_link=False)
+        try:
+            async with app.run_test(size=(140, 50)) as pilot:
+                await pilot.pause(1.5)
+                await pilot.press("f2", "h")
+                await pilot.pause(0.5)
+                screen = app.screen
+                assert isinstance(screen, HistoryScreen)
+                assert [e["kind"] for e in screen.entries] == ["final", "swr"]  # 40m, newest first
+                await pilot.press("down", "enter")
+                await pilot.pause(0.5)
+                assert isinstance(app.screen, EntryScreen)
+                shown = str(app.screen.query_one("#entry-details").render())
+                assert "7.100.00" in shown and "█" in shown          # the curve
+                await pilot.press("c", *typed("11.5"), "enter")
+                await pilot.pause(0.3)
+                await pilot.press("o", *typed("after rain"), "enter")
+                await pilot.pause(0.3)
+                entry = swr.history.entry(1)
+                assert entry["coil"] == 11.5 and entry["note"] == "after rain"
+                await pilot.press("f", *typed(str(photo)), "enter")
+                await pilot.pause(0.5)
+                name = swr.history.entry(1)["photo"]
+                assert (swr.photos_dir / name).read_bytes() == photo.read_bytes()
+                await pilot.press("v")
+                await pilot.pause(0.5)
+                assert opened and opened[0].read_bytes() == photo.read_bytes()
+                await pilot.press("x")
+                await pilot.pause(0.3)
+                assert "photo" not in swr.history.entry(1)
+                assert not (swr.photos_dir / name).exists()
+                await pilot.press("d")
+                await pilot.pause(0.3)
+                await pilot.press("tab", "enter")                  # Delete
+                await pilot.pause(0.5)
+                assert isinstance(app.screen, HistoryScreen)
+                assert [e["kind"] for e in app.screen.entries] == ["final"]
+                await pilot.press("escape")
+        finally:
+            await link.close()
+
+    asyncio.run(run())

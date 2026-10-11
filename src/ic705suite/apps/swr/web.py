@@ -10,7 +10,7 @@ import socket
 from importlib import resources
 from urllib.parse import parse_qs, urlsplit
 
-from ic705suite.apps.swr.service import SweepError, SwrService
+from ic705suite.apps.swr.service import MAX_PHOTO, SweepError, SwrService, summary
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +36,13 @@ async def handle(service: SwrService, reader: asyncio.StreamReader,
         while (line := (await reader.readline()).decode("latin-1").strip()):
             key, _, value = line.partition(":")
             headers[key.strip().lower()] = value.strip()
-        length = min(int(headers.get("content-length", 0)), 65536)
+        # A photo from the phone's camera is the one large body.
+        limit = MAX_PHOTO if target.startswith("/api/photo") else 65536
+        length = int(headers.get("content-length", 0))
+        if length > limit:
+            writer.write(_json({"error": "too large"}, "413 Payload Too Large"))
+            await writer.drain()
+            return
         body = await reader.readexactly(length) if length else b""
         writer.write(await route(service, method, target, body))
         await writer.drain()
@@ -64,9 +70,18 @@ async def route(service: SwrService, method: str, target: str, body: bytes) -> b
             return _json(service.bands() + service.presets())
         if path == "/api/antennas":
             return _json(service.antennas())
+        query = parse_qs(url.query)
         if path == "/api/history":
-            band = parse_qs(url.query).get("band", [""])[0]
-            return _json(service.history.entries(band, limit=20))
+            # The newest first, without points: the list (the band's, or all of them).
+            band = query.get("band", [""])[0]
+            return _json([summary(e) for e in reversed(service.history.entries(band))])
+        if path == "/api/entry" and method == "GET":
+            return _json(service.history.entry(int(query["id"][0])))
+        if path == "/api/photo" and method == "GET":
+            found = service.photo(int(query["id"][0]))
+            if found is None:
+                return _response("404 Not Found", b"no photo", "text/plain")
+            return _response("200 OK", found[0], found[1])
         if method != "POST":
             return _json({"error": "method not allowed"}, "405 Method Not Allowed")
         if path in ("/api/stop", "/api/disconnect"):
@@ -84,6 +99,16 @@ async def route(service: SwrService, method: str, target: str, body: bytes) -> b
             data = json.loads(body or b"{}")
             return _json(service.save_final(data.get("coil", ""), data.get("band", ""),
                                             data.get("note", ""), data.get("preset")))
+        if path == "/api/entry":
+            data = json.loads(body or b"{}")
+            return _json(service.update_entry(int(data["id"]), data))
+        if path == "/api/entry/delete":
+            service.delete_entry(int(json.loads(body or b"{}")["id"]))
+            return _json({"ok": True})
+        if path == "/api/photo":
+            return _json(service.set_photo(int(query["id"][0]), body))
+        if path == "/api/photo/delete":
+            return _json(service.delete_photo(int(json.loads(body or b"{}")["id"])))
         if path == "/api/antenna":
             # Choose the active antenna (the page does not create or edit them).
             service.history.select_antenna(int(json.loads(body or b"{}")["id"]))

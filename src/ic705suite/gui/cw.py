@@ -236,6 +236,7 @@ class CwPage(ChannelSaving, Page):
         self.skim_table = Table(0, 6)
         self.skim_table.setHorizontalHeaderLabels(["#", _("QRG"), _("Call"), _("WPM"), _("SNR"),
                                                    _("Text")])
+        self.skim_table.right_align(0, 1, 3, 4)
         self.skim_table.verticalHeader().hide()
         self.skim_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.skim_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -666,6 +667,7 @@ class ChannelsView(Overlay):
         self.table.setHorizontalHeaderLabels(["", _("Name"), _("QRG"), _("Source"),
                                               _("Last (UTC)"), _("Words"), _("OK %"),
                                               _("Noise %"), _("WPM"), _("Audio")])
+        self.table.right_align(2, 5, 6, 7, 8)
         self.table.verticalHeader().hide()
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)

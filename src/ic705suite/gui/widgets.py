@@ -826,7 +826,28 @@ class Scope(QWidget):
 
 class Table(QTableWidget):
     """A table the page's keys reach: Space goes to the page (it opens, as Enter), and
-    the focus is drawn by the frame around it."""
+    the focus is drawn by the frame around it. Headings sit where their values do: on the
+    left, or on the right over the columns of numbers (right_align)."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft
+                                                    | Qt.AlignmentFlag.AlignVCenter)
+        self.right_columns: set[int] = set()
+
+    def right_align(self, *columns: int) -> None:
+        """Numbers: these columns' values and headings on the right, decimals in a column."""
+        self.right_columns = set(columns)
+        for column in columns:
+            header = self.horizontalHeaderItem(column)
+            if header is not None:
+                header.setTextAlignment(Qt.AlignmentFlag.AlignRight
+                                        | Qt.AlignmentFlag.AlignVCenter)
+
+    def setItem(self, row: int, column: int, item) -> None:  # noqa: N802 - Qt's name
+        if column in self.right_columns:
+            item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        super().setItem(row, column, item)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
         if event.key() == Qt.Key.Key_Space:

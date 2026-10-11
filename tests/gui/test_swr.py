@@ -93,3 +93,76 @@ def test_presets_as_in_the_terminal(tmp_path, run, monkeypatch):
             await link.close()
 
     run(scenario())
+
+
+def test_history_as_in_the_terminal(tmp_path, run, monkeypatch):
+    """H: the band's history; Enter shows an entry with its curve and photo; C, O, F, X and
+    D as in the terminal; Esc goes back to the list, and from there to the page."""
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    from ic705suite.apps.swr import service as service_module
+    from ic705suite.gui import swr as swr_page
+
+    # Not the history of before the database (its path is fixed when the module loads).
+    monkeypatch.setattr(service_module, "LEGACY_HISTORY", tmp_path / "none.json")
+
+    photo = tmp_path / "antenna.png"
+    from PySide6.QtGui import QImage
+
+    image = QImage(40, 30, QImage.Format.Format_RGB32)
+    image.fill(Qt.GlobalColor.darkGreen)
+    image.save(str(photo))
+
+    async def picked(_parent):
+        return str(photo)
+
+    monkeypatch.setattr(swr_page, "pick_photo", picked)
+    points = [{"f": 7_000_000 + i * 10_000, "v": 1.1 + abs(i - 10) / 10} for i in range(21)]
+
+    async def scenario():
+        from PySide6.QtWidgets import QLineEdit
+
+        win, link = await window(tmp_path, start_app="swr")
+        page = win.page
+        history = link.core.swr.history
+        history.add({"ts": "2026-10-11 10:00:00", "band": "40m", "kind": "swr",
+                     "target": 7_100_000, "points": points, "confident": True,
+                     "resonance": 7_100_000, "best": 1.1, "at_edge": ""})
+        try:
+            await until(lambda: page.bands and page.state)
+            await key(Qt.Key.Key_F2)
+            await key(Qt.Key.Key_H)
+            await until(lambda: isinstance(page.overlay, swr_page.HistoryView)
+                        and page.overlay.entries)
+            listing = page.overlay
+            await key(Qt.Key.Key_Return)
+            await until(lambda: isinstance(page.overlay, swr_page.EntryView)
+                        and page.overlay.entry)
+            view = page.overlay
+            assert view.chart.isVisibleTo(view) and view.chart.sweep["points"] == points
+            await key(Qt.Key.Key_C)
+            await until(lambda: QApplication.activeModalWidget() is not None)
+            QApplication.activeModalWidget().findChild(QLineEdit).setText("11,5")
+            await key(Qt.Key.Key_Return)
+            await until(lambda: view.entry.get("coil") == 11.5)
+            await key(Qt.Key.Key_O)
+            await until(lambda: QApplication.activeModalWidget() is not None)
+            QApplication.activeModalWidget().findChild(QLineEdit).setText("after rain")
+            await key(Qt.Key.Key_Return)
+            await until(lambda: view.entry.get("note") == "after rain")
+            await key(Qt.Key.Key_F)
+            await until(lambda: view._pixmap is not None)
+            assert view._pixmap.width() == 40 and history.entry(1).get("photo")
+            await key(Qt.Key.Key_X)
+            await until(lambda: view._pixmap is None and "photo" not in view.entry)
+            await key(Qt.Key.Key_Escape)                     # back to the list
+            await until(lambda: page.overlay is listing)
+            await until(lambda: "11.5" in listing.table.item(0, 2).text())
+            await key(Qt.Key.Key_D)
+            await answer("Delete")
+            await until(lambda: not listing.entries)
+            await key(Qt.Key.Key_Escape)
+            await until(lambda: page.overlay is None)
+        finally:
+            await link.close()
+
+    run(scenario())

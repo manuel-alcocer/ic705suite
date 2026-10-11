@@ -335,6 +335,7 @@ class QtItemTable(Table):
         self.clear()
         self.setColumnCount(len(kind.columns))
         self.setHorizontalHeaderLabels([log_(label) for label, _w in kind.columns])
+        self.right_align(*(i for i, r in enumerate(right) if r))
         char = self.fontMetrics().averageCharWidth()
         for column, (_label, width) in enumerate(kind.columns):
             if width:

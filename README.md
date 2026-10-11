@@ -224,7 +224,13 @@ core and leaving the suite offers to archive them.
 **Antenna (F5).** F2–F9 choose the band, ↑↓ go through the bands and the presets; **P** lists
 the presets: your own targets, each a name, a band and a frequency in it ("SSB at home", 40 m,
 7.150), swept on its band aiming at its frequency and keeping its own saved coil position (N, E
-and D add, edit and delete them; the phone page shows them too). **N** noise sweep (receive
+and D add, edit and delete them; the phone page shows them too). **H** opens the history of
+the chosen band or preset: every sweep (with its curve) and saved position, newest first. Enter
+shows one, with its curve and photo: **C** changes the position it was made at, **O** its note,
+**F** adds or replaces a photo (a file's path in the terminal, the file dialog in the graphical
+client; on the phone page the camera, also straight after a sweep), **V** opens the photo in
+the image viewer, **X** removes it and **D** deletes the entry. The photos are kept in the
+core's data folder (`swr/photos`). **N** noise sweep (receive
 only), **S** SWR sweep
 (RTTY carrier at `max_power`, 2 s PTT watchdog, settings restored afterwards). An SWR sweep
 needs both `--tx` and the **remote control** switched on with **R** in this application: it is

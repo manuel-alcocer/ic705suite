@@ -181,10 +181,15 @@ def test_full_sweep_restores_radio(tmp_path, kind):
     assert not fake.ptt
     # Operating settings back as they were (USB-D on 7.074, full power).
     assert (fake.freq, fake.mode, fake.data, fake.power) == (7_074_000, 0x01, 1, 255)
-    assert service.history.entries()[0]["kind"] == kind
+    recorded = service.history.entries()[0]
+    assert recorded["kind"] == kind and recorded["points"] == sw.points   # kept whole
+    assert sw.entry_id == recorded["id"]
     if kind == "swr":
-        assert service.save_final("12,75")["coil"] == 12.75
+        final = service.save_final("12,75")
+        assert final["coil"] == 12.75 and final["points"] == sw.points
         assert service.history.entries("40m")[-1]["kind"] == "final"
+        # The sweep is given the position it was made at.
+        assert service.history.entry(sw.entry_id)["coil"] == 12.75
     else:
         assert fake.keyed == 0    # a noise sweep never transmits
         # The position alone can be kept: no SWR sweep on this band to go with it.
@@ -339,5 +344,92 @@ def test_phone_page_needs_the_remote_control(tmp_path):
         service.set_remote(True)
         assert b"200" in (await route(service, "POST", "/api/sweep", sweep))[:20]
         service.stop_sweep()
+
+    asyncio.run(run())
+
+
+def test_history_entries_photos_from_the_phone_and_the_link(tmp_path):
+    """An entry's position and note change, a photo arrives (whole from the phone, in pieces
+    over the link), is replaced and removed with its file, and the entry is deleted."""
+    import base64
+
+    from ic705suite.apps.swr.service import PHOTO_CHUNK
+    from ic705suite.apps.swr.web import route
+
+    jpeg = b"\xff\xd8\xff\xe0" + bytes(range(256)) * 300          # bigger than a piece
+    png = b"\x89PNG\r\n\x1a\n" + b"\0" * 50
+
+    def body(reply):
+        return json.loads(reply.split(b"\r\n\r\n", 1)[1])
+
+    async def run():
+        station, service = make_service(tmp_path, FakeRadio(7_100_000))
+        service.photos_dir = tmp_path / "photos"
+        entry_id = service.history.add({"ts": "2026-10-11 10:00:00", "band": "40m",
+                                        "kind": "swr", "points": [{"f": 7_000_000, "v": 1.5}]})
+        service.set_remote(True)
+        # The phone: position and note, then a photo as the request's body.
+        reply = await route(service, "POST", "/api/entry",
+                            json.dumps({"id": entry_id, "coil": "11,5", "note": " rain "}).encode())
+        assert body(reply)["coil"] == 11.5 and body(reply)["note"] == "rain"
+        assert b"400" in (await route(service, "POST", f"/api/photo?id={entry_id}", b"hello"))[:20]
+        name = body(await route(service, "POST", f"/api/photo?id={entry_id}", png))["photo"]
+        assert (service.photos_dir / name).read_bytes() == png
+        got = await route(service, "GET", f"/api/photo?id={entry_id}", b"")
+        assert b"image/png" in got.split(b"\r\n\r\n")[0] and got.endswith(png)
+        listed = body(await route(service, "GET", "/api/history?band=40m", b""))
+        assert listed[0]["photo"] == name and "points" not in listed[0]
+        # The link: in pieces; it replaces the phone's photo (and its file).
+        assert len(jpeg) > PHOTO_CHUNK
+        offset = 0
+        while offset < len(jpeg):
+            piece = jpeg[offset:offset + PHOTO_CHUNK]
+            reply = await service.call("photo.put", {
+                "id": entry_id, "offset": offset, "data": base64.b64encode(piece).decode(),
+                "done": offset + len(piece) >= len(jpeg)})
+            offset += len(piece)
+        new = reply["entry"]["photo"]
+        assert new != name and not (service.photos_dir / name).exists()
+        back, offset = b"", 0
+        while True:
+            reply = await service.call("photo.get", {"id": entry_id, "offset": offset})
+            back += base64.b64decode(reply["data"])
+            offset = len(back)
+            if offset >= reply["size"]:
+                break
+        assert back == jpeg and reply["type"] == "image/jpeg"
+        # Out of step: refused, and the next upload starts again.
+        assert "error" in await service.call("photo.put", {"id": entry_id, "offset": 99,
+                                                           "data": ""})
+        # The phone deletes the entry; its photo goes with it.
+        await route(service, "POST", "/api/entry/delete", json.dumps({"id": entry_id}).encode())
+        assert not (service.photos_dir / new).exists()
+        assert "error" in await service.call("entry", {"id": entry_id})
+        # Without the remote control the phone cannot change the history.
+        service.set_remote(False)
+        assert b"400" in (await route(service, "POST", "/api/entry/delete", b'{"id": 1}'))[:20]
+
+    asyncio.run(run())
+
+
+def test_phone_page_refuses_too_large_bodies(tmp_path):
+    from ic705suite.apps.swr.service import MAX_PHOTO
+    from ic705suite.apps.swr.web import handle
+
+    async def run():
+        station, service = make_service(tmp_path, FakeRadio(7_100_000))
+        server = await asyncio.start_server(lambda r, w: handle(service, r, w), "127.0.0.1", 0)
+        port = server.sockets[0].getsockname()[1]
+        try:
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+            writer.write(f"POST /api/photo?id=1 HTTP/1.1\r\nContent-Length: {MAX_PHOTO + 1}"
+                         "\r\n\r\n".encode())
+            await writer.drain()
+            reply = await reader.read()
+            writer.close()
+            assert reply.startswith(b"HTTP/1.1 413")
+        finally:
+            server.close()
+            await server.wait_closed()
 
     asyncio.run(run())

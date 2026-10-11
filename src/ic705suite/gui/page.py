@@ -42,6 +42,7 @@ class Page(QWidget):
         self.config = config
         self.keymap = KeyMap(self.TUI)
         self.overlay: Overlay | None = None
+        self._under: list[Overlay] = []          # screens below the top one (a stack)
         self._tasks: set[asyncio.Future] = set()
         self._groups: dict[str, asyncio.Future] = {}
         # The page itself can hold the focus, so its keys arrive when no widget has it.
@@ -62,20 +63,27 @@ class Page(QWidget):
         return run_action(self, binding.action)
 
     def push_overlay(self, overlay: Overlay) -> None:
-        """Show a screen of its own over the page (the terminal's pushed screens)."""
+        """Show a screen of its own over the page (the terminal's pushed screens), or over
+        the screen already shown."""
+        if self.overlay is not None:
+            self._under.append(self.overlay)
         self.overlay = overlay
         self.window_.stack.addWidget(overlay)
         self.window_.stack.setCurrentWidget(overlay)
         overlay.start()
 
     def pop_overlay(self) -> None:
-        overlay, self.overlay = self.overlay, None
+        overlay = self.overlay
         if overlay is None:
             return
-        self.window_.stack.setCurrentWidget(self)
+        self.overlay = self._under.pop() if self._under else None
+        self.window_.stack.setCurrentWidget(self.overlay or self)
         self.window_.stack.removeWidget(overlay)
         overlay.deleteLater()
-        self.restore_focus()
+        if self.overlay is not None:
+            self.overlay.resumed()
+        else:
+            self.restore_focus()
 
     def restore_focus(self) -> None:
         """Back on the page: its usual place for the keys (the page itself by default)."""
@@ -165,6 +173,10 @@ class Overlay(QWidget):
 
     def start(self) -> None:
         """Shown."""
+
+    def resumed(self) -> None:
+        """Shown again, the screen above it closed."""
+        self.setFocus()
 
     def action_pop_screen(self) -> None:
         self.page.pop_overlay()

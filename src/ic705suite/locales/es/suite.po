@@ -540,3 +540,123 @@ msgstr "Borrar preset"
 
 msgid "Delete the preset {name}? Its sweeps stay in the history of {band}."
 msgstr "¿Borrar el preset {name}? Sus barridos se quedan en el historial de {band}."
+
+msgid "F2-F9 Band · ↑↓ Band or preset · P Presets · H History · A Antennas · R Remote control · N Noise sweep (RX) · S SWR sweep (TX) · C Save position · Esc Stop/Back"
+msgstr "F2-F9 Banda · ↑↓ Banda o preset · P Presets · H Histórico · A Antenas · R Control remoto · N Barrido de ruido (RX) · S Barrido de ROE (TX) · C Guardar posición · Esc Parar/Volver"
+
+msgid "F2-F9 Band · ↑↓ · P Presets · H History · N Noise · S SWR · Esc Back"
+msgstr "F2-F9 Banda · ↑↓ · P Presets · H Histórico · N Ruido · S ROE · Esc Volver"
+
+msgid "History of {band}"
+msgstr "Histórico de {band}"
+
+msgid "↑↓ choose · Enter details · D delete · Esc back"
+msgstr "↑↓ elegir · Intro detalles · D borrar · Esc volver"
+
+msgid "C position · O note · F photo from a file · V view photo · X remove photo · D delete · Esc back"
+msgstr "C posición · O nota · F foto desde un fichero · V ver foto · X quitar foto · D borrar · Esc volver"
+
+msgid "Date"
+msgstr "Fecha"
+
+msgid "What"
+msgstr "Qué"
+
+msgid "Best"
+msgstr "Mejor"
+
+msgid "Position saved"
+msgstr "Posición guardada"
+
+msgid "Every sweep and saved position, the newest first (📷 photo, ✎ note)."
+msgstr "Cada barrido y posición guardada, lo más reciente primero (📷 foto, ✎ nota)."
+
+msgid "Nothing yet: the sweeps and saved positions appear here."
+msgstr "Todavía nada: aquí aparecen los barridos y las posiciones guardadas."
+
+msgid "Delete from the history"
+msgstr "Borrar del histórico"
+
+msgid "Delete from the history: {what}, {date}? Its photo goes with it."
+msgstr "¿Borrar del histórico: {what}, {date}? Su foto se borra también."
+
+msgid "Which number was the coil (or adjustment) on? (empty: none)"
+msgstr "¿En qué número estaba la bobina (o el ajuste)? (vacío: ninguno)"
+
+msgid "A note on this measurement (the weather, what was changed...)"
+msgstr "Una nota sobre esta medición (el tiempo, qué se cambió...)"
+
+msgid "Note"
+msgstr "Nota"
+
+msgid "Photo"
+msgstr "Foto"
+
+msgid "Photos"
+msgstr "Fotos"
+
+msgid "Path of the photo (JPEG, PNG, WebP or GIF; it replaces the one there is)"
+msgstr "Ruta de la foto (JPEG, PNG, WebP o GIF; sustituye a la que haya)"
+
+msgid "Enter sends · Esc cancels"
+msgstr "Intro envía · Esc cancela"
+
+msgid "Sending the photo..."
+msgstr "Enviando la foto..."
+
+msgid "Photo saved."
+msgstr "Foto guardada."
+
+msgid "Photo removed."
+msgstr "Foto quitada."
+
+msgid "Photo opened in the image viewer."
+msgstr "Foto abierta en el visor de imágenes."
+
+msgid "No photo yet: F adds one."
+msgstr "Todavía no hay foto: F añade una."
+
+msgid "Saved."
+msgstr "Guardado."
+
+msgid "Problem"
+msgstr "Problema"
+
+msgid "Result"
+msgstr "Resultado"
+
+msgid "at the edge"
+msgstr "en el borde"
+
+msgid "no clear resonance"
+msgstr "sin resonancia clara"
+
+msgid "stopped"
+msgstr "parado"
+
+msgid "the radio was hardly giving power"
+msgstr "la radio casi no sacaba potencia"
+
+msgid "yes (V opens it)"
+msgstr "sí (V la abre)"
+
+msgid "none (F adds one)"
+msgstr "ninguna (F añade una)"
+
+msgid "details"
+msgstr "detalles"
+
+msgid "position"
+msgstr "posición"
+
+msgid "note"
+msgstr "nota"
+
+msgid "photo"
+msgstr "foto"
+
+msgid "view photo"
+msgstr "ver foto"
+
+msgid "remove photo"
+msgstr "quitar foto"

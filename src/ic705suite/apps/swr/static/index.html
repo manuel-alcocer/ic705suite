@@ -74,6 +74,18 @@
   .hist { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
   .hist td, .hist th { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: left; }
   .hist th { color: var(--muted); font-weight: 500; }
+  .hist tbody tr { cursor: pointer; }
+  .hist tbody tr.sel { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .hist .n { text-align: right; }
+  .photo { width: 100%; border-radius: 10px; margin-top: 12px; display: block; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .btns > * { flex: 1; padding: 11px 8px; border-radius: 10px; font-size: 15px; font-weight: 600;
+              border: 1px solid var(--accent); background: transparent; color: var(--accent);
+              text-align: center; }
+  .btns .danger { border-color: var(--bad); color: var(--bad); }
+  .btns .primary { background: var(--accent); color: #fff; }
+  textarea { width: 100%; padding: 10px; font: inherit; border-radius: 10px; min-height: 60px;
+             border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
   .hidden { display: none; }
   h2 { font-size: 15px; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
 </style>
@@ -135,6 +147,9 @@
       <button class="save" id="btnSave">Guardar ajuste</button>
     </div>
     <div class="sub hidden" id="savedMsg"></div>
+    <div class="btns hidden" id="sweepPhotoBox">
+      <label>📷 Añadir foto a esta medición<input type="file" accept="image/*" capture="environment" id="sweepFile" hidden></label>
+    </div>
   </section>
 
   <section class="card hidden" id="chartCard">
@@ -142,9 +157,31 @@
   </section>
 
   <section class="card hidden" id="histCard">
-    <h2>Ajustes guardados en esta banda</h2>
-    <table class="hist"><thead><tr><th>Hora</th><th>Bobina</th><th>Resonancia</th><th>Mín.</th></tr></thead>
+    <h2 id="histTitle">Histórico</h2>
+    <table class="hist"><thead><tr><th>Fecha</th><th>Qué</th><th class="n">Bobina</th>
+      <th class="n">Resonancia</th><th class="n">Mín.</th><th></th></tr></thead>
       <tbody id="hist"></tbody></table>
+  </section>
+
+  <section class="card hidden" id="entryCard">
+    <h2 id="entryTitle"></h2>
+    <div class="facts" id="entryFacts"></div>
+    <svg id="entryChart" viewBox="0 0 340 200" role="img" aria-label="Curva de esta medición"></svg>
+    <img class="photo hidden" id="entryPhoto" alt="Foto de la antena">
+    <div class="row">
+      <label><span>Bobina (posición del ajuste)</span><input id="entryCoil" inputmode="decimal"></label>
+    </div>
+    <label style="display:block;margin-top:12px"><span>Nota</span><textarea id="entryNote"></textarea></label>
+    <div class="btns">
+      <button class="primary" id="entrySave">Guardar cambios</button>
+      <label id="entryPhotoBtn">Foto<input type="file" accept="image/*" capture="environment" id="entryFile" hidden></label>
+    </div>
+    <div class="btns">
+      <button class="danger hidden" id="entryPhotoDel">Quitar foto</button>
+      <button class="danger" id="entryDel">Borrar del histórico</button>
+      <button id="entryClose">Cerrar</button>
+    </div>
+    <div class="sub" id="entryMsg"></div>
   </section>
 </main>
 
@@ -191,16 +228,69 @@ function selectBand(b) {
   loadHistory();
 }
 
+const esc = t => String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const KINDS = { swr: "ROE", noise: "Ruido", final: "Ajuste" };
+const coilText = c => c == null ? "—" : String(c).replace(".", ",");
+let entry = null;
+
 async function loadHistory() {
   if (!band) return;
-  // A preset is swept on its band; its saved positions are its own.
+  // A preset is swept on its band; its sweeps and positions are its own. Newest first.
   const rows = await api("/api/history?band=" + (band.band || band.name)).catch(() => []);
-  const finals = rows.filter(h => h.kind === "final" && (h.preset || null) === (band.preset || null));
-  $("histCard").classList.toggle("hidden", finals.length === 0);
-  $("hist").innerHTML = finals.slice().reverse().map(h => `<tr><td>${h.ts.slice(5, 16)}</td>
-    <td>${String(h.coil).replace(".", ",")}</td>
-    <td>${h.resonance ? mhz(h.resonance) + (h.at_edge ? " (borde)" : "") : "—"}</td>
-    <td>${h.best != null ? h.best.toFixed(2) : "—"}</td></tr>`).join("");
+  const mine = rows.filter(h => (h.preset || null) === (band.preset || null));
+  $("histTitle").textContent = `Histórico de ${band.name}`;
+  $("histCard").classList.toggle("hidden", mine.length === 0);
+  $("hist").innerHTML = mine.map(h => `<tr data-id="${h.id}"${entry && entry.id === h.id ? ' class="sel"' : ""}>
+    <td>${h.ts.slice(5, 16).replace("T", " ")}</td><td>${KINDS[h.kind] || h.kind}${h.error ? " ⚠" : ""}</td>
+    <td class="n">${coilText(h.coil)}</td>
+    <td class="n">${h.resonance ? mhz(h.resonance) + (h.at_edge ? "*" : "") : "—"}</td>
+    <td class="n">${h.best != null ? (h.kind === "noise" ? h.best : h.best.toFixed(2)) : "—"}</td>
+    <td>${h.photo ? "📷" : ""}${h.note ? "✎" : ""}</td></tr>`).join("");
+}
+
+async function openEntry(id) {
+  try { entry = await api("/api/entry?id=" + id); } catch (e) { showError(e.message); return; }
+  const e = entry, a = e.analysis || {};
+  $("entryCard").classList.remove("hidden");
+  $("entryTitle").textContent = `${KINDS[e.kind] || e.kind} · ${e.band}${band.preset ? " · " + band.name : ""} · ${e.ts.slice(0, 16).replace("T", " ")}`;
+  const facts = [["Objetivo", e.target ? mhz(e.target) + " MHz" : "—"]];
+  if (e.resonance) facts.push(["Resonancia", mhz(e.resonance) + " MHz" + (e.at_edge ? " (borde)" : "")]);
+  if (e.best != null) facts.push([e.kind === "noise" ? "Ruido pico" : "ROE mínima", e.kind === "noise" ? String(e.best) : e.best.toFixed(2)]);
+  if (a.delta_khz != null) facts.push(["Desvío", (a.delta_khz > 0 ? "+" : "") + a.delta_khz.toFixed(0) + " kHz"]);
+  if (e.points) facts.push(["Puntos", String(e.points.length)]);
+  if (e.error) facts.push(["Problema", e.error === "stopped" ? "parado" : e.error]);
+  else if (e.points && !e.confident) facts.push(["Resultado", "sin resonancia clara"]);
+  $("entryFacts").innerHTML = facts.map(([k, v]) => `<div><span>${k}</span><b>${esc(v)}</b></div>`).join("");
+  $("entryChart").classList.toggle("hidden", !(e.points && e.points.length));
+  if (e.points && e.points.length) {
+    drawChart({ points: e.points, kind: e.kind, target: e.target, analysis: e.confident ? e.analysis : null }, $("entryChart"));
+  }
+  $("entryCoil").value = e.coil == null ? "" : coilText(e.coil);
+  $("entryNote").value = e.note || "";
+  $("entryPhoto").classList.toggle("hidden", !e.photo);
+  if (e.photo) $("entryPhoto").src = `/api/photo?id=${e.id}&v=${encodeURIComponent(e.photo)}`;
+  $("entryPhotoDel").classList.toggle("hidden", !e.photo);
+  $("entryPhotoBtn").firstChild.textContent = e.photo ? "Cambiar foto" : "Añadir foto";
+  $("entryDel").textContent = "Borrar del histórico";
+  delete $("entryDel").dataset.sure;
+  $("entryMsg").textContent = "";
+  loadHistory();
+  $("entryCard").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function closeEntry() {
+  entry = null;
+  $("entryCard").classList.add("hidden");
+  loadHistory();
+}
+
+async function uploadPhoto(id, file) {
+  // The camera's photo as it is: the PC keeps it with the measurement.
+  const res = await fetch("/api/photo?id=" + id, { method: "POST", body: file,
+                                                    headers: { "Content-Type": file.type || "application/octet-stream" } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || (res.status === 413 ? "la foto es demasiado grande (16 MB como mucho)" : res.statusText));
+  return data;
 }
 
 function sweepRequest(kind) {
@@ -229,8 +319,8 @@ async function startSweep(kind) {
   } catch (e) { showError(e.message); }
 }
 
-function drawChart(sw) {
-  const svg = $("chart"), pts = sw.points;
+function drawChart(sw, svg = $("chart")) {
+  const pts = sw.points;
   if (!pts.length) { svg.innerHTML = ""; return; }
   const W = 340, H = 200, L = 34, R = 8, T = 10, B = 26;
   const isSwr = sw.kind === "swr";
@@ -368,6 +458,9 @@ function render() {
   $("btnFinish").classList.toggle("hidden", !canFinish || asking || savedFor === sw.finished_at);
   $("finalBox").classList.toggle("hidden", !asking);
   $("savedMsg").classList.toggle("hidden", savedFor !== sw.finished_at);
+  $("sweepPhotoBox").classList.toggle("hidden", sw.running || !sw.entry_id || !remote);
+  $("entrySave").disabled = $("entryFile").disabled = $("entryDel").disabled =
+    $("entryPhotoDel").disabled = !remote;
   if (!sw.running && sw.finished_at && sw.finished_at !== lastShownFinish) {
     if (lastShownFinish && navigator.vibrate) navigator.vibrate(sw.analysis && sw.analysis.tuned ? [100, 80, 100] : 300);
     lastShownFinish = sw.finished_at;
@@ -407,7 +500,6 @@ async function init() {
     } catch (e) { showError(e.message); }
   });
   bands = await api("/api/bands");
-  const esc = t => String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
   $("bands").innerHTML = bands.map((b, i) => `<button data-i="${i}" title="${esc(b.preset ? b.band + " " + mhz(b.target) : b.name)}">${
     esc(b.preset ? b.name : b.name.replace("m", ""))}</button>`).join("");
   $("bands").addEventListener("click", e => {
@@ -435,6 +527,46 @@ async function init() {
         : `Guardado: bobina ${String(e.coil).replace(".", ",")} en ${e.band}.`;
       remember(); render(); loadHistory();
     } catch (err) { showError(err.message); }
+  });
+  $("hist").addEventListener("click", e => {
+    const tr = e.target.closest("tr");
+    if (tr) openEntry(parseInt(tr.dataset.id, 10));
+  });
+  $("entryClose").addEventListener("click", closeEntry);
+  $("entrySave").addEventListener("click", async () => {
+    showError("");
+    try {
+      await api("/api/entry", { id: entry.id, coil: $("entryCoil").value, note: $("entryNote").value });
+      await openEntry(entry.id);
+      $("entryMsg").textContent = "Guardado.";
+    } catch (err) { showError(err.message); }
+  });
+  $("entryFile").addEventListener("change", async () => {
+    const file = $("entryFile").files[0];
+    $("entryFile").value = "";
+    if (!file) return;
+    showError(""); $("entryMsg").textContent = "Subiendo la foto…";
+    try { await uploadPhoto(entry.id, file); await openEntry(entry.id); $("entryMsg").textContent = "Foto guardada."; }
+    catch (err) { $("entryMsg").textContent = ""; showError(err.message); }
+  });
+  $("sweepFile").addEventListener("change", async () => {
+    const file = $("sweepFile").files[0], id = state.sweep.entry_id;
+    $("sweepFile").value = "";
+    if (!file || !id) return;
+    showError("");
+    try { await uploadPhoto(id, file); await openEntry(id); $("entryMsg").textContent = "Foto guardada."; }
+    catch (err) { showError(err.message); }
+  });
+  $("entryPhotoDel").addEventListener("click", async () => {
+    try { await api("/api/photo/delete", { id: entry.id }); await openEntry(entry.id); }
+    catch (err) { showError(err.message); }
+  });
+  $("entryDel").addEventListener("click", async () => {
+    // Two taps (no browser dialog): the first asks, the second deletes.
+    const btn = $("entryDel");
+    if (!btn.dataset.sure) { btn.dataset.sure = "1"; btn.textContent = "¿Seguro? Toca otra vez"; return; }
+    try { await api("/api/entry/delete", { id: entry.id }); closeEntry(); }
+    catch (err) { showError(err.message); }
   });
   $("btnSwr").addEventListener("click", () => startSweep("swr"));
   $("btnNoise").addEventListener("click", () => startSweep("noise"));
