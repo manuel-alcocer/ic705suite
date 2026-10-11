@@ -4,7 +4,11 @@ monitor, and the TNC going away and coming back."""
 from __future__ import annotations
 
 import asyncio
+import os
+import sys
+from pathlib import Path
 
+from ic705suite.apps.packet import direwolf as direwolf_module
 from ic705suite.apps.packet import service as service_module
 from ic705suite.apps.packet.agwpe import Frame, parse_ports
 from ic705suite.apps.packet.service import CHANNELS, PacketService, parse_via, readable
@@ -234,3 +238,115 @@ def test_small_helpers():
     assert parse_via(["a", " "]) == ["A"]
     assert readable("hola\rqué tal") and not readable("\x82\x80\x00\x17")
     assert parse_ports("2;Port1 VHF;Port2 INVALID CHANNEL;") == ["1: Port1 VHF"]
+
+
+# ---- Direwolf started by the core ----------------------------------------------------------
+
+FAKE_DIREWOLF = Path(__file__).with_name("fake_direwolf.py")
+
+
+def free_port() -> int:
+    import socket
+
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def managed(tmp_path, monkeypatch) -> Config:
+    monkeypatch.setattr(service_module, "find_direwolf", lambda configured="": "direwolf")
+    monkeypatch.setattr(service_module, "direwolf_command",
+                        lambda program: [sys.executable, str(FAKE_DIREWOLF)])
+    monkeypatch.setattr(service_module, "data_dir", lambda: tmp_path)
+    monkeypatch.setattr(direwolf_module, "RESTART_DELAYS", (0.2, 0.2, 0.2, 0.2, 0.2))
+    return Config(callsign="EA7KLX", packet_tnc="direwolf", packet_audio="plughw:Device,0",
+                  packet_ptt="/dev/ttyUSB0 RTS", packet_tcp_port=free_port(),
+                  packet_mycall="EA7KLX-4")
+
+
+def test_direwolf_started_by_the_core(tmp_path, monkeypatch):
+    config = managed(tmp_path, monkeypatch)
+
+    async def scenario():
+        hub = Hub()
+        service = PacketService(config, hub)
+        await service.start()
+        try:
+            await until(lambda: service.registered, 15)
+            state = service.state()["tnc"]
+            assert state["host"] == "127.0.0.1" and state["kind"] == "direwolf"
+            assert state["direwolf"]["state"] == "running"
+            conf = (tmp_path / "packet" / "direwolf.conf").read_text()
+            assert "ADEVICE plughw:Device,0" in conf and "PTT /dev/ttyUSB0 RTS" in conf
+            assert f"AGWPORT {config.packet_tcp_port}" in conf and "MYCALL EA7KLX-4" in conf
+            await service.call("connect", {"channel": 1, "call": "EA1ABC"})
+            await until(lambda: service.channels[1].state == "connected")
+
+            # Started again on request: the session goes, the TNC comes back.
+            pid = service.direwolf.pid
+            await service.call("tnc.restart", {})
+            await until(lambda: service.channels[1].state == "free", 10)
+            await until(lambda: service.registered and service.direwolf.pid not in (0, pid), 15)
+            log = (await service.call("tnc.log", {}))["lines"]
+            assert any("Ready to accept AGW" in line for line in log)
+            assert "*** Direwolf stopped to start again" in log
+            pid = service.direwolf.pid
+        finally:
+            await service.stop()
+        assert service.direwolf is None
+        await asyncio.sleep(0.2)
+        assert not _alive(pid)
+
+    asyncio.run(scenario())
+
+
+def test_direwolf_that_cannot_start(tmp_path, monkeypatch):
+    config = managed(tmp_path, monkeypatch)
+    monkeypatch.setenv("FAKE_DIREWOLF_FAIL", "1")
+
+    async def scenario():
+        service = PacketService(config, Hub())
+        await service.start()
+        try:
+            await until(lambda: service.direwolf.restarts >= 2, 15)
+            state = service.state()["tnc"]["direwolf"]
+            assert state["state"] in ("waiting", "starting", "failed")
+            assert "Could not open audio device" in state["error"]
+            assert service.tnc_state == "connecting" and not service.registered
+        finally:
+            await service.stop()
+
+    asyncio.run(scenario())
+
+
+def test_direwolf_not_installed(tmp_path, monkeypatch):
+    config = managed(tmp_path, monkeypatch)
+    monkeypatch.setattr(service_module, "find_direwolf", lambda configured="": None)
+
+    async def scenario():
+        hub = Hub()
+        service = PacketService(config, hub)
+        await service.start()
+        try:
+            assert service.state()["tnc"]["direwolf"]["state"] == "missing"
+            assert "Direwolf is not installed here" in hub.texts(0)
+            refused = await service.call("tnc.restart", {})
+            assert refused["error"].startswith("Direwolf is not started by the suite")
+        finally:
+            await service.stop()
+
+    asyncio.run(scenario())
+
+
+def _alive(pid: int) -> bool:
+    if sys.platform == "win32":
+        import subprocess
+
+        out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}"], capture_output=True,
+                             text=True, check=False).stdout
+        return str(pid) in out
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True

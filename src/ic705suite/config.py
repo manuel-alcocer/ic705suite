@@ -100,10 +100,18 @@ max_power = 30
 # remote_password = ""
 
 [packet]
-# Packet radio (F7): the suite's client, over a Direwolf TNC reached by AGWPE (its AGWPORT),
-# on this machine or another one (e.g. the Raspberry Pi with a Digirig).
+# Packet radio (F7): the suite's client over a Direwolf TNC.
+# tnc = "agwpe": a Direwolf already running, here or on another machine (e.g. a Raspberry
+#   Pi with a Digirig), reached by its AGWPE port (AGWPORT): host and tcp_port.
+# tnc = "direwolf": the suite starts its own Direwolf on this machine, with the sound card
+#   and PTT below (ic705suite --configure finds a Digirig plugged in), AGWPE on tcp_port.
+# tnc = "agwpe"
 # host = "raspberrypi.local"
 # tcp_port = 8000
+# audio = "plughw:Device,0"      # Direwolf's ADEVICE (Windows: part of the card's name)
+# ptt = "/dev/ttyUSB0 RTS"       # Direwolf's PTT: "COM5 RTS", "CM108", "" for the VOX
+# txdelay = 30                   # tens of ms before the data, for the radio to key up
+# direwolf = "direwolf"          # the program, when it is not on the PATH
 # Own callsign for packet, with its SSID (default: [station] callsign)
 # mycall = "N0CALL-4"
 # Radio port of the TNC, from 1
@@ -176,6 +184,11 @@ class Config:
     packet_tcp_port: int = 8000
     packet_mycall: str = ""          # "" = the station callsign
     packet_radio_port: int = 1
+    packet_tnc: str = "agwpe"        # agwpe (one already running) or direwolf (started here)
+    packet_audio: str = ""
+    packet_ptt: str = ""
+    packet_txdelay: int = 30
+    packet_direwolf: str = ""
     # [ui] [server] [client]
     language: str = ""
     glyphs: str = "auto"
@@ -238,6 +251,11 @@ def load_config(path: Path | None = None) -> Config:
         cfg.packet_tcp_port = int(packet.get("tcp_port", cfg.packet_tcp_port))
         cfg.packet_mycall = str(packet.get("mycall", cfg.packet_mycall)).upper()
         cfg.packet_radio_port = int(packet.get("radio_port", cfg.packet_radio_port))
+        cfg.packet_tnc = str(packet.get("tnc", cfg.packet_tnc)).lower()
+        cfg.packet_audio = str(packet.get("audio", cfg.packet_audio))
+        cfg.packet_ptt = str(packet.get("ptt", cfg.packet_ptt))
+        cfg.packet_txdelay = int(packet.get("txdelay", cfg.packet_txdelay))
+        cfg.packet_direwolf = str(packet.get("direwolf", cfg.packet_direwolf))
         server, client = data.get("server", {}), data.get("client", {})
         cfg.listen = str(server.get("listen", cfg.listen))
         cfg.server_token = str(server.get("token", cfg.server_token))

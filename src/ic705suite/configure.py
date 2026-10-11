@@ -51,8 +51,12 @@ def summary(config: Config) -> list[tuple[str, str]]:
                  _("with a password") if config.swr_remote_password else
                  _("only from the antenna application")))
     rows.append((_("Graphical client"), config.theme))
-    if config.packet_host:
-        mycall = config.packet_mycall or config.callsign or "-"
+    mycall = config.packet_mycall or config.callsign or "-"
+    if config.packet_tnc == "direwolf" and config.packet_audio:
+        rows.append((_("Packet"), _("{call} with Direwolf started here ({audio}, PTT {ptt})")
+                     .format(call=mycall, audio=config.packet_audio,
+                             ptt=config.packet_ptt or "VOX")))
+    elif config.packet_host:
         rows.append((_("Packet"), _("{call} on the TNC at {host}:{port}").format(
             call=mycall, host=config.packet_host, port=config.packet_tcp_port)))
     else:
@@ -143,6 +147,55 @@ def _packet_call(value: str) -> str | None:
              "EA7XYZ-4")
 
 
+PACKET_TNCS = ("none", "agwpe", "direwolf")
+
+
+def _packet_questions(q: Questions, config: Config) -> None:
+    """Which TNC packet uses (if any), how to reach it or what Direwolf runs with here, and
+    the callsign."""
+    from ic705suite.apps.packet.direwolf import find_devices, find_direwolf
+
+    current = config.packet_tnc if config.packet_tnc == "direwolf" and config.packet_audio \
+        else "agwpe" if config.packet_host else "none"
+    kind = q.choice(_("Packet TNC: none, agwpe (a Direwolf already running, here or on "
+                      "another machine) or direwolf (the suite starts its own here, e.g. with "
+                      "a Digirig)"), PACKET_TNCS, current)
+    if kind == "none":
+        config.packet_tnc, config.packet_host = "agwpe", ""
+        return
+    config.packet_tnc = kind
+    if kind == "agwpe":
+        address = (f"{config.packet_host}:{config.packet_tcp_port}"
+                   if config.packet_host else "")
+        tnc = q.text(_("Direwolf's AGWPE port as host or host:port"), address, _tnc_address)
+        host, _sep, port = tnc.rpartition(":") if ":" in tnc else (tnc, "", "")
+        config.packet_host, config.packet_tcp_port = host, int(port or 8000)
+    else:
+        if find_direwolf(config.packet_direwolf) is None:
+            q.write(_("Direwolf is not installed here yet: install it (Debian, Ubuntu, "
+                      "Raspberry Pi OS: apt install direwolf; Windows: its installer) before "
+                      "using packet."))
+        devices = find_devices()
+        for device in devices:
+            q.write(_("Found: {device}").format(device=device.description))
+        if not devices:
+            q.write(_("No Digirig found plugged in: type its sound card and PTT."))
+        found = devices[0] if devices else None
+        config.packet_audio = q.text(
+            _("Sound card for Direwolf (ADEVICE, e.g. plughw:Device,0)"),
+            config.packet_audio or (found.audio if found else ""), _not_empty)
+        ptt = q.text(_("PTT for Direwolf (e.g. /dev/ttyUSB0 RTS, COM5 RTS, CM108; vox for "
+                       "none)"), config.packet_ptt or (found.ptt if found else "vox"))
+        config.packet_ptt = "" if ptt.lower() in ("vox", "none", "-") else ptt
+    config.packet_mycall = q.text(
+        _("Packet callsign, with its SSID"),
+        config.packet_mycall or f"{config.callsign.split('/')[0]}-4", _packet_call, upper=True)
+
+
+def _tnc_address(value: str) -> str | None:
+    return _not_empty(value) or _tnc(value)
+
+
 def _not_empty(value: str) -> str | None:
     return None if value else _("It cannot be empty")
 
@@ -188,19 +241,7 @@ def configure(path: Path | None = None, questions: Questions | None = None,
         config.theme = q.choice(
             _("Look of the graphical client (ic705suite --gui): dark, light or auto (as the "
               "system)"), THEMES, config.theme if config.theme in THEMES else "auto")
-        current = (f"{config.packet_host}:{config.packet_tcp_port}" if config.packet_host
-                   else "")
-        tnc = q.text(_("Packet: the Direwolf TNC (its AGWPE port) as host or host:port, on "
-                       "this machine or another (Enter with nothing: no packet)"), current, _tnc)
-        if tnc:
-            host, _sep, port = tnc.rpartition(":") if ":" in tnc else (tnc, "", "")
-            config.packet_host, config.packet_tcp_port = host, int(port or 8000)
-            config.packet_mycall = q.text(
-                _("Packet callsign, with its SSID"),
-                config.packet_mycall or f"{config.callsign.split('/')[0]}-4", _packet_call,
-                upper=True)
-        else:
-            config.packet_host = ""
+        _packet_questions(q, config)
 
         q.write("")
         q.write(_("The settings will be:"))
@@ -220,11 +261,15 @@ def configure(path: Path | None = None, questions: Questions | None = None,
         ("ui", "theme"): config.theme,
         ("swr", "remote_password"): config.swr_remote_password,
         ("packet", "host"): config.packet_host,
+        ("packet", "tnc"): config.packet_tnc,
         (_section_of(text, "tx_enabled", ("rig", "keyer")), "tx_enabled"): config.tx_enabled,
     }
-    if config.packet_host:
+    if config.packet_host or config.packet_tnc == "direwolf":
         values.update({("packet", "tcp_port"): config.packet_tcp_port,
                        ("packet", "mycall"): config.packet_mycall})
+    if config.packet_tnc == "direwolf":
+        values.update({("packet", "audio"): config.packet_audio,
+                       ("packet", "ptt"): config.packet_ptt})
     if config.connection == "lan":
         values.update({("rig", "host"): config.host, ("rig", "username"): config.username,
                        ("rig", "password"): config.password})

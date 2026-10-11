@@ -254,11 +254,22 @@ and delete them. The phone page can switch the active antenna too.
 **Logbook (F6).** hamrlog as it was, with its own settings (F9). It does not need the radio,
 so it opens even when it is unreachable.
 
-**Packet (F7).** A BayCom-style terminal on a Direwolf TNC, which the core reaches over its
-AGWPE port (`[packet] host` and `tcp_port`, also asked by `--configure`): on this machine or
-on another one, such as a Raspberry Pi with a Digirig and another radio. Until `[packet]` is
-written, hamrpkt's own settings (its node and callsign) are used. The monitor (channel 0)
-stays on top; below it, the chosen channel: **F1-F8** choose one of the 8 channels, one
+**Packet (F7).** A BayCom-style terminal on a Direwolf TNC, in one of two ways
+(`[packet] tnc`, also asked by `--configure`):
+
+- `tnc = "agwpe"`: a Direwolf already running, on this machine or another one (such as a
+  Raspberry Pi with a Digirig and another radio), reached over its AGWPE port (`host`,
+  `tcp_port`). Until `[packet]` is written, hamrpkt's own settings (its node and callsign)
+  are used.
+- `tnc = "direwolf"`: the core starts its own Direwolf here, writes its configuration from
+  `[packet]` (`audio`: the sound card, `ptt`, `txdelay`, `mycall`; AGWPE on `tcp_port`), keeps
+  what it says and starts it again if it stops. `--configure` finds a Digirig plugged in (its
+  CM108 sound card and the CP210x serial port next to it, PTT on RTS) and offers it. Direwolf
+  must be installed (`apt install direwolf`; on Windows, its installer): it is a program of
+  its own (GPLv2), which the suite only starts and talks to. `/tnc` shows its configuration
+  and its last words, `/tnc restart` starts it again.
+
+The monitor (channel 0) stays on top; below it, the chosen channel: **F1-F8** choose one of the 8 channels, one
 session each. What is typed goes to that channel's station; `/c CALL [v DIGI …]` calls from
 this channel, `/d` hangs up, `/ui DEST text` sends an unconnected frame, `/help` lists the
 rest. A station calling us takes the first free channel. **F9** hides the monitor, **F10**

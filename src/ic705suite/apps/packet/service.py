@@ -37,8 +37,11 @@ from ic705suite.apps.packet.agwpe import (
     parse_monitor,
     parse_ports,
 )
+from ic705suite.apps.packet.direwolf import Direwolf, config_text, find_direwolf
+from ic705suite.apps.packet.direwolf import Settings as DirewolfSettings
 from ic705suite.config import Config
 from ic705suite.i18n import N_
+from ic705suite.paths import data_dir
 
 log = logging.getLogger(__name__)
 
@@ -113,6 +116,8 @@ class PacketService:
         self._task: asyncio.Task | None = None
         self._wake = asyncio.Event()
         self._changed = True
+        self.direwolf: Direwolf | None = None      # the one started here (tnc = "direwolf")
+        self.direwolf_missing = False
 
     # ---- settings ------------------------------------------------------------------------
 
@@ -125,14 +130,28 @@ class PacketService:
         return max(1, self.config.packet_radio_port)
 
     @property
+    def local(self) -> bool:
+        """Whether the core starts Direwolf itself (else it reaches one already running)."""
+        return self.config.packet_tnc == "direwolf"
+
+    @property
+    def host(self) -> str:
+        return "127.0.0.1" if self.local else self.config.packet_host
+
+    @property
     def configured(self) -> bool:
+        if self.local:
+            return bool(self.config.packet_audio and self.mycall)
         return bool(self.config.packet_host and self.mycall)
 
     # ---- life ----------------------------------------------------------------------------
 
     async def start(self) -> None:
-        if self.configured and self._task is None:
-            self._task = asyncio.create_task(self._run())
+        if not self.configured or self._task is not None:
+            return
+        if self.local and self.direwolf is None:
+            self._start_direwolf()
+        self._task = asyncio.create_task(self._run())
 
     async def stop(self) -> None:
         task, self._task = self._task, None
@@ -142,6 +161,25 @@ class PacketService:
                 await task
         if self._client is not None:
             await self._client.close()
+        direwolf, self.direwolf = self.direwolf, None
+        if direwolf is not None:
+            await direwolf.stop()
+
+    def _start_direwolf(self) -> None:
+        program = find_direwolf(self.config.packet_direwolf)
+        if program is None:
+            self.direwolf_missing = True
+            self._system(0, N_("Direwolf is not installed here: install it (Debian, Ubuntu, "
+                               "Raspberry Pi OS: apt install direwolf; Windows: its "
+                               "installer) or set [packet] direwolf to the program"))
+            return
+        config = self.config
+        settings = DirewolfSettings(mycall=self.mycall, audio=config.packet_audio,
+                                    ptt=config.packet_ptt, txdelay=config.packet_txdelay,
+                                    agw_port=config.packet_tcp_port)
+        self.direwolf = Direwolf(direwolf_command(program), data_dir() / "packet" /
+                                 "direwolf.conf", config_text(settings), self._touch)
+        self.direwolf.start()
 
     def changed(self) -> bool:
         """Whether the state moved since the last call (the core then sends it)."""
@@ -149,10 +187,14 @@ class PacketService:
         return changed
 
     async def _run(self) -> None:
-        host, port = self.config.packet_host, self.config.packet_tcp_port
+        host, port = self.host, self.config.packet_tcp_port
         while True:
             self.tnc_state, self.registered = "connecting", False
             self._touch()
+            if self.local:
+                # Ours: wait until it says it takes AGWPE clients (or it cannot start).
+                while self.direwolf is None or self.direwolf.state != "running":
+                    await asyncio.sleep(0.2)
             client = AgwClient(host, port, self._on_frame)
             reason = ""
             try:
@@ -180,9 +222,10 @@ class PacketService:
                     self._system(channel.number, N_("Link to the TNC lost: {call} is no longer "
                                                     "connected"), call=channel.call)
                     channel.reset()
-            self._system(0, N_("Cannot reach the TNC at {host}:{port}: {error}; trying again "
-                               "in {seconds} s"), host=host, port=port, error=self.tnc_error,
-                         seconds=int(RETRY_DELAY))
+            if not self.local:     # ours says why itself (its state and its output)
+                self._system(0, N_("Cannot reach the TNC at {host}:{port}: {error}; trying "
+                                   "again in {seconds} s"), host=host, port=port,
+                             error=self.tnc_error, seconds=int(RETRY_DELAY))
             self._touch()
             self._wake.clear()
             with contextlib.suppress(TimeoutError):
@@ -338,11 +381,14 @@ class PacketService:
     def state(self) -> dict:
         return {
             "tnc": {"state": self.tnc_state, "error": self.tnc_error,
-                    "host": self.config.packet_host, "port": self.config.packet_tcp_port,
+                    "kind": self.config.packet_tnc,
+                    "host": self.host if self.configured else "",
+                    "port": self.config.packet_tcp_port,
                     "version": self.tnc_version, "ports": self.radio_ports,
                     "registered": self.registered,
                     "rx": self._client.rx_bytes if self._client else 0,
-                    "tx": self._client.tx_bytes if self._client else 0},
+                    "tx": self._client.tx_bytes if self._client else 0,
+                    "direwolf": self._direwolf_state()},
             "mycall": self.mycall,
             "radio_port": self.radio_port,
             "channels": [c.summary() for c in self.channels],
@@ -380,6 +426,14 @@ class PacketService:
                 if channel.number == 0:
                     self.heard.clear()
                 self._touch()
+            elif method == "tnc.log":
+                return {"lines": list(self.direwolf.lines) if self.direwolf else [],
+                        "conf": self.direwolf.text if self.direwolf else ""}
+            elif method == "tnc.restart":
+                if self.direwolf is None:
+                    raise PacketError(N_("Direwolf is not started by the suite here: "
+                                         "[packet] tnc = \"direwolf\""))
+                self.direwolf.restart()
             elif method == "retry":
                 if not self.configured:
                     raise PacketError(N_("Packet is not set up: [packet] host in the "
@@ -396,6 +450,15 @@ class PacketService:
         return {"ok": True}
 
     # ---- helpers -------------------------------------------------------------------------
+
+    def _direwolf_state(self) -> dict | None:
+        if not self.local:
+            return None
+        if self.direwolf is None:
+            return {"state": "missing" if self.direwolf_missing else "stopped", "error": "",
+                    "pid": 0, "restarts": 0}
+        d = self.direwolf
+        return {"state": d.state, "error": d.error, "pid": d.pid, "restarts": d.restarts}
 
     def _send(self, frame: Frame) -> None:
         if self._client is None or not self._client.is_open:
@@ -437,6 +500,11 @@ class PacketService:
 
     def _touch(self) -> None:
         self._changed = True
+
+
+def direwolf_command(program: str) -> list[str]:
+    """How the program is run (a test runs a fake one with Python)."""
+    return [program]
 
 
 def readable(text: str) -> bool:

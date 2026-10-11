@@ -39,7 +39,7 @@ def test_set_values_keeps_the_rest_of_the_file():
 def test_a_new_setup_asks_and_writes_the_template(tmp_path):
     path = tmp_path / "config.toml"
     script = Script("es", "ea7xyz/p", "lan", "192.168.1.84", "manuel", "", "light",
-                    "pi.local:8001", "", "s", secrets=("secreto", "arriba"))
+                    "agwpe", "pi.local:8001", "", "s", secrets=("secreto", "arriba"))
     assert configure.configure(path, script, language="en") == 0
     config = load_config(path)
     assert (config.language, config.callsign, config.connection) == ("es", "EA7XYZ/P", "lan")
@@ -87,7 +87,7 @@ def test_tx_enabled_stays_where_cwic705_put_it(tmp_path):
 def test_a_wrong_answer_is_asked_again(tmp_path):
     path = tmp_path / "config.toml"
     script = Script("fr", "en", "not a call", "EA7XYZ", "usb", "sim", "maybe", "n", "pink",
-                    "dark", "pi:x", "pi", "EA7XYZ/P", "", "y")
+                    "dark", "kiss", "agwpe", "pi:x", "pi", "EA7XYZ/P", "", "y")
     assert configure.configure(path, script, language="en") == 0
     assert load_config(path).connection == "sim" and load_config(path).theme == "dark"
     assert any("Choose one of" in line for line in script.said)
@@ -158,3 +158,29 @@ def test_packet_settings_and_hamrpkt_carried_over(tmp_path, monkeypatch):
                     encoding="utf-8")
     config = load_config(path)
     assert (config.packet_host, config.packet_mycall) == ("tnc.lan", "")
+
+
+def test_direwolf_here_with_the_digirig_found(tmp_path, monkeypatch):
+    from ic705suite.apps.packet import direwolf
+
+    monkeypatch.setattr(direwolf, "find_devices", lambda: [direwolf.Device(
+        "plughw:Device,0", "/dev/serial/by-id/usb-Silicon_Labs_CP2102N-port0 RTS",
+        "sound card Device + ttyUSB0")])
+    monkeypatch.setattr(direwolf, "find_direwolf", lambda configured="": None)
+    path = tmp_path / "config.toml"
+    script = Script("en", "ea7xyz", "sim", "", "", "direwolf", "", "", "", "y")
+    assert configure.configure(path, script, language="en") == 0
+    config = load_config(path)
+    assert (config.packet_tnc, config.packet_audio, config.packet_ptt, config.packet_mycall) == \
+        ("direwolf", "plughw:Device,0", "/dev/serial/by-id/usb-Silicon_Labs_CP2102N-port0 RTS",
+         "EA7XYZ-4")
+    said = "\n".join(script.said)
+    assert "Found: sound card Device + ttyUSB0" in said
+    assert "Direwolf is not installed here yet" in said
+    assert "EA7XYZ-4 with Direwolf started here (plughw:Device,0" in said
+
+    # Enter keeps it; "vox" leaves the PTT to the radio.
+    script = Script("", "", "", "", "", "", "", "vox", "", "y", secrets=("",))
+    assert configure.configure(path, script, language="en") == 0
+    config = load_config(path)
+    assert config.packet_tnc == "direwolf" and config.packet_ptt == ""

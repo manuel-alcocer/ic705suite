@@ -137,3 +137,27 @@ msgstr "Un indicativo de hasta 6 caracteres y un SSID de 0 a 15, por ejemplo EA7
 
 msgid "{call} on the TNC at {host}:{port}"
 msgstr "{call} en el TNC de {host}:{port}"
+
+msgid "Direwolf is not installed here yet: install it (Debian, Ubuntu, Raspberry Pi OS: apt install direwolf; Windows: its installer) before using packet."
+msgstr "Direwolf aún no está instalado aquí: instálalo (Debian, Ubuntu, Raspberry Pi OS: apt install direwolf; Windows: su instalador) antes de usar packet."
+
+msgid "Direwolf's AGWPE port as host or host:port"
+msgstr "El puerto AGWPE de Direwolf como máquina o máquina:puerto"
+
+msgid "Found: {device}"
+msgstr "Encontrado: {device}"
+
+msgid "No Digirig found plugged in: type its sound card and PTT."
+msgstr "No se encuentra ningún Digirig conectado: escribe su tarjeta de sonido y su PTT."
+
+msgid "PTT for Direwolf (e.g. /dev/ttyUSB0 RTS, COM5 RTS, CM108; vox for none)"
+msgstr "PTT para Direwolf (p. ej. /dev/ttyUSB0 RTS, COM5 RTS, CM108; vox para ninguno)"
+
+msgid "Packet TNC: none, agwpe (a Direwolf already running, here or on another machine) or direwolf (the suite starts its own here, e.g. with a Digirig)"
+msgstr "TNC de packet: none (ninguno), agwpe (un Direwolf que ya funciona, aquí o en otra máquina) o direwolf (la suite arranca el suyo aquí, p. ej. con un Digirig)"
+
+msgid "Sound card for Direwolf (ADEVICE, e.g. plughw:Device,0)"
+msgstr "Tarjeta de sonido para Direwolf (ADEVICE, p. ej. plughw:Device,0)"
+
+msgid "{call} with Direwolf started here ({audio}, PTT {ptt})"
+msgstr "{call} con Direwolf arrancado aquí ({audio}, PTT {ptt})"

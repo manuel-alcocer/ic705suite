@@ -702,24 +702,7 @@ msgstr "guardado"
 
 # Packet
 
-msgid ""
-"/c CALL [v DIGI …]   connect this channel to CALL (via digipeaters)\n"
-"/d                   disconnect this channel\n"
-"/ch N                go to channel N (also F1-F8; 0 is the monitor)\n"
-"/ui DEST text        send an unconnected UI frame\n"
-"/clear               clear this channel's window (also Ctrl+L)\n"
-"/retry               reach the TNC again now\n"
-"/quit                back to the dashboard (also Ctrl+Q)\n"
-"//text               send a line starting with /"
-msgstr ""
-"/c IND [v DIGI …]    conecta este canal con IND (por digirrepetidores)\n"
-"/d                   desconecta este canal\n"
-"/ch N                va al canal N (también F1-F8; el 0 es el monitor)\n"
-"/ui DEST texto       envía una trama UI sin conexión\n"
-"/clear               limpia la ventana de este canal (también Ctrl+L)\n"
-"/retry               vuelve a buscar el TNC ahora\n"
-"/quit                vuelve al panel (también Ctrl+Q)\n"
-"//texto              envía una línea que empieza por /"
+
 
 msgid "/c CALL connects this channel · /help"
 msgstr "/c IND conecta este canal · /help"
@@ -867,3 +850,72 @@ msgstr "{call} no es un indicativo"
 
 msgid "↑↓ choose · Enter connects · Esc back"
 msgstr "↑↓ elegir · Intro conecta · Esc volver"
+
+msgid ""
+"/c CALL [v DIGI …]   connect this channel to CALL (via digipeaters)\n"
+"/d                   disconnect this channel\n"
+"/ch N                go to channel N (also F1-F8; 0 is the monitor)\n"
+"/ui DEST text        send an unconnected UI frame\n"
+"/clear               clear this channel's window (also Ctrl+L)\n"
+"/retry               reach the TNC again now\n"
+"/tnc                 the TNC: settings and what Direwolf says (/tnc restart)\n"
+"/quit                back to the dashboard (also Ctrl+Q)\n"
+"//text               send a line starting with /"
+msgstr ""
+"/c IND [v DIGI …]    conecta este canal con IND (por digirrepetidores)\n"
+"/d                   desconecta este canal\n"
+"/ch N                va al canal N (también F1-F8; el 0 es el monitor)\n"
+"/ui DEST texto       envía una trama UI sin conexión\n"
+"/clear               limpia la ventana de este canal (también Ctrl+L)\n"
+"/retry               vuelve a buscar el TNC ahora\n"
+"/tnc                 el TNC: su configuración y lo que dice Direwolf (/tnc restart)\n"
+"/quit                vuelve al panel (también Ctrl+Q)\n"
+"//texto              envía una línea que empieza por /"
+
+msgid "Callsign: {call}"
+msgstr "Indicativo: {call}"
+
+msgid "Direwolf is not installed here: install it (Debian, Ubuntu, Raspberry Pi OS: apt install direwolf; Windows: its installer) or set [packet] direwolf to the program"
+msgstr "Direwolf no está instalado aquí: instálalo (Debian, Ubuntu, Raspberry Pi OS: apt install direwolf; Windows: su instalador) o indica el programa en [packet] direwolf"
+
+msgid "Direwolf is not started by the suite here: [packet] tnc = \"direwolf\""
+msgstr "La suite no arranca Direwolf aquí: [packet] tnc = \"direwolf\""
+
+msgid "Direwolf is starting again"
+msgstr "Direwolf vuelve a arrancar"
+
+msgid "Direwolf: {state}"
+msgstr "Direwolf: {state}"
+
+msgid "It said: {error}"
+msgstr "Dijo: {error}"
+
+msgid "Its configuration (written by the suite):"
+msgstr "Su configuración (escrita por la suite):"
+
+msgid "Last problem: {error}"
+msgstr "Último problema: {error}"
+
+msgid "Radio ports: {ports}"
+msgstr "Puertos de radio: {ports}"
+
+msgid "TNC: {kind} at {host}:{port}, {state}"
+msgstr "TNC: {kind} en {host}:{port}, {state}"
+
+msgid "What it said last:"
+msgstr "Lo último que dijo:"
+
+msgid "keeps stopping"
+msgstr "se para una y otra vez"
+
+msgid "not installed"
+msgstr "no instalado"
+
+msgid "running"
+msgstr "funcionando"
+
+msgid "starting"
+msgstr "arrancando"
+
+msgid "stopped, starting again"
+msgstr "parado, vuelve a arrancar"

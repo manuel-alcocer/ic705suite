@@ -23,7 +23,7 @@ from ic705suite.apps.packet.client import CHANNELS, STYLES, PacketClient, Tab, p
 from ic705suite.i18n import N_, _
 from ic705suite.station.links import Link
 from ic705suite.ui.sysload import with_load
-from ic705suite.ui.widgets import clock_footer, css
+from ic705suite.ui.widgets import TextScreen, clock_footer, css
 
 HINT = N_("F1-F8 Channel · Enter sends · /c CALL connects · /d disconnects · /help · "
           "F9 Monitor · F10 Heard · PgUp/PgDn · Ctrl+L Clear · Ctrl+Q Back")
@@ -174,7 +174,7 @@ class PacketApp(App[int]):
         self.link = link
         self.owns_link = owns_link
         self.client = PacketClient(link, self._on_text, self._on_reload, self._on_state,
-                                   self._feedback)
+                                   self._feedback, self._show)
         self.client.link_task = lambda awaitable: self.run_worker(awaitable)
 
     def compose(self) -> ComposeResult:
@@ -254,6 +254,9 @@ class PacketApp(App[int]):
         stats = self.query_one("#stats", Static)
         stats.update(clock_footer(stats.size.width, self.client.counters(),
                                   [_(HINT), _(SHORT_HINT)]))
+
+    def _show(self, title: str, lines: list[str]) -> None:
+        self.push_screen(TextScreen(title, lines))
 
     def _feedback(self, level: str, text: str) -> None:
         entry = self.query_one("#entry")

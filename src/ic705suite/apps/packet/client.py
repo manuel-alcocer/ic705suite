@@ -26,6 +26,7 @@ HELP = N_(
     "/ui DEST text        send an unconnected UI frame\n"
     "/clear               clear this channel's window (also Ctrl+L)\n"
     "/retry               reach the TNC again now\n"
+    "/tnc                 the TNC: settings and what Direwolf says (/tnc restart)\n"
     "/quit                back to the dashboard (also Ctrl+Q)\n"
     "//text               send a line starting with /"
 )
@@ -37,6 +38,9 @@ STATE_NAMES = {"free": N_("free"), "calling": N_("calling"), "connected": N_("co
                "leaving": N_("disconnecting")}
 TNC_NAMES = {"off": N_("not set up"), "connecting": N_("connecting"), "up": N_("up"),
              "down": N_("down")}
+DIREWOLF_NAMES = {"stopped": N_("stopped"), "starting": N_("starting"),
+                  "running": N_("running"), "waiting": N_("stopped, starting again"),
+                  "missing": N_("not installed"), "failed": N_("keeps stopping")}
 
 
 @dataclass
@@ -80,13 +84,16 @@ class PacketClient:
 
     The screen gives callbacks: `on_text(channel, piece)` for text arriving, `on_reload
     (channel, pieces)` when a channel's whole text is to be drawn again, `on_state()` when
-    the channels or the TNC change and `on_feedback(level, text)` for a short message.
+    the channels or the TNC change, `on_feedback(level, text)` for a short message and
+    `on_show(title, lines)` for lines to read in a window of their own.
     """
 
     def __init__(self, link: Link, on_text: Callable[[int, dict], None],
                  on_reload: Callable[[int, list[dict]], None], on_state: Callable[[], None],
-                 on_feedback: Callable[[str, str], None]) -> None:
+                 on_feedback: Callable[[str, str], None],
+                 on_show: Callable[[str, list[str]], None] = lambda title, lines: None) -> None:
         self.link = link
+        self.on_show = on_show
         self.on_text = on_text
         self.on_reload = on_reload
         self.on_state = on_state
@@ -158,8 +165,16 @@ class PacketClient:
                   (_("Call"), self.state.get("mycall", ""), "bold")]
         where = f"{tnc.get('host', '')}:{tnc.get('port', '')}" if tnc.get("host") else ""
         style = {"up": "bold green", "connecting": "bold yellow"}.get(tnc_state, "bold red")
-        pieces.append((_("TNC"), " ".join(filter(None, [where, _(TNC_NAMES[tnc_state])])),
-                       style))
+        direwolf = tnc.get("direwolf")
+        if direwolf and tnc_state != "up":
+            # Ours: what Direwolf itself is doing says more than the connection.
+            where = "Direwolf"
+            tnc_text = _(DIREWOLF_NAMES.get(direwolf["state"], direwolf["state"]))
+        else:
+            if direwolf:
+                where = f"Direwolf :{tnc.get('port', '')}"
+            tnc_text = _(TNC_NAMES[tnc_state])
+        pieces.append((_("TNC"), " ".join(filter(None, [where, tnc_text])), style))
         info = self.channel_info()
         if self.channel == 0:
             pieces.append((_("Ch"), f"0 {_('Monitor')}", "bold"))
@@ -261,6 +276,12 @@ class PacketClient:
             await self.clear()
         elif name == "retry":
             await self._call("pkt.retry")
+        elif name == "tnc":
+            if args and args[0].lower() == "restart":
+                if await self._call("pkt.tnc.restart"):
+                    self.on_feedback("ok", _("Direwolf is starting again"))
+            else:
+                await self.show_tnc()
         elif name in ("help", "h", "?"):
             lines = [{"kind": "sys", "text": _("Commands") + "\n"}]
             lines += [{"kind": "help", "text": "  " + line + "\n"} for line in _(HELP).splitlines()]
@@ -272,6 +293,31 @@ class PacketClient:
             self.on_feedback("error", _("Unknown command: {cmd}. /help lists them").format(
                 cmd="/" + name))
         return None
+
+    async def show_tnc(self) -> None:
+        """The TNC's settings and state; with Direwolf started here, its file and output."""
+        tnc = self.state.get("tnc") or {}
+        lines = [_("Callsign: {call}").format(call=self.state.get("mycall", "")),
+                 _("TNC: {kind} at {host}:{port}, {state}").format(
+                     kind=tnc.get("kind", ""), host=tnc.get("host", ""),
+                     port=tnc.get("port", ""), state=_(TNC_NAMES.get(tnc.get("state", "off"),
+                                                                     "off")))]
+        if tnc.get("error"):
+            lines.append(_("Last problem: {error}").format(error=tnc["error"]))
+        if tnc.get("ports"):
+            lines.append(_("Radio ports: {ports}").format(ports=" · ".join(tnc["ports"])))
+        direwolf = tnc.get("direwolf")
+        if direwolf:
+            lines.append(_("Direwolf: {state}").format(
+                state=_(DIREWOLF_NAMES.get(direwolf["state"], direwolf["state"]))))
+            if direwolf.get("error"):
+                lines.append(_("It said: {error}").format(error=direwolf["error"]))
+            reply = await self.link.call("pkt.tnc.log")
+            lines += ["", _("Its configuration (written by the suite):")]
+            lines += ["  " + line for line in reply.get("conf", "").splitlines()]
+            lines += ["", _("What it said last:")]
+            lines += ["  " + line for line in reply.get("lines", [])[-60:]]
+        self.on_show(_("TNC"), lines)
 
     async def clear(self) -> None:
         await self._call("pkt.clear", channel=self.channel)

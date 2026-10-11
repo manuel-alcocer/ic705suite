@@ -169,7 +169,7 @@ class PacketPage(Page):
         self.owns_link = owns_link
         self.setWindowTitle(_("Packet"))
         self.client = PacketClient(link, self._on_text, self._on_reload, self._on_state,
-                                   self._feedback)
+                                   self._feedback, self.show_text)
         self.client.link_task = lambda awaitable: self.run_worker(awaitable)
         self._build()
         self.link.attach(self.client.handle)

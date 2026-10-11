@@ -87,6 +87,13 @@ def test_a_session_in_the_terminal(tmp_path):
                 await pilot.press(*"/d", "enter")
                 await wait(pilot, lambda: client.channel_info(2).get("state") == "free")
 
+                await pilot.press(*"/tnc", "enter")                 # what the TNC is
+                await wait(pilot, lambda: len(app.screen_stack) > 1)
+                shown_text = "\n".join(str(w.render()) for w in app.screen.query("Static"))
+                assert f"TNC: agwpe at 127.0.0.1:{tnc.port}, up" in shown_text
+                await pilot.press("escape")
+                await wait(pilot, lambda: len(app.screen_stack) == 1)
+
                 # F10: the heard list; Enter connects on this channel (free again).
                 await pilot.press("f10")
                 await pilot.pause(0.2)
