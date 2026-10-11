@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.14.0 (2026-10-11)
+
+### Features
+
+- **ft8**: Transmit with WSJT-X's sequence, and each QSO logged in ADIF
+  ([`b0a9383`](https://github.com/manuel-alcocer/ic705suite/commit/b0a9383239a7e8f8e6bbbd6403b4ab52f6ae3709))
+
+
 ## v0.13.0 (2026-10-11)
 
 ### Features
