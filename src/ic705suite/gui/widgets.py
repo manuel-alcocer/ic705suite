@@ -239,7 +239,7 @@ class StatusLine(QLabel):
         self.extra: list[tuple[str, str]] = []
         self.setTextFormat(Qt.TextFormat.RichText)
         self.setContentsMargins(6, 3, 6, 3)
-        self.setStyleSheet(f"background:{theme.PANEL};border-bottom:1px solid {theme.BORDER};")
+        self.setObjectName("statusbar")      # styled by the theme
         self.timer = QTimer(self, interval=2000, timeout=self.redraw)
         self.timer.start()
         self.redraw()
@@ -289,7 +289,7 @@ class Footer(QLabel):
         self.counters: list[tuple[str, object]] = []
         self.setTextFormat(Qt.TextFormat.RichText)
         self.setContentsMargins(0, 2, 6, 2)
-        self.setStyleSheet(f"background:{theme.PANEL};border-top:1px solid {theme.BORDER};")
+        self.setObjectName("footerbar")      # styled by the theme
         self.timer = QTimer(self, interval=1000, timeout=self.redraw)
         self.timer.start()
         self.redraw()
@@ -328,9 +328,13 @@ class SevenSegment(QWidget):
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.text = text
-        self.colour = QColor(colour or theme.AMBER)
+        self._colour = colour             # None: the theme's amber, whichever is in use
         self.setMinimumSize(QSize(260, 64))
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+    @property
+    def colour(self) -> QColor:
+        return QColor(self._colour or theme.AMBER)
 
     def set_text(self, text: str) -> None:
         if text != self.text:
@@ -482,13 +486,22 @@ def smeter(meter: Meter, raw: int | None) -> None:
 
 class ControlGrid(QWidget):
     """The front panel's options in columns, as the terminal draws them: the one under the
-    cursor lit, the one being edited yellow. The keys are the page's (PanelKeys); the mouse
-    selects (click), edits (double click) and turns (wheel)."""
+    cursor lit, the one being edited yellow. The keys are the page's (PanelKeys).
+
+    With ``widgets`` (the rig view) each value is drawn as what it is on a radio: levels and
+    offsets as round knobs (dragged up or down, or turned with the wheel), on/off as a
+    switch (a click flips it) and lists as a drop-down (a click opens the choices). Without
+    (the dashboard's small panel) they are text, as in the terminal. Either way a click
+    selects, a double click edits and the wheel turns."""
 
     # Asked of the page: ("enter",) on a double click, ("adjust", direction) on the wheel.
     request = Signal(str, int)
+    # A value chosen with the mouse (a knob let go, a switch, a choice): (control id, value).
+    set_value = Signal(str, object)
 
     ROW = 24
+    KNOB_ROW = 30
+    DRAG_PIXELS = 160          # a knob's whole range, dragging up or down
 
     def __init__(self, model: PanelModel, bars: bool = True,
                  parent: QWidget | None = None) -> None:
@@ -496,9 +509,16 @@ class ControlGrid(QWidget):
         self.model = model
         model.on_change = self.changed
         self.bars = bars
+        self.widgets = bars
         self._cells: list[tuple[QRectF, str]] = []
+        self._values: list[tuple[QRectF, str]] = []      # where each value is drawn
+        self._drag: tuple[str, float, float] | None = None  # (id, start y, start value)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    @property
+    def row_height(self) -> int:
+        return self.KNOB_ROW if self.widgets else self.ROW
 
     def changed(self) -> None:
         self.updateGeometry()
@@ -507,7 +527,7 @@ class ControlGrid(QWidget):
     def sizeHint(self) -> QSize:  # noqa: N802
         rows = max((sum(1 for c in self.model.controls if c["group"] == g)
                     for g, _l in self.model.visible_groups()), default=1)
-        return QSize(500, (rows + 1) * self.ROW + 6)
+        return QSize(500, self.ROW + rows * self.row_height + 6)
 
     def minimumSizeHint(self) -> QSize:  # noqa: N802
         return QSize(200, self.sizeHint().height())
@@ -528,12 +548,69 @@ class ControlGrid(QWidget):
     def _at(self, point: QPointF) -> str | None:
         return next((cid for rect, cid in self._cells if rect.contains(point)), None)
 
+    def _value_at(self, point: QPointF) -> str | None:
+        return next((cid for rect, cid in self._values if rect.contains(point)), None)
+
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         self.setFocus()
-        control_id = self._at(event.position())
-        if control_id is not None and not self.model.editing:
-            self.model.selected = control_id
-            self.model.refresh()
+        point = event.position()
+        control_id = self._at(point)
+        if control_id is None or self.model.editing:
+            return
+        self.model.selected = control_id
+        self.model.refresh()
+        if not self.widgets or self._value_at(point) != control_id:
+            return
+        control = self.model.control(control_id)
+        value = self.model.values.get(control_id)
+        if control is None or value is None and control["kind"] != TOGGLE:
+            return
+        if control["kind"] in (LEVEL, OFFSET):
+            self._drag = (control_id, point.y(), float(value))
+            self.setCursor(Qt.CursorShape.SizeVerCursor)
+        elif control["kind"] == TOGGLE:
+            self.set_value.emit(control_id, not bool(value))
+        else:
+            self._choose(control, value, event.globalPosition().toPoint())
+
+    def _choose(self, control: dict, value, where) -> None:
+        """The list of a drop-down; the one chosen is set."""
+        from PySide6.QtWidgets import QMenu
+
+        menu = QMenu(self)
+        for key, label in control["choices"]:
+            action = menu.addAction(_(label))
+            action.setCheckable(True)
+            action.setChecked(key == value)
+            action.triggered.connect(
+                lambda _c=False, k=key: self.set_value.emit(control["id"], k))
+        menu.popup(where)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if self._drag is None:
+            return
+        control_id, start_y, start = self._drag
+        control = self.model.control(control_id)
+        if control is None:
+            return
+        span_ = control["maximum"] - control["minimum"]
+        raw = start + (start_y - event.position().y()) / self.DRAG_PIXELS * span_
+        step = control["step"] or 1
+        value = round(round(raw / step) * step, 6)
+        value = max(control["minimum"], min(control["maximum"], value))
+        if self.model.values.get(control_id) != value:
+            self.model.values[control_id] = value          # seen at once; sent when let go
+            self.update()
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if self._drag is None:
+            return
+        control_id, _y, start = self._drag
+        self._drag = None
+        self.unsetCursor()
+        value = self.model.values.get(control_id)
+        if value is not None and value != start:
+            self.set_value.emit(control_id, value)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if self._at(event.position()) is not None:
@@ -552,13 +629,14 @@ class ControlGrid(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         model, groups = self.model, self.model.visible_groups()
-        self._cells = []
+        self._cells, self._values = [], []
         if not groups:
             p.setPen(QColor(theme.DIM))
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "…")
             return
         gap = 14
         column_w = (self.width() - gap * (len(groups) - 1)) / len(groups)
+        row_h = self.row_height
         for x_index, (group, label) in enumerate(groups):
             x = x_index * (column_w + gap)
             p.setFont(theme.mono(8.5, bold=True))
@@ -566,7 +644,8 @@ class ControlGrid(QWidget):
             p.drawText(QRectF(x, 0, column_w, self.ROW), Qt.AlignmentFlag.AlignVCenter,
                        _(label).upper())
             for row, c in enumerate(c for c in model.controls if c["group"] == group):
-                self._draw_control(p, c, QRectF(x, (row + 1) * self.ROW, column_w, self.ROW - 2))
+                self._draw_control(p, c, QRectF(x, self.ROW + row * row_h, column_w,
+                                                row_h - 2))
 
     def _draw_control(self, p: QPainter, c: dict, rect: QRectF) -> None:
         model = self.model
@@ -575,7 +654,7 @@ class ControlGrid(QWidget):
         editing = selected and model.editing
         value = model.values.get(c["id"])
         name_w = min(70.0, rect.width() * 0.38)
-        name_rect = QRectF(rect.left(), rect.top() + 1, name_w, rect.height() - 2)
+        name_rect = QRectF(rect.left(), rect.center().y() - 10, name_w, 20)
         if editing:
             p.setBrush(QColor(theme.BG_YELLOW))
         elif selected and self.hasFocus():
@@ -598,6 +677,10 @@ class ControlGrid(QWidget):
             p.drawText(QRectF(x, rect.top(), right - x, rect.height()),
                        Qt.AlignmentFlag.AlignVCenter, model.buffer + "▏")
             return
+        if self.widgets:
+            self._draw_widget(p, c, value, QRectF(x, rect.top(), right - x, rect.height()),
+                              editing)
+            return
         share = fraction(c, value) if c["kind"] in (LEVEL, OFFSET) else None
         if self.bars and share is not None and c.get("bar", True) and right - x > 120:
             bar = QRectF(x, rect.center().y() - 3, min(80.0, (right - x) * 0.45), 6)
@@ -615,12 +698,88 @@ class ControlGrid(QWidget):
                 p.drawRoundedRect(QRectF(bar.left(), bar.top(), bar.width() * share,
                                          bar.height()), 3, 3)
             x = bar.right() + 8
+        self._draw_text(p, c, value, QRectF(x, rect.top(), right - x, rect.height()), editing)
+
+    def _draw_text(self, p: QPainter, c: dict, value, rect: QRectF, editing: bool,
+                   colour: str | None = None) -> None:
         on = c["kind"] == TOGGLE and value
         p.setFont(theme.mono(9, bold=value is not None))
-        p.setPen(QColor(theme.YELLOW if editing else theme.GREEN if on else
-                        theme.TEXT if value is not None else theme.DIM))
-        p.drawText(QRectF(x, rect.top(), right - x, rect.height()),
-                   Qt.AlignmentFlag.AlignVCenter, format_value(c, value))
+        p.setPen(QColor(colour or (theme.YELLOW if editing else theme.GREEN if on else
+                                   theme.TEXT if value is not None else theme.DIM)))
+        p.drawText(rect, Qt.AlignmentFlag.AlignVCenter, format_value(c, value))
+
+    def _draw_widget(self, p: QPainter, c: dict, value, rect: QRectF, editing: bool) -> None:
+        """The value as the radio's own control: a knob, a switch or a drop-down."""
+        kind = c["kind"]
+        accent = QColor(theme.YELLOW if editing else theme.CYAN)
+        if kind in (LEVEL, OFFSET):
+            size = min(rect.height() - 2, 26.0)
+            knob = QRectF(rect.left(), rect.center().y() - size / 2, size, size)
+            self._values.append((knob.adjusted(-2, -2, 2, 2), c["id"]))
+            self._draw_knob(p, c, value, knob, accent)
+            text = QRectF(knob.right() + 8, rect.top(), rect.right() - knob.right() - 8,
+                          rect.height())
+            self._draw_text(p, c, value, text, editing)
+        elif kind == TOGGLE:
+            switch = QRectF(rect.left(), rect.center().y() - 8, 32, 16)
+            self._values.append((switch.adjusted(-3, -4, 3, 4), c["id"]))
+            on = bool(value)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(theme.GREEN if on else theme.BORDER))
+            if value is None:
+                p.setBrush(QColor(theme.RAISED))
+            p.drawRoundedRect(switch, 8, 8)
+            p.setBrush(QColor("#ffffff"))
+            dot = 12
+            left = switch.right() - dot - 2 if on else switch.left() + 2
+            p.drawEllipse(QRectF(left, switch.top() + 2, dot, dot))
+            self._draw_text(p, c, value, QRectF(switch.right() + 8, rect.top(),
+                                                rect.right() - switch.right() - 8,
+                                                rect.height()), editing)
+        else:
+            label = format_value(c, value)
+            p.setFont(theme.mono(9, bold=value is not None))
+            width = min(rect.width(), max(70.0, p.fontMetrics().horizontalAdvance(label) + 30))
+            box = QRectF(rect.left(), rect.center().y() - 10, width, 20)
+            self._values.append((box, c["id"]))
+            p.setPen(QPen(QColor(theme.YELLOW if editing else theme.BORDER), 1))
+            p.setBrush(QColor(theme.RAISED))
+            p.drawRoundedRect(box, 4, 4)
+            p.setPen(QColor(theme.TEXT if value is not None else theme.DIM))
+            p.drawText(box.adjusted(7, 0, -18, 0), Qt.AlignmentFlag.AlignVCenter, label)
+            p.setPen(QColor(theme.DIM))
+            p.drawText(box.adjusted(0, 0, -6, 0),
+                       Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, "▾")
+
+    @staticmethod
+    def _draw_knob(p: QPainter, c: dict, value, knob: QRectF, accent: QColor) -> None:
+        """A round knob: its range on a 270° arc (from the lower left, clockwise), the part
+        turned lit (from the start, or from the top for an offset) and a pointer."""
+        import math
+
+        share = fraction(c, value)
+        track = knob.adjusted(2, 2, -2, -2)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(QColor(theme.BORDER), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawArc(track, 225 * 16, -270 * 16)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(theme.RAISED))
+        p.drawEllipse(knob.adjusted(6, 6, -6, -6))
+        if share is None:
+            return
+        angle = 225 - 270 * share                      # degrees, Qt's (counter-clockwise)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(accent, 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        if c["kind"] == OFFSET:
+            p.drawArc(track, 90 * 16, int((angle - 90) * 16))
+        else:
+            p.drawArc(track, 225 * 16, int((angle - 225) * 16))
+        centre = knob.center()
+        radius = knob.width() / 2 - 7
+        tip = QPointF(centre.x() + radius * math.cos(math.radians(angle)),
+                      centre.y() - radius * math.sin(math.radians(angle)))
+        p.setPen(QPen(QColor(theme.TEXT), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawLine(centre, tip)
 
 
 # ---- band scope -------------------------------------------------------------------------------

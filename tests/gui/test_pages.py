@@ -163,3 +163,47 @@ def test_terminal_dialogs_become_qt_dialogs(tmp_path, run):
             await link.close()
 
     run(scenario())
+
+
+def test_front_panel_knobs_switches_and_drop_downs(tmp_path, run):
+    """The rig view's panel as a radio's: a click flips a switch, dragging a knob up turns it,
+    a drop-down offers its choices; each is set on the rig."""
+    from PySide6.QtWidgets import QMenu
+
+    async def scenario():
+        win, link = await window(tmp_path, start_app="view")
+        page = win.page
+        grid = page.grid
+        try:
+            await until(lambda: page.model.controls and grid._values
+                        and rig(link)["controls"].get("af") is not None)
+
+            def spot(control_id):
+                return next(r for r, cid in grid._values if cid == control_id).center()
+
+            # The switch: a click flips it.
+            before = bool(rig(link)["controls"].get("nb"))
+            QTest.mouseClick(grid, Qt.MouseButton.LeftButton, pos=spot("nb").toPoint())
+            await until(lambda: bool(rig(link)["controls"].get("nb")) is not before)
+            # The knob: dragged up 40 pixels, a quarter of its range more.
+            af = rig(link)["controls"]["af"]
+            start = spot("af").toPoint()
+            QTest.mousePress(grid, Qt.MouseButton.LeftButton, pos=start)
+            QTest.mouseMove(grid, start - QPointF(0, 40).toPoint())
+            QTest.mouseRelease(grid, Qt.MouseButton.LeftButton,
+                               pos=start - QPointF(0, 40).toPoint())
+            await until(lambda: rig(link)["controls"]["af"] == min(100, af + 25))
+            # The drop-down: its list, and the one chosen set.
+            QTest.mouseClick(grid, Qt.MouseButton.LeftButton, pos=spot("agc").toPoint())
+            await until(lambda: any(m.isVisible() for m in grid.findChildren(QMenu)))
+            menu = next(m for m in grid.findChildren(QMenu) if m.isVisible())
+            choice = next(a for a in menu.actions() if not a.isChecked())
+            choice.trigger()
+            menu.close()
+            control = page.model.control("agc")
+            wanted = next(k for k, label in control["choices"] if choice.text() in (label, k))
+            await until(lambda: rig(link)["controls"]["agc"] == wanted)
+        finally:
+            await link.close()
+
+    run(scenario())

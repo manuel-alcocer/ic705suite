@@ -88,10 +88,11 @@ class ViewPage(PanelKeys, Page):
         self.panel_frame = Frame(_("Front panel"))
         self.grid = self.panel_frame.add(ControlGrid(self.model))
         self.grid.request.connect(self._grid_request)
+        self.grid.set_value.connect(lambda cid, value: self.run_worker(self._set(cid, value)))
         self.entry_frame = Frame(_("Rig commands"))
         row = QHBoxLayout()
         label = QLabel(_("COMMAND"))
-        label.setStyleSheet(f"color:{theme.CYAN};font-weight:bold;")
+        label.setObjectName("heading")
         self.entry = QLineEdit()
         self.entry.setPlaceholderText(_("/f 7.030 · /b 40 · /mode USB · /set af 40 · Esc back"))
         self.entry.returnPressed.connect(lambda: self.run_worker(self._submit()))
@@ -213,6 +214,10 @@ class ViewPage(PanelKeys, Page):
         if control is None:
             return None
         return format_value(control, self.rig.get("controls", {}).get(control_id))
+
+    def retheme(self) -> None:
+        self._show_vfo()
+        self._show_meters()
 
     def _show_vfo(self) -> None:
         """Two lines under the digits, as the terminal's VfoPanel: band, mode, filter and
