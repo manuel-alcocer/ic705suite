@@ -8,8 +8,9 @@ Keyboard only, in two modes:
   typed ("40", "-120", "slow", "on"); Enter confirms and goes back to navigation, Esc
   cancels and puts the old value back.
 
-The panel only draws, keeps the typed text and computes new values; the application
-sends them to the rig.
+The panel only draws; its state and the changes the keys make live in PanelState
+(ui.panelmodel), which the graphical client shares, and the application sends the values to
+the rig.
 """
 
 from __future__ import annotations
@@ -20,31 +21,11 @@ from textual import events
 from textual.widget import Widget
 
 from ic705suite.i18n import _
-from ic705suite.rig.controls import CHOICE, GROUPS, LEVEL, OFFSET, TOGGLE
+from ic705suite.rig.controls import GROUPS, LEVEL, OFFSET, TOGGLE
 from ic705suite.ui import glyphs
+from ic705suite.ui.panelmodel import PanelState, format_value, parse_value  # noqa: F401
 
 BAR_CELLS = 6
-
-
-def format_value(control: dict, value) -> str:
-    if value is None:
-        return "–"
-    kind = control["kind"]
-    if kind == TOGGLE:
-        return _("on") if value else _("off")
-    if kind == CHOICE:
-        for key, label in control["choices"]:
-            if key == value:
-                return _(label)
-        return str(value)
-    unit = control.get("unit", "")
-    if control.get("decimals") is not None:
-        return f"{value:.{control['decimals']}f} {unit}".strip()
-    if kind == OFFSET:
-        return f"{value:+.0f}{unit if unit != '%' else ''}"
-    if unit == "%":
-        return f"{value:.0f}%"
-    return f"{value:g} {unit}".strip()
 
 
 def bar(control: dict, value) -> Text:
@@ -71,7 +52,7 @@ def bar(control: dict, value) -> Text:
     return text
 
 
-class ControlPanel(Widget, can_focus=True):
+class ControlPanel(PanelState, Widget, can_focus=True):
     DEFAULT_CSS = """
     ControlPanel {
         height: auto;
@@ -86,131 +67,14 @@ class ControlPanel(Widget, can_focus=True):
     def __init__(self, groups: tuple[tuple[str, str], ...] = GROUPS, bars: bool = True,
                  **kwargs) -> None:
         super().__init__(**kwargs)
-        self.groups = groups      # (id, label) of each column, in order
+        self._init_panel(groups)
         self.bars = bars          # level bars beside the values (off: compact)
-        self.controls: list[dict] = []
-        self.values: dict = {}
-        self.selected: str | None = None
-        self.editing = False
-        self.buffer = ""          # value being typed while editing
-        self.original = None      # value before editing, put back on Esc
-
-    def set_controls(self, controls: list[dict]) -> None:
-        order = [g for g, _ in self.groups]
-        self.controls = sorted(controls, key=lambda c: order.index(c["group"])
-                               if c["group"] in order else len(order))
-        if self.controls and self.selected not in {c["id"] for c in self.controls}:
-            self.selected = self.controls[0]["id"]
-        self.refresh(layout=True)
-
-    def set_values(self, values: dict) -> None:
-        self.values = dict(values)
-        self.refresh()
-
-    def control(self, control_id: str | None) -> dict | None:
-        return next((c for c in self.controls if c["id"] == control_id), None)
-
-    # ---- navigation -------------------------------------------------------------------------
-
-    def move(self, step: int) -> None:
-        if not self.controls:
-            return
-        ids = [c["id"] for c in self.controls]
-        index = ids.index(self.selected) if self.selected in ids else 0
-        self.selected = ids[(index + step) % len(ids)]
-        self.refresh()
-
-    def _columns(self) -> list[list[str]]:
-        groups = [g for g, _ in self.groups if any(c["group"] == g for c in self.controls)]
-        return [[c["id"] for c in self.controls if c["group"] == g] for g in groups]
-
-    def _position(self) -> tuple[int, int]:
-        for x, column in enumerate(self._columns()):
-            if self.selected in column:
-                return x, column.index(self.selected)
-        return 0, 0
-
-    def move_vertical(self, step: int) -> None:
-        """↑↓: the option above or below, in the same column."""
-        columns = self._columns()
-        if not columns:
-            return
-        x, y = self._position()
-        self.selected = columns[x][max(0, min(len(columns[x]) - 1, y + step))]
-        self.refresh()
-
-    def move_horizontal(self, step: int) -> None:
-        """←→: the option at the same height in the next column (or its last one)."""
-        columns = self._columns()
-        if not columns:
-            return
-        x, y = self._position()
-        x = max(0, min(len(columns) - 1, x + step))
-        self.selected = columns[x][min(y, len(columns[x]) - 1)]
-        self.refresh()
-
-    # ---- editing ----------------------------------------------------------------------------
-
-    def start_edit(self) -> None:
-        if self.control(self.selected) is None:
-            return
-        self.editing, self.buffer = True, ""
-        self.original = self.values.get(self.selected)
-        self.refresh()
-
-    def end_edit(self) -> None:
-        self.editing, self.buffer, self.original = False, "", None
-        self.refresh()
-
-    def typed_value(self):
-        """The typed text as a value of the selected control (ValueError if it is not one)."""
-        control = self.control(self.selected)
-        if control is None or not self.buffer.strip():
-            raise ValueError(self.buffer)
-        return parse_value(control, self.buffer)
 
     def on_key(self, event: events.Key) -> None:
         """While editing, printable keys write the value instead of acting as shortcuts."""
-        if not self.editing:
-            return
-        if event.key == "backspace":
-            self.buffer = self.buffer[:-1]
-        elif event.character and event.character.isprintable() and event.character != " " \
-                and len(event.character) == 1:
-            self.buffer += event.character
-        else:
-            return
-        event.prevent_default()
-        event.stop()
-        self.refresh()
-
-    def move_group(self, step: int) -> None:
-        """Jump to the first control of the next (or previous) group."""
-        groups = [g for g, _ in self.groups if any(c["group"] == g for c in self.controls)]
-        current = self.control(self.selected)
-        if not groups or current is None:
-            return
-        group = groups[(groups.index(current["group"]) + step) % len(groups)]
-        self.selected = next(c["id"] for c in self.controls if c["group"] == group)
-        self.refresh()
-
-    def adjusted(self, direction: int, big: bool = False) -> tuple[str, object] | None:
-        """(control id, new value) for turning the selected control one step."""
-        control = self.control(self.selected)
-        if control is None:
-            return None
-        value = self.values.get(control["id"])
-        kind = control["kind"]
-        if kind == TOGGLE:
-            return control["id"], not bool(value)
-        if kind == CHOICE:
-            keys = [k for k, _ in control["choices"]]
-            index = keys.index(value) if value in keys else -direction
-            return control["id"], keys[(index + direction) % len(keys)]
-        step = control["step"] * (10 if big else 1)
-        base = value if value is not None else control["minimum"]
-        new = max(control["minimum"], min(control["maximum"], base + direction * step))
-        return control["id"], new
+        if self.type_key(event.key, event.character):
+            event.prevent_default()
+            event.stop()
 
     # ---- drawing ----------------------------------------------------------------------------
 
@@ -256,31 +120,3 @@ class ControlPanel(Widget, can_focus=True):
         for i in range(rows):
             table.add_row(*(col[i] if i < len(col) else Text("") for col in columns))
         return table
-
-    def help_line(self) -> str:
-        control = self.control(self.selected)
-        if control is None:
-            return ""
-        return _(control["help"]) if control.get("help") else _(control["label"])
-
-
-def parse_value(control: dict, text: str):
-    """A typed value for a control: a number, on/off, or a choice by key or label."""
-    text = text.strip().lower()
-    kind = control["kind"]
-    if kind == TOGGLE:
-        if text in ("on", "1", "si", "sí", "yes", "true", _("on").lower()):
-            return True
-        if text in ("off", "0", "no", "false", _("off").lower()):
-            return False
-        raise ValueError(text)
-    if kind == CHOICE:
-        for key, label in control["choices"]:
-            if text in (key.lower(), label.lower(), _(label).lower()):
-                return key
-        for key, label in control["choices"]:      # an unambiguous beginning is enough
-            if _(label).lower().startswith(text) or key.lower().startswith(text):
-                return key
-        raise ValueError(text)
-    value = float(text.rstrip("%").replace(",", ".").rstrip("hz").rstrip("db").strip())
-    return max(control["minimum"], min(control["maximum"], value))

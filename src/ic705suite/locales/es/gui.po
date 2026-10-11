@@ -1,0 +1,34 @@
+# Spanish translations of the graphical client (ic705suite --gui).
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "the graphical client needs PySide6 and qasync (pip install 'ic705suite[gui]'): {error}"
+msgstr "el cliente gráfico necesita PySide6 y qasync (pip install 'ic705suite[gui]'): {error}"
+
+msgid "{name}: not in the graphical client yet; in the terminal: ic705suite {app}"
+msgstr "{name}: aún no está en el cliente gráfico; en el terminal: ic705suite {app}"
+
+msgid "Noise sweep (RX)"
+msgstr "Barrido de ruido (RX)"
+
+msgid "SWR sweep (TX)"
+msgstr "Barrido de ROE (TX)"
+
+msgid "Save position"
+msgstr "Guardar posición"
+
+msgid "Stop/Back"
+msgstr "Parar/Volver"
+
+msgid "use it"
+msgstr "usarla"
+
+msgid "new"
+msgstr "nueva"
+
+msgid "edit"
+msgstr "editar"
+
+msgid "delete"
+msgstr "borrar"

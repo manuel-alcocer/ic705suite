@@ -118,10 +118,15 @@ jobs:
         with:
           enable-cache: true
 
-      # The postgres extra puts psycopg, with its own libpq, in the bundle.
+      # Qt needs these to start, even offscreen.
+      - name: Qt's system libraries
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+
+      # The postgres extra puts psycopg, with its own libpq, in the bundle; the gui extra,
+      # Qt (the graphical client, --gui).
       - name: Install the project and PyInstaller
         run: |
-          uv sync --extra postgres
+          uv sync --extra postgres --extra gui
           uv pip install pyinstaller
 
       - name: The tests pass before publishing
@@ -143,6 +148,15 @@ jobs:
           set -e
           if [ "$code" != 124 ] || grep -aq Traceback "$RUNNER_TEMP/screen.txt"; then
             cat "$RUNNER_TEMP/screen.txt"; exit 1
+          fi
+          # The graphical client too, offscreen; Ctrl+C closes it.
+          set +e
+          HOME="$RUNNER_TEMP/home" QT_QPA_PLATFORM=offscreen \
+            timeout -s INT -k 10 10 dist/ic705suite --gui --sim >"$RUNNER_TEMP/gui.txt" 2>&1
+          code=$?
+          set -e
+          if [ "$code" != 124 ] || grep -aq Traceback "$RUNNER_TEMP/gui.txt"; then
+            cat "$RUNNER_TEMP/gui.txt"; exit 1
           fi
 
       # install.sh installs the executable it finds next to itself; the name
@@ -193,7 +207,7 @@ jobs:
 
       - name: Install the project and PyInstaller
         run: |
-          uv sync --extra postgres
+          uv sync --extra postgres --extra gui
           uv pip install pyinstaller
 
       - name: The tests pass before publishing
@@ -212,6 +226,7 @@ jobs:
           # stop by itself, cleanly (exit code 0).
           $env:APPDATA = "$env:RUNNER_TEMP\roaming"; $env:LOCALAPPDATA = "$env:RUNNER_TEMP\local"
           uv run python packaging/windows/smoke.py dist/ic705suite.exe
+          uv run python packaging/windows/smoke.py dist/ic705suite.exe --gui
 
       - name: Pack the executable with the installer
         run: |

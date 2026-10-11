@@ -22,6 +22,11 @@ jobs:
         with:
           enable-cache: true
 
-      - run: uv sync
+      # Qt needs these to start, even offscreen (the graphical client's tests).
+      - name: Qt's system libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+
+      - run: uv sync --extra gui
 
       - run: uv run pytest -q

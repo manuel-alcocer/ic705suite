@@ -27,6 +27,10 @@ Both installers ask for the main settings (callsign, radio address, user and pas
 after installing or upgrading, with the current ones as defaults; `ic705suite --configure`
 asks again at any time.
 
+`ic705suite --gui` (or the "graphical" menu entry) opens the graphical client: the same
+suite (dashboard, rig view, CW, Antenna, Logbook, Packet), keys included, in a window with
+the mouse.
+
 **With Python 3.11 or newer**: `uv tool install` or `pipx install` the `.whl`
 (add `[postgres]` for PostgreSQL).
 

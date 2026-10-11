@@ -18,19 +18,25 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Input, Label, Static
 
 from ic705suite.i18n import N_, _, render
-from ic705suite.rig import bands
 from ic705suite.rig.base import smeter_text
 from ic705suite.station.links import Link, LinkError
 from ic705suite.ui import glyphs
-from ic705suite.ui.bigdigits import BigDigits, height as digits_height
+from ic705suite.ui.bigdigits import BigDigits
+from ic705suite.ui.bigdigits import height as digits_height
 from ic705suite.ui.controlpanel import ControlPanel, format_value
 from ic705suite.ui.panelkeys import PanelKeys
+from ic705suite.ui.rigkeys import (
+    band_beside,
+    next_choice,
+    next_mode,
+    next_step,
+    signal_beside,
+    tune_target,
+)
 from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.waterfall import Waterfall
 from ic705suite.ui.widgets import clock_footer, css
 
-STEPS = (10, 100, 1_000, 10_000, 100_000)
-CYCLE_MODES = ("CW", "USB", "LSB", "FM", "AM", "DV")
 SCOPE_KEEPALIVE = 5.0
 HINT = N_("PgUp/PgDn Tune · F7-F8 Signal · ↑↓ ←→ Move · Enter Edit · F2 Step · F3 Mode · "
           "F4-F5 Band · F6 Filter · [ ] Contrast · / Command · Esc Back")
@@ -326,13 +332,10 @@ class ViewApp(PanelKeys, App[int]):
         if dial is None or not signals:
             self._message("info", _("no signals on the scope"))
             return
-        guard = 150   # skip the signal already tuned
-        ahead = [f for f in signals if f > dial + guard] if direction > 0 \
-            else [f for f in reversed(signals) if f < dial - guard]
-        if not ahead:
+        target = signal_beside(dial, signals, direction)
+        if target is None:
             self._message("info", _("no more signals that way"))
             return
-        target = round(ahead[0] / 10) * 10
         await self._command(f"/f {target}")
 
     def _entry_focused(self) -> bool:
@@ -341,41 +344,27 @@ class ViewApp(PanelKeys, App[int]):
     async def action_tune(self, direction: int) -> None:
         freq = self.rig.get("frequency")
         if freq:
-            # Snap to the step grid: up to the next multiple, down to the previous one.
-            target = (freq // self.step + 1) * self.step if direction > 0 \
-                else (freq - 1) // self.step * self.step
-            await self._command(f"/f {target}")
+            await self._command(f"/f {tune_target(freq, self.step, direction)}")
 
     def action_step(self) -> None:
-        self.step = STEPS[(STEPS.index(self.step) + 1) % len(STEPS)]
+        self.step = next_step(self.step)
         vfo = self.query_one("#vfo", VfoPanel)
         vfo.step = self.step
         vfo.refresh()
 
     async def action_mode(self) -> None:
-        mode = self.rig.get("mode")
-        index = CYCLE_MODES.index(mode) + 1 if mode in CYCLE_MODES else 0
-        await self._command(f"/mode {CYCLE_MODES[index % len(CYCLE_MODES)]}")
+        await self._command(f"/mode {next_mode(self.rig.get('mode'))}")
 
     async def action_band(self, direction: int) -> None:
-        freq = self.rig.get("frequency") or 0
-        names = [b.name for b in bands.BANDS]
-        current = bands.band_for(freq)
-        if current is not None:
-            index = names.index(current.name) + direction
-        else:
-            index = next((i for i, b in enumerate(bands.BANDS) if b.start > freq), len(names))
-            index = index if direction > 0 else index - 1
-        if 0 <= index < len(names):
-            await self._command(f"/b {names[index]}")
+        band = band_beside(self.rig.get("frequency"), direction)
+        if band is not None:
+            await self._command(f"/b {band}")
 
     async def action_cycle(self, control_id: str) -> None:
         control = next((c for c in self.controls if c["id"] == control_id), None)
         if control is not None:
             current = self.rig.get("controls", {}).get(control_id)
-            keys = [k for k, _ in control["choices"]]
-            new = keys[(keys.index(current) + 1) % len(keys)] if current in keys else keys[0]
-            await self._set(control_id, new)
+            await self._set(control_id, next_choice(control, current))
 
     def _panel(self) -> ControlPanel:
         return self.query_one("#panel", ControlPanel)

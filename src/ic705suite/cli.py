@@ -64,6 +64,9 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     mode.add_argument("--connect", metavar="HOST[:PORT]", nargs="?", const="",
                       help="connect to an ic705suite server instead of the radio")
     mode.add_argument("--token", help="token for --serve/--connect (default from the config)")
+    p.add_argument("--gui", action="store_true",
+                   help="the graphical client (Qt) instead of the terminal; same keys, and "
+                        "the mouse")
     p.add_argument("--lang", help="interface language (en, es)")
     p.add_argument("--glyphs", choices=glyphs.MODES,
                    help="characters for the screen: console for the plain Linux console "
@@ -289,6 +292,8 @@ def main(argv: list[str] | None = None) -> int:
                     return 1
             if link is not None and args.record is not None:
                 link.core.station.record_to(str(args.record))
+        if args.gui:
+            return run_graphical(link, config, problem, app, log_file, scp)
         startup = []
         if args.wav:
             startup.append(f"/play {args.wav}" + (f" {args.wav_freq}" if args.wav_freq else ""))
@@ -306,6 +311,27 @@ def main(argv: list[str] | None = None) -> int:
             print(f"(details in {log_file})", file=sys.stderr)
         return code
     return 130
+
+
+def run_graphical(link: Link | None, config, problem: str, app: str | None,
+                  log_file: Path, scp: set[str] | None = None) -> int:
+    from ic705suite.gui.app import gui_available, run_gui
+
+    reason = gui_available()
+    if reason:
+        print(f"error: {reason}", file=sys.stderr)
+        return 1
+    from ic705suite.gui.dashboard import GUI_APPS
+
+    if app is not None and app not in GUI_APPS:
+        print(f"error: {app} is not in the graphical client yet; run it in the terminal: "
+              f"ic705suite {app}", file=sys.stderr)
+        return 1
+    with demo_logbook(config):
+        code = run_gui(link, config, problem, start_app=app, scp=scp)
+    if code:
+        print(f"(details in {log_file})", file=sys.stderr)
+    return code
 
 
 def demo_logbook(config):

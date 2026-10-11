@@ -127,6 +127,8 @@ BIN_DIR="$prefix/bin"
 BIN="$BIN_DIR/$APP"
 DESKTOP_DIR="$prefix/share/applications"
 DESKTOP="$DESKTOP_DIR/$APP.desktop"
+# The graphical client (ic705suite --gui), an entry of its own.
+DESKTOP_GUI="$DESKTOP_DIR/$APP-gui.desktop"
 # What this installer put on disk, so uninstalling removes exactly that.
 STATE_DIR="$prefix/lib/$APP"
 MANIFEST="$STATE_DIR/manifest"
@@ -185,6 +187,21 @@ Terminal=true
 Categories=Network;HamRadio;
 Keywords=ham;radio;ic-705;icom;cw;swr;logbook;packet;
 EOF
+    cat >"$DESKTOP_GUI" <<EOF
+[Desktop Entry]
+Type=Application
+Name=ic705suite (graphical)
+Name[es]=ic705suite (gráfico)
+GenericName=Amateur radio station suite
+GenericName[es]=Estación de radioaficionado
+Comment=Rig control, CW, antenna, logbook and packet for the Icom IC-705, in a window
+Comment[es]=Control del equipo, CW, antena, diario y packet para el Icom IC-705, en ventana
+Exec="$BIN" --gui
+Icon=network-wireless
+Terminal=false
+Categories=Network;HamRadio;
+Keywords=ham;radio;ic-705;icom;cw;swr;logbook;packet;
+EOF
 }
 
 refresh_desktop_database() {
@@ -228,7 +245,7 @@ install_binary() {
     install -m 755 "$source" "$BIN.new"
     mv -f "$BIN.new" "$BIN"
     write_desktop_entry
-    printf '%s\n' "$BIN" "$DESKTOP" >"$MANIFEST"
+    printf '%s\n' "$BIN" "$DESKTOP" "$DESKTOP_GUI" >"$MANIFEST"
     printf '%s\n' "$new" >"$VERSION_FILE"
     refresh_desktop_database
 

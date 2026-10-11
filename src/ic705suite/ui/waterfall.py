@@ -324,25 +324,32 @@ class Waterfall(Widget, can_focus=True):
     # ---- signals ----------------------------------------------------------------------
 
     def signals(self, threshold: float = 0.12) -> list[int]:
-        """Frequencies of the signals in the latest sweep: local peaks standing `threshold`
-        above the median (the noise floor), strongest point of each."""
-        if not self._raw or self.view.end <= self.view.start:
+        """Frequencies of the signals in the latest sweep (see find_signals)."""
+        if not self._raw:
             return []
-        row = self._raw[0]
-        floor = float(np.median(row))
-        above = row > floor + threshold
-        peaks, i, n = [], 0, len(row)
-        while i < n:
-            if above[i]:
-                j = i
-                while j < n and above[j]:
-                    j += 1
-                k = i + int(np.argmax(row[i:j]))
-                peaks.append(round(self.view.start + k * (self.view.end - self.view.start) / (n - 1)))
-                i = j
-            else:
-                i += 1
-        return peaks
+        return find_signals(self._raw[0], self.view.start, self.view.end, threshold)
+
+
+def find_signals(row: np.ndarray, start: int, end: int, threshold: float = 0.12) -> list[int]:
+    """Frequencies of the signals in a sweep: local peaks standing `threshold` above the
+    median (the noise floor), strongest point of each."""
+    n = len(row)
+    if n < 2 or end <= start:
+        return []
+    floor = float(np.median(row))
+    above = row > floor + threshold
+    peaks, i = [], 0
+    while i < n:
+        if above[i]:
+            j = i
+            while j < n and above[j]:
+                j += 1
+            k = i + int(np.argmax(row[i:j]))
+            peaks.append(round(start + k * (end - start) / (n - 1)))
+            i = j
+        else:
+            i += 1
+    return peaks
 
 
 def _nice_step(raw: float) -> int:

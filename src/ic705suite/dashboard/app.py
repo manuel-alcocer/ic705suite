@@ -29,6 +29,7 @@ from ic705suite.station.links import Link, LinkError, LocalLink
 from ic705suite.ui.channels import ChannelSaving
 from ic705suite.ui.controlpanel import ControlPanel
 from ic705suite.ui.panelkeys import PanelKeys
+from ic705suite.ui.rigkeys import tune_target
 from ic705suite.ui.rigline import RigStatusLine, smeter_bar
 from ic705suite.ui.waterfall import Waterfall
 from ic705suite.ui.widgets import clock_footer, css
@@ -435,9 +436,7 @@ class DashboardApp(PanelKeys, ChannelSaving, App[str]):
             return
         freq = self.rig.get("frequency")
         if freq and self.link is not None:
-            target = (freq // TUNE_STEP + 1) * TUNE_STEP if direction > 0 \
-                else (freq - 1) // TUNE_STEP * TUNE_STEP
-            await self._set_special("frequency", target / 1e6)
+            await self._set_special("frequency", tune_target(freq, TUNE_STEP, direction) / 1e6)
 
     def action_open(self, app_id: str) -> None:
         app = next((a for a in self.apps if a["id"] == app_id), None)

@@ -30,6 +30,10 @@ postgres = [
 ]
 metrics = ["prometheus-client>=0.20"]
 api = ["fastapi>=0.110", "uvicorn>=0.29", "pydantic>=2.0"]
+gui = [
+    "pyside6-essentials>=6.9",
+    "qasync>=0.28",
+]
 
 [dependency-groups]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.5"]

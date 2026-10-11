@@ -148,6 +148,8 @@ def test_installs_the_executable_next_to_the_script(tmp_path, env, prefix):
     desktop = (prefix / "share" / "applications" / "ic705suite.desktop").read_text()
     assert f'Exec="{binary}"' in desktop
     assert "Terminal=true" in desktop
+    graphical = (prefix / "share" / "applications" / "ic705suite-gui.desktop").read_text()
+    assert f'Exec="{binary}" --gui' in graphical and "Terminal=false" in graphical
     # The settings are left alone, so the first run can still import cwic705's.
     assert not (Path(env["XDG_CONFIG_HOME"]) / "ic705suite").exists()
 
@@ -214,6 +216,7 @@ def test_uninstall_removes_the_program_and_keeps_the_data(tmp_path, env, prefix)
     assert result.returncode == 0, result.stderr
     assert not (prefix / "bin" / "ic705suite").exists()
     assert not (prefix / "share" / "applications" / "ic705suite.desktop").exists()
+    assert not (prefix / "share" / "applications" / "ic705suite-gui.desktop").exists()
     assert not (prefix / "lib" / "ic705suite").exists()
     assert database.read_text() == "channels"
 

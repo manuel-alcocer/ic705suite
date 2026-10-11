@@ -118,6 +118,8 @@ $Exe = Join-Path $InstallDir "$App.exe"
 # What this installer put on disk, so uninstalling removes exactly that.
 $VersionFile = Join-Path $InstallDir "version.txt"
 $Shortcut = Join-Path ([Environment]::GetFolderPath("Programs")) "$App.lnk"
+# The graphical client (ic705suite --gui), a shortcut of its own.
+$ShortcutGui = Join-Path ([Environment]::GetFolderPath("Programs")) "$App (GUI).lnk"
 
 # The same folders as ic705suite.paths, for -Purge. hamrlog's logbook lives in hamrlog's
 # own folder, shared with a standalone hamrlog, and is not touched.
@@ -178,6 +180,14 @@ function New-StartMenuShortcut {
     $link.Description = T "Rig control, CW, antenna, logbook and packet for the Icom IC-705" `
         "Control del equipo, CW, antena, diario y packet para el Icom IC-705"
     $link.Save()
+    $gui = $shell.CreateShortcut($ShortcutGui)
+    $gui.TargetPath = $Exe
+    $gui.Arguments = "--gui"
+    $gui.WorkingDirectory = $env:USERPROFILE
+    # The executable keeps a console (for the terminal client): minimised behind the window.
+    $gui.WindowStyle = 7
+    $gui.Description = T "ic705suite in a window" "ic705suite en ventana"
+    $gui.Save()
 }
 
 # Installs the executable at $Source: fresh install, upgrade or reinstall.
@@ -298,7 +308,7 @@ function Uninstall-Suite {
     if ($current) {
         Info (T "Uninstalling ic705suite {0} from {1}" "Desinstalando ic705suite {0} de {1}" $current $InstallDir)
         Remove-FromPath
-        Remove-Item -LiteralPath $Shortcut -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $Shortcut, $ShortcutGui -Force -ErrorAction SilentlyContinue
         foreach ($file in @($Exe, "$Exe.old", "$Exe.new", $VersionFile)) {
             Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
         }

@@ -50,6 +50,32 @@ CALL_RES = {"contest": re.compile(r"\bCQ (?:TEST|CONTEST)\b"
             "cq": re.compile(r"\bCQ\b(?! (?:TEST|CONTEST)\b)")}
 
 
+def skim_window(data: np.ndarray, start: int, end: int,
+                span: tuple[int, int] | None) -> tuple[np.ndarray, int, int]:
+    """A sweep cut down to the skimmer's range with as much again around it: the whole span
+    would squeeze the stations into a few columns. (data, start, end) as they stay."""
+    if span and len(data) > 1 and end > start:
+        margin = max(span[1] - span[0], 200) / 2
+        per_point = (end - start) / (len(data) - 1)
+        first = max(0, int((span[0] - margin - start) / per_point))
+        last = min(len(data) - 1, int(np.ceil((span[1] + margin - start) / per_point)))
+        if last - first >= 4:
+            return (data[first:last + 1], round(start + first * per_point),
+                    round(start + last * per_point))
+    return data, start, end
+
+
+def station_marks(channels: list[dict], selected: int) -> dict:
+    """The skimmer's stations for the scope (ScopeView fields): their numbers, those calling
+    (by kind), those with a callsign, and the chosen one."""
+    chosen = channels[selected] if 0 <= selected < len(channels) else None
+    return {"marks": [(ch["frequency"], str(ch["index"])) for ch in channels],
+            "calling": {ch["frequency"]: kind for ch in channels
+                        if (kind := call_kind(ch["text"]))},
+            "named": {ch["frequency"] for ch in channels if ch["callsign"]},
+            "chosen": chosen["frequency"] if chosen else None}
+
+
 def highlight_calls(text: Text) -> None:
     for kind, pattern in CALL_RES.items():
         text.highlight_regex(pattern, CALL_STYLES[kind])
@@ -493,13 +519,8 @@ class CwApp(ChannelSaving, App[int]):
         """The stations' numbers on the scale, the chosen one highlighted."""
         detail = self.query_one("#detail", DetailPanel)
         scope = self.query_one("#skim-scope", Waterfall)
-        scope.view.marks = [(ch["frequency"], str(ch["index"])) for ch in detail.channels]
-        scope.view.calling = {ch["frequency"]: kind for ch in detail.channels
-                              if (kind := call_kind(ch["text"]))}
-        scope.view.named = {ch["frequency"] for ch in detail.channels if ch["callsign"]}
-        chosen = detail.channels[detail.selected] if 0 <= detail.selected < len(detail.channels) \
-            else None
-        scope.view.chosen = chosen["frequency"] if chosen else None
+        for name, value in station_marks(detail.channels, detail.selected).items():
+            setattr(scope.view, name, value)
         scope.refresh()
 
     def _apply_scope(self, event: dict) -> None:
@@ -512,14 +533,8 @@ class CwApp(ChannelSaving, App[int]):
         scope = self.query_one("#skim-scope", Waterfall)
         scope.view.dial = self.state.get("frequency")
         span = self.state.get("skim_range")
-        if span and len(data) > 1 and end > start:
-            margin = max(span[1] - span[0], 200) / 2
-            per_point = (end - start) / (len(data) - 1)
-            first = max(0, int((span[0] - margin - start) / per_point))
-            last = min(len(data) - 1, int(np.ceil((span[1] + margin - start) / per_point)))
-            if last - first >= 4:
-                data = data[first:last + 1]
-                start, end = round(start + first * per_point), round(start + last * per_point)
+        data, start, end = skim_window(data, start, end, span)
+        if span:
             scope.view.passband = (span[0], span[1])
         scope.add_frame(data, start, end)
 

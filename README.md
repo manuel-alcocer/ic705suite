@@ -108,11 +108,12 @@ template. Before uninstalling they show them (`ic705suite --show-config`). `--no
 From the source:
 
 ```sh
-uv sync                                # add --extra postgres for PostgreSQL
+uv sync --extra gui                    # gui: the graphical client; postgres: PostgreSQL
 uv run ic705suite --configure          # asks for the main settings (or --init-config: template)
 uv run ic705suite --update-scp         # MASTER.SCP for the CW skimmer
 uv run ic705suite                      # dashboard, core in this process
 uv run ic705suite --sim                # try it without a radio
+uv run ic705suite --gui                # the graphical client (Qt), same keys, and the mouse
 uv run ic705suite cw                   # open one application directly (view cw swr log packet)
 uv run ic705suite --lang es            # Spanish (or [ui] language / IC705SUITE_LANG)
 uv run ic705suite --glyphs console     # plain Linux console (automatic with TERM=linux)
@@ -134,6 +135,21 @@ Where the files go:
 | Log | `~/.local/state/ic705suite` | `%LOCALAPPDATA%\ic705suite\logs` |
 
 (The XDG variables move them on Linux; hamrlog keeps its logbook in its own folder.)
+
+### The graphical client
+
+`ic705suite --gui` opens the same suite in a window (Qt): the dashboard and every
+application (rig view, CW, Antenna, Logbook, Packet), with the same menus, options and
+messages, and **the same keys**: each page takes the bindings of its terminal screen, so they
+cannot drift apart. The shared code is shared, not copied: the front panel's model, the rig
+keys, the skimmer's marks; the logbook (hamrlog) and the packet terminal (hamrpkt) run their
+own terminal application's methods behind Qt widgets that offer the same methods
+(`gui/borrow.py`). The mouse comes on top: a double click opens an application or a QSO's
+card, a click picks a front-panel option, a skimmer station, a band or a row and the wheel
+turns an option (double click edits it), a click on a band scope tunes there and the wheel on
+the scope or on the frequency digits tunes by the step; the macros and the Antenna actions
+have buttons; sweeps are drawn as a chart. It works with a local core or `--connect` to a
+server, like the terminal client; the installers add a menu entry (Start menu on Windows).
 
 ### Core on a Raspberry Pi, client here
 
@@ -276,7 +292,8 @@ src/ic705suite/
   config.py db.py paths.py i18n.py locales/
   rig/                    base.py (Rig, RigModel), bands.py, icom/ (civ, rig, lan, usb, sim, models)
   station/                station.py, core.py (events), server.py (WebSocket), links.py
-  dashboard/  ui/         first screen; shared styles, dialogs, status line
+  dashboard/  ui/         first screen; shared styles, dialogs, status line, panel model
+  gui/                    the graphical client (Qt): pages mirroring the terminal screens
   apps/view/              rig view
   apps/cw/                decoder, bayes, skimmer, channels, interpret, tui...
   apps/swr/               service (sweeps, history), analysis, web (phone page), app (TUI)
