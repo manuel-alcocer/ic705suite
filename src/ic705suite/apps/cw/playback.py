@@ -65,7 +65,7 @@ def load_sidecar(wav: str | Path) -> list[tuple[float, int]]:
         return []
     path = sidecar_path(wav)
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         return [(float(t), int(f)) for t, f in data.get("frequency", [])]
     except (OSError, ValueError, TypeError, AttributeError):
         return []
@@ -85,7 +85,8 @@ class SidecarWriter:
 
     def close(self) -> None:
         self.path.write_text(json.dumps({"sample_rate": self.sample_rate,
-                                         "frequency": self.frequency}, indent=1))
+                                         "frequency": self.frequency}, indent=1),
+                             encoding="utf-8")
 
 
 class WavPlayback:

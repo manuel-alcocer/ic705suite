@@ -86,11 +86,23 @@ installed version (`--status`) and uninstalls (`--uninstall`; `--purge` deletes 
 settings and data too, but never hamrlog's logbook). Downloads are checked against the
 release's `SHA256SUMS.txt`.
 
+On Windows 10/11 (x86_64), likewise, from PowerShell (no administrator rights needed):
+
+```powershell
+irm https://github.com/manuel-alcocer/ic705suite/releases/latest/download/ic705suite-install.ps1 | iex
+```
+
+It goes into `%LOCALAPPDATA%\Programs\ic705suite` (`-InstallDir DIR` elsewhere), on the
+user's PATH and in the Start menu. The `install.ps1` inside the release's
+`ic705suite-X.Y.Z-windows-x86_64.zip` upgrades (`-Upgrade`), shows the installed version
+(`-Status`) and uninstalls (`-Uninstall`; `-Purge` deletes the suite's settings and data too,
+never hamrlog's logbook). It runs in Windows Terminal or the classic console.
+
 From the source:
 
 ```sh
 uv sync                                # add --extra postgres for PostgreSQL
-uv run ic705suite --init-config        # writes ~/.config/ic705suite/config.toml (edit it)
+uv run ic705suite --init-config        # writes config.toml (the path is printed; edit it)
 uv run ic705suite --update-scp         # MASTER.SCP for the CW skimmer
 uv run ic705suite                      # dashboard, core in this process
 uv run ic705suite --sim                # try it without a radio
@@ -106,6 +118,16 @@ MASTER.SCP) are imported; the antenna history of **swr-remote**
 (`~/.local/share/swr-remote/history.json`) goes into the database the first time the Antenna
 application needs it. The old files are left untouched.
 
+Where the files go:
+
+| | Linux | Windows |
+|---|---|---|
+| Settings, MASTER.SCP | `~/.config/ic705suite` | `%APPDATA%\ic705suite` |
+| Database, CW channels | `~/.local/share/ic705suite` | `%LOCALAPPDATA%\ic705suite` |
+| Log | `~/.local/state/ic705suite` | `%LOCALAPPDATA%\ic705suite\logs` |
+
+(The XDG variables move them on Linux; hamrlog keeps its logbook in its own folder.)
+
 ### Core on a Raspberry Pi, client here
 
 ```sh
@@ -113,7 +135,8 @@ uv run ic705suite --serve              # on the Pi, next to the radio ([server] 
 uv run ic705suite --connect rpi.local  # on the desktop ([client] token or --token)
 ```
 
-The antenna page is served by the core: `http://<core address>:8705` on the phone.
+The antenna page is served by the core: `http://<core address>:8705` on the phone
+(`[swr] host = "127.0.0.1"` keeps it to that computer). The core runs on Linux or Windows.
 
 ## Configuration
 
@@ -130,6 +153,7 @@ tx_enabled = false
 url = "postgresql+psycopg://user:password@host/ic705suite"   # default: SQLite file
 
 [swr]
+host = "0.0.0.0"              # antenna page: "127.0.0.1" for this computer only
 port = 8705
 max_power = 30                # percent, for SWR sweeps
 ```
@@ -196,11 +220,15 @@ IC705SUITE_TEST_POSTGRES=postgresql+psycopg://user@host/db uv run pytest tests/t
 python -m ic705suite.apps.cw.bench     # CW decoder benchmark (character error rate)
 ```
 
+The tests run on Linux and Windows for every push and pull request
+(`.github/workflows/ci.yml`).
+
 Releases: pushing a tag `vX.Y.Z` (the same number as `src/ic705suite/__init__.py`) runs
-`.github/workflows/release.yml`, which tests, builds the executable with PyInstaller
-(`packaging/pyinstaller/ic705suite.spec`), checks that it starts with the simulator, packs it
-with `packaging/linux/install.sh`, tries installing and uninstalling it and publishes the
-release. By hand:
+`.github/workflows/release.yml`, which, on Linux and on Windows, tests, builds the executable
+with PyInstaller (`packaging/pyinstaller/ic705suite.spec`), checks that it starts with the
+simulator (`packaging/windows/smoke.py` on Windows), packs it with its installer
+(`packaging/linux/install.sh`, `packaging/windows/install.ps1`), tries installing and
+uninstalling it and publishes the release. By hand:
 
 ```sh
 uv sync --extra postgres && uv pip install pyinstaller

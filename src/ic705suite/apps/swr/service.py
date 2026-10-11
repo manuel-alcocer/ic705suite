@@ -231,7 +231,7 @@ class HistoryStore:
             if conn.execute(sa.select(sa.func.count()).select_from(history_table)).scalar():
                 return
             try:
-                entries = json.loads(path.read_text())
+                entries = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 return
             for entry in entries:
@@ -297,8 +297,8 @@ class SwrService:
         from ic705suite.apps.swr.web import serve
 
         try:
-            # Reachable from the phone on the local network, as swr-remote was.
-            self._web = await serve(self, "0.0.0.0", self.port)
+            # Reachable from the phone on the local network by default, as swr-remote was.
+            self._web = await serve(self, self.config.swr_host, self.port)
         except OSError as exc:
             self.ui.error(N_("antenna page not available on port {port}: {error}"),
                           port=self.port, error=str(exc))

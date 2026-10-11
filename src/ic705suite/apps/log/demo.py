@@ -81,7 +81,7 @@ def template_path() -> Path:
 def template_is_current() -> bool:
     stamp = template_dir() / STAMP_NAME
     try:
-        return template_path().is_file() and stamp.read_text().strip() == fingerprint()
+        return template_path().is_file() and stamp.read_text(encoding="utf-8").strip() == fingerprint()
     except OSError:
         return False
 
@@ -94,7 +94,7 @@ def build_template() -> Path:
     building.unlink(missing_ok=True)
     build_database(f"sqlite:///{building.as_posix()}")
     os.replace(building, template_path())
-    (folder / STAMP_NAME).write_text(fingerprint())
+    (folder / STAMP_NAME).write_text(fingerprint(), encoding="utf-8")
     return template_path()
 
 

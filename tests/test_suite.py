@@ -40,7 +40,7 @@ def test_cwic705_settings_are_imported(tmp_path):
     assert migrate_legacy(new, legacy) is None          # only once
     config = load_config(new)
     assert (config.rig_model, config.connection, config.host) == ("ic705", "lan", "10.0.0.5")
-    assert str(config.scp_path).endswith(".config/ic705suite/MASTER.SCP")
+    assert config.scp_path.as_posix().endswith(".config/ic705suite/MASTER.SCP")
     assert (new.parent / "MASTER.SCP").exists()
 
 
@@ -291,5 +291,5 @@ def test_simulator_uses_the_demo_logbook(monkeypatch):
         assert os.environ["HAMRLOG_DATABASE_URL"] == real
     with demo_logbook(Config(connection="sim")) as folder:
         url = os.environ["HAMRLOG_DATABASE_URL"]
-        assert url != real and str(folder) in url and os.path.exists(url.split("///")[1])
+        assert url != real and folder.as_posix() in url and os.path.exists(url.split("///")[1])
     assert os.environ["HAMRLOG_DATABASE_URL"] == real and not folder.exists()

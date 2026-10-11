@@ -59,7 +59,8 @@ callsign = "N0CALL"
 [database]
 # Any SQLAlchemy URL. PostgreSQL is recommended (pip install ic705suite[postgres]):
 # url = "postgresql+psycopg://user:password@host/ic705suite"
-# Default: a SQLite file in ~/.local/share/ic705suite/ic705suite.db
+# Default: a SQLite file, ic705suite.db, in the suite's data folder
+# (~/.local/share/ic705suite on Linux, %LOCALAPPDATA%\\ic705suite on Windows)
 
 [keyer]
 wpm = 20
@@ -71,7 +72,8 @@ afc = true
 
 [skimmer]
 # Super Check Partial database used to validate callsigns (ic705suite --update-scp)
-# scp_path = "~/.config/ic705suite/MASTER.SCP"
+# Default: MASTER.SCP next to this file
+# scp_path = "~/MASTER.SCP"
 
 [channels]
 # Keep the session audio so CW channels can be saved with lossless FLAC audio
@@ -81,7 +83,10 @@ autosave_on_server_exit = true
 
 [swr]
 # Antenna tuning page for the phone, served by the core: http://<core address>:8705
+# Address it listens on: "0.0.0.0" for the phone on the local network, "127.0.0.1" for
+# this computer only
 web = true
+host = "0.0.0.0"
 port = 8705
 # Highest RF power for SWR sweeps, percent (30 % = 3 W on the IC-705). SWR sweeps transmit,
 # so they also need [rig] tx_enabled = true (or --tx); noise sweeps never transmit.
@@ -131,7 +136,7 @@ class Config:
     # [station]
     callsign: str = ""
     # [database]
-    database_url: str = ""           # SQLAlchemy URL; "" = SQLite in ~/.local/share/ic705suite
+    database_url: str = ""           # SQLAlchemy URL; "" = SQLite in the data folder
     # CW
     wpm: int = 20
     afc: bool = True
@@ -143,6 +148,7 @@ class Config:
     macros: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_MACROS))
     # [swr]
     swr_web: bool = True
+    swr_host: str = "0.0.0.0"     # antenna page: all interfaces, for the phone
     swr_port: int = 8705
     swr_max_power: int = 30
     # [ui] [server] [client]
@@ -192,6 +198,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.autosave_on_exit = bool(chans.get("autosave_on_server_exit", cfg.autosave_on_exit))
         swr = data.get("swr", {})
         cfg.swr_web = bool(swr.get("web", cfg.swr_web))
+        cfg.swr_host = str(swr.get("host", cfg.swr_host))
         cfg.swr_port = int(swr.get("port", cfg.swr_port))
         cfg.swr_max_power = int(swr.get("max_power", cfg.swr_max_power))
         server, client = data.get("server", {}), data.get("client", {})
@@ -212,7 +219,7 @@ def write_template(path: Path | None = None) -> Path:
     import secrets
 
     # Literal braces of the macros ({call}) survive: only {token} is replaced.
-    path.write_text(TEMPLATE.replace("{token}", secrets.token_urlsafe(18)))
+    path.write_text(TEMPLATE.replace("{token}", secrets.token_urlsafe(18)), encoding="utf-8")
     path.chmod(0o600)  # contains the radio password
     return path
 
@@ -225,10 +232,11 @@ def migrate_legacy(path: Path | None = None, legacy_dir: Path = LEGACY_DIR) -> P
     if path.exists() or not old.exists():
         return None
     path.parent.mkdir(parents=True, exist_ok=True)
-    text = old.read_text()
+    text = old.read_text(encoding="utf-8")
     text = text.replace("[radio]", '[rig]\nmodel = "ic705"\nconnection = "lan"', 1)
     text = text.replace("~/.config/cwic705/", "~/.config/ic705suite/")
-    path.write_text("# Imported from ~/.config/cwic705/config.toml by ic705suite\n" + text)
+    path.write_text("# Imported from ~/.config/cwic705/config.toml by ic705suite\n" + text,
+                    encoding="utf-8")
     path.chmod(0o600)
     scp = legacy_dir / "MASTER.SCP"
     if scp.exists() and not (path.parent / "MASTER.SCP").exists():

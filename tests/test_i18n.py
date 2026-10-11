@@ -15,7 +15,7 @@ def _marked_strings() -> set[str]:
     for path in SRC.rglob("*.py"):
         if any(part in path.relative_to(SRC).as_posix() for part in OWN_CATALOGS):
             continue
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
                     and node.func.id in ("_", "N_") and node.args \
                     and isinstance(node.args[0], ast.Constant):

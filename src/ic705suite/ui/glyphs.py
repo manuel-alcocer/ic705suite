@@ -135,7 +135,11 @@ def font_charset(fd: int | None = None) -> frozenset[str] | None:
     """The characters of the Linux console font on `fd` (default: the terminal), or None."""
     import ctypes
     import errno
-    import fcntl
+
+    try:
+        import fcntl
+    except ImportError:                            # Windows: no console font to ask for
+        return None
 
     class UniPair(ctypes.Structure):
         _fields_ = [("unicode", ctypes.c_ushort), ("fontpos", ctypes.c_ushort)]
@@ -214,7 +218,6 @@ def _patch_textual() -> None:
         return
     _patched = True
     from textual import _border
-    from textual.drivers import linux_driver
     from textual.scrollbar import ScrollBarRender
 
     borders = dict(CONSOLE_BORDERS)
@@ -232,9 +235,13 @@ def _patch_textual() -> None:
     ScrollBarRender.VERTICAL_BARS = [" "] * len(ScrollBarRender.VERTICAL_BARS)
     ScrollBarRender.HORIZONTAL_BARS = [" "] * len(ScrollBarRender.HORIZONTAL_BARS)
 
-    write = linux_driver.LinuxDriver.write
+    if sys.platform == "win32":
+        from textual.drivers.windows_driver import WindowsDriver as Driver
+    else:
+        from textual.drivers.linux_driver import LinuxDriver as Driver
+    write = Driver.write
 
     def write_for_the_console(self, data: str) -> None:
         write(self, data.translate(TRANSLATION) if TRANSLATION else data)
 
-    linux_driver.LinuxDriver.write = write_for_the_console
+    Driver.write = write_for_the_console

@@ -2,13 +2,15 @@
 
 %CPU is the process's CPU time over the last interval (100 % = one core busy; it can go
 above with several threads). %RAM is its resident memory over the machine's total. Read from
-/proc on Linux, with the standard library elsewhere (memory then unknown). One sampler for
-the whole process, shared by every status line, and sampled at most once a second.
+/proc on Linux, from the Win32 API on Windows, with the standard library elsewhere (memory
+then unknown). One sampler for the whole process, shared by every status line, and sampled
+at most once a second.
 """
 
 from __future__ import annotations
 
 import os
+import sys
 import time
 
 from rich.text import Text
@@ -22,6 +24,8 @@ def _cpu_seconds() -> float:
 
 
 def _rss_bytes() -> int | None:
+    if sys.platform == "win32":
+        return _win_rss()
     try:
         with open("/proc/self/statm", encoding="ascii") as f:
             pages = int(f.read().split()[1])
@@ -31,10 +35,65 @@ def _rss_bytes() -> int | None:
 
 
 def _total_ram() -> int | None:
+    if sys.platform == "win32":
+        return _win_total_ram()
     try:
         return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
     except (ValueError, OSError, AttributeError):
         return None
+
+
+def _win_rss() -> int | None:
+    """Working set of this process (what Task Manager calls memory)."""
+    import ctypes
+    from ctypes import wintypes
+
+    class Counters(ctypes.Structure):
+        _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+                    ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
+
+    kernel32 = ctypes.WinDLL("kernel32")    # its own prototypes, not the shared windll's
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel32.GetCurrentProcess.argtypes = []
+    kernel32.K32GetProcessMemoryInfo.restype = wintypes.BOOL
+    kernel32.K32GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(Counters),
+                                                 wintypes.DWORD]
+    counters = Counters(cb=ctypes.sizeof(Counters))
+    try:
+        ok = kernel32.K32GetProcessMemoryInfo(kernel32.GetCurrentProcess(),
+                                              ctypes.byref(counters), counters.cb)
+    except (OSError, ctypes.ArgumentError):
+        return None
+    return counters.WorkingSetSize if ok else None
+
+
+def _win_total_ram() -> int | None:
+    import ctypes
+    from ctypes import wintypes
+
+    class Status(ctypes.Structure):
+        _fields_ = [("dwLength", wintypes.DWORD), ("dwMemoryLoad", wintypes.DWORD),
+                    ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+
+    kernel32 = ctypes.WinDLL("kernel32")
+    kernel32.GlobalMemoryStatusEx.restype = wintypes.BOOL
+    kernel32.GlobalMemoryStatusEx.argtypes = [ctypes.POINTER(Status)]
+    status = Status(dwLength=ctypes.sizeof(Status))
+    try:
+        ok = kernel32.GlobalMemoryStatusEx(ctypes.byref(status))
+    except (OSError, ctypes.ArgumentError):
+        return None
+    return status.ullTotalPhys if ok else None
 
 
 class ProcessLoad:

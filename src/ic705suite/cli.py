@@ -123,6 +123,16 @@ def recording_transport(args: argparse.Namespace, config) -> Transport | None:
 
 def _signals(stop: asyncio.Event) -> None:
     loop = asyncio.get_running_loop()
+    if sys.platform == "win32":
+        # No add_signal_handler on Windows. A plain handler still wakes the loop (asyncio
+        # watches the signals there too) and stops the server cleanly instead of asyncio's
+        # own Ctrl+C handler cancelling it halfway, with the radio's session left open.
+        def handler(signum, frame) -> None:
+            loop.call_soon_threadsafe(stop.set)
+
+        for sig in (signal.SIGINT, signal.SIGBREAK):   # Ctrl+C, Ctrl+Break
+            signal.signal(sig, handler)
+        return
     for sig in (signal.SIGINT, signal.SIGTERM):
         with contextlib.suppress(NotImplementedError, RuntimeError):
             loop.add_signal_handler(sig, stop.set)

@@ -11,3 +11,9 @@ def private_logbook(tmp_path, monkeypatch):
     monkeypatch.setenv("HAMRLOG_HOME", str(home))
     monkeypatch.setenv("HAMRLOG_DATABASE_URL", f"sqlite:///{home / 'hamrlog.sqlite3'}")
     monkeypatch.setenv("HAMRLOG_PRESEED", "0")
+
+
+@pytest.fixture(autouse=True)
+def english(monkeypatch):
+    """The suite in English whatever the machine's language (a Spanish Windows, say)."""
+    monkeypatch.setenv("IC705SUITE_LANG", "en")

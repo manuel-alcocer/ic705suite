@@ -218,6 +218,21 @@ def test_swr_sweep_refused_outside_band_or_without_tx(tmp_path):
     asyncio.run(run())
 
 
+def test_antenna_page_listens_on_the_configured_host(tmp_path):
+    async def run():
+        config = Config(swr_host="127.0.0.1", swr_port=0,
+                        database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        station = Station(open_rig(config, FakeRadio(7_100_000)), config, _Ui())
+        service = SwrService(station, config, station.ui)
+        await service.start()
+        try:
+            return [s.getsockname()[0] for s in service._web.sockets]
+        finally:
+            await service.stop()
+
+    assert asyncio.run(run()) == ["127.0.0.1"]
+
+
 def test_ptt_blocked_by_the_rig_in_receive_only_mode(tmp_path):
     from ic705suite.rig.base import TxDisabledError
 

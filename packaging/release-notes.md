@@ -11,6 +11,18 @@ or download `ic705suite-*-linux-x86_64.tar.gz`, unpack it and run `./install.sh`
 settings and data too; hamrlog's logbook is left alone). The bare executable is
 `ic705suite-linux-x86_64`.
 
+**Windows 10/11** (x86_64, no Python needed, no administrator rights): from PowerShell,
+
+```powershell
+irm https://github.com/manuel-alcocer/ic705suite/releases/latest/download/ic705suite-install.ps1 | iex
+```
+
+or download `ic705suite-*-windows-x86_64.zip`, unpack it and run `.\install.ps1` (if
+PowerShell refuses to run scripts: `powershell -ExecutionPolicy Bypass -File .\install.ps1`).
+Then `install.ps1 -Upgrade` upgrades and `install.ps1 -Uninstall` removes it (`-Purge` deletes
+its settings and data too; hamrlog's logbook is left alone). The bare executable is
+`ic705suite-windows-x86_64.exe`.
+
 **With Python 3.11 or newer**: `uv tool install` or `pipx install` the `.whl`
 (add `[postgres]` for PostgreSQL).
 

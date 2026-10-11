@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import threading
 
 from ic705suite.i18n import _, render
 from ic705suite.apps.cw.interpret import Interpretation, Interpreter
@@ -20,6 +21,7 @@ class PlainClient:
         self.quit_event = quit_event
         self._at_line_start = True
         self._transmitting = False
+        self._lines: asyncio.Queue[str | None] | None = None
         self.interpreter = Interpreter(scp=scp)
         link.attach(self._on_event)
 
@@ -53,12 +55,25 @@ class PlainClient:
     async def run(self) -> None:
         loop = asyncio.get_running_loop()
         lines: asyncio.Queue[str | None] = asyncio.Queue()
+        self._lines = lines
 
         def on_stdin() -> None:
             line = sys.stdin.readline()
             lines.put_nowait(line if line else None)
 
-        loop.add_reader(sys.stdin.fileno(), on_stdin)
+        def read_stdin() -> None:   # Windows: no add_reader on its event loop
+            while line := sys.stdin.readline():
+                loop.call_soon_threadsafe(lines.put_nowait, line)
+            loop.call_soon_threadsafe(lines.put_nowait, None)
+
+        def stop_reading() -> None:
+            if sys.platform != "win32":
+                loop.remove_reader(sys.stdin.fileno())
+
+        if sys.platform == "win32":
+            threading.Thread(target=read_stdin, name="stdin", daemon=True).start()
+        else:
+            loop.add_reader(sys.stdin.fileno(), on_stdin)
         stop = asyncio.create_task(self._stopped())
         ticker = asyncio.create_task(self._tick())
         try:
@@ -70,7 +85,7 @@ class PlainClient:
                     break
                 line = get.result()
                 if line is None:  # EOF: keep receiving until Ctrl-C
-                    loop.remove_reader(sys.stdin.fileno())
+                    stop_reading()
                     await stop
                     break
                 if line.strip().lower() in ("/quit", "/q", "/exit"):
@@ -82,15 +97,18 @@ class PlainClient:
         finally:
             stop.cancel()
             ticker.cancel()
-            loop.remove_reader(sys.stdin.fileno())
+            stop_reading()
         if sys.stdin.isatty() and not self.link.closed.is_set():
             await self._offer_save()
 
     async def _ask(self, prompt: str) -> str:
         sys.stdout.write(prompt)
         sys.stdout.flush()
-        line = await asyncio.get_running_loop().run_in_executor(None, sys.stdin.readline)
-        return line.strip()
+        if sys.platform == "win32" and self._lines is not None:
+            line = await self._lines.get()   # the reader thread still owns stdin
+        else:
+            line = await asyncio.get_running_loop().run_in_executor(None, sys.stdin.readline)
+        return (line or "").strip()
 
     async def _offer_save(self) -> None:
         """Same questions as the full-screen client: save?, name, reuse an existing name."""

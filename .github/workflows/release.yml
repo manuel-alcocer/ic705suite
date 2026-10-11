@@ -1,7 +1,7 @@
 name: Release
 
-# Builds the self-contained Linux executable of a tag, packs it with its
-# installer and publishes everything as a GitHub release.
+# Builds the self-contained Linux and Windows executables of a tag, packs
+# each with its installer and publishes everything as a GitHub release.
 on:
   push:
     tags: ["v*"]
@@ -107,6 +107,73 @@ jobs:
           name: linux
           path: artifacts/*
 
+  windows:
+    name: Windows executable and installer
+    needs: meta
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Install the project and PyInstaller
+        run: |
+          uv sync --extra postgres
+          uv pip install pyinstaller
+
+      - name: The tests pass before publishing
+        run: uv run pytest -q
+
+      - name: Build the executable
+        run: uv run pyinstaller --clean --noconfirm packaging/pyinstaller/ic705suite.spec
+
+      - name: The executable starts
+        run: |
+          dist/ic705suite.exe --help | Out-Null
+          if ($LASTEXITCODE) { exit 1 }
+          $version = dist/ic705suite.exe --version
+          if ($version -ne "ic705suite ${{ needs.meta.outputs.version }}") { throw "version: $version" }
+          # The server with the simulator for a few seconds, then Ctrl+Break: it must
+          # stop by itself, cleanly (exit code 0).
+          $env:APPDATA = "$env:RUNNER_TEMP\roaming"; $env:LOCALAPPDATA = "$env:RUNNER_TEMP\local"
+          uv run python packaging/windows/smoke.py dist/ic705suite.exe
+
+      - name: Pack the executable with the installer
+        run: |
+          $bundle = "ic705suite-${{ needs.meta.outputs.version }}-windows-x86_64"
+          New-Item -ItemType Directory -Force $bundle, artifacts | Out-Null
+          Copy-Item dist/ic705suite.exe, packaging/windows/install.ps1, LICENSE, README.md $bundle
+          Compress-Archive -Path $bundle -DestinationPath "artifacts/$bundle.zip"
+          Copy-Item dist/ic705suite.exe artifacts/ic705suite-windows-x86_64.exe
+          Copy-Item packaging/windows/install.ps1 artifacts/ic705suite-install.ps1
+
+      - name: Install, check and uninstall
+        run: |
+          $bundle = "ic705suite-${{ needs.meta.outputs.version }}-windows-x86_64"
+          $dir = "$env:RUNNER_TEMP\programs"
+          Expand-Archive "artifacts/$bundle.zip" $env:RUNNER_TEMP
+          $installer = "$env:RUNNER_TEMP\$bundle\install.ps1"
+          & $installer -InstallDir $dir
+          if ($LASTEXITCODE) { exit 1 }
+          & "$dir\ic705suite.exe" --version
+          & $installer -InstallDir $dir -Status
+          if ($LASTEXITCODE) { exit 1 }
+          & $installer -InstallDir $dir -Uninstall
+          if ($LASTEXITCODE) { exit 1 }
+          if (Test-Path "$dir\ic705suite.exe") { throw "still installed" }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows
+          path: artifacts/*
+
   python-package:
     name: Python package
     needs: meta
@@ -124,7 +191,7 @@ jobs:
 
   publish:
     name: Publish the release
-    needs: [meta, linux, python-package]
+    needs: [meta, linux, windows, python-package]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
