@@ -90,7 +90,13 @@ def test_the_skimmer_shows_its_range_of_the_waterfall_with_the_stations(tmp_path
                 scope = app.query_one("#skim-scope", Waterfall)
                 assert not scope.display                # only while skimming
                 await _skimming(app, pilot)
-                assert scope.display and scope.size.height == 8
+                assert scope.display
+                # Shown, it is laid out on a later refresh (slow on a busy CI runner).
+                for _ in range(50):
+                    if scope.size.height:
+                        break
+                    await pilot.pause(0.1)
+                assert scope.size.height == 8
                 for _ in range(50):
                     await pilot.pause(0.1)
                     if scope._raw:
