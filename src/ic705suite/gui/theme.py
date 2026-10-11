@@ -171,6 +171,22 @@ QSplitter::handle {{
 QDialog {{
     background: {PANEL};
 }}
+QMenuBar {{
+    background: {PANEL};
+    border-bottom: 1px solid {BORDER};
+}}
+QMenuBar::item:selected, QMenu::item:selected {{
+    background: {SELECTED};
+    color: {TEXT};
+}}
+QMenu {{
+    background: {PANEL};
+    border: 1px solid {BORDER};
+    padding: 4px;
+}}
+QMenu::item {{
+    padding: 4px 18px;
+}}
 """
 
 

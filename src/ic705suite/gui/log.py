@@ -59,7 +59,15 @@ from ic705suite.apps.log.tui.widgets.statusline import StatusLine as LogStatusLi
 from ic705suite.gui import theme
 from ic705suite.gui.borrow import borrow
 from ic705suite.gui.page import Page, _Dialog, _wait
-from ic705suite.gui.widgets import Frame, Table, hint_html, rich_colour, rich_html, span
+from ic705suite.gui.widgets import (
+    Frame,
+    Table,
+    hint_html,
+    rich_colour,
+    rich_html,
+    span,
+    with_load_html,
+)
 
 
 def feedback_style(level: str) -> tuple[str, bool, bool]:
@@ -477,9 +485,11 @@ class QtStatusLine(QLabel):
         self.setContentsMargins(6, 3, 6, 3)
         self.setStyleSheet(f"background:{theme.PANEL};border-bottom:1px solid {theme.BORDER};")
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.timer = QTimer(self, interval=2000, timeout=self.refresh)   # the load
+        self.timer.start()
 
     def refresh(self) -> None:
-        self.setText(rich_html(LogStatusLine.render(self)))
+        self.setText(with_load_html(rich_html(LogStatusLine.line(self))))
 
 
 class QtStatsFooter(QLabel):

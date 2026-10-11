@@ -7,6 +7,8 @@ import re
 from dataclasses import dataclass
 
 from rich.text import Text
+
+from ic705suite.ui.sysload import with_load
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
@@ -30,6 +32,10 @@ class StatusLine(Static):
     monitor: reactive[bool] = reactive(False)
 
     def render(self) -> Text:
+        # The suite's load and version at the right end, as on the other applications.
+        return with_load(self.line(), self.size.width)
+
+    def line(self) -> Text:
         text = Text(no_wrap=True, overflow="ellipsis")
 
         def chunk(label: str, value: str, style: str = "bold white") -> None:
@@ -57,6 +63,9 @@ class StatusLine(Static):
         else:
             chunk(_("SESSION"), _("idle"), "dim")
         return text
+
+    def on_mount(self) -> None:
+        self.set_interval(2.0, self.refresh)     # the load, even when nothing changes
 
 
 # ---------------------------------------------------------------- footer --

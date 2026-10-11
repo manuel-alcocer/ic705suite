@@ -133,11 +133,23 @@ def load_text() -> Text:
     return text
 
 
+def version_text() -> Text:
+    from ic705suite import __version__
+
+    return Text(f"v{__version__}", style="bold cyan", no_wrap=True)
+
+
 def with_load(text: Text, width: int) -> Text:
-    """`text` with the load at the right end of a line `width` wide (dropped if it does not
-    fit, so the rig information always wins)."""
-    load = load_text()
-    room = width - text.cell_len - load.cell_len - 1
-    if room < 2:
-        return text
-    return Text.assemble(text, " " * room, load, " ", no_wrap=True)
+    """`text` with the load and the suite's version at the right end of a line `width`
+    wide. The version is always there: the load goes first when there is no room, and the
+    line's own end makes way for the version when even that does not fit."""
+    version = version_text()
+    load = Text.assemble(load_text(), (" · ", "dim"), version)
+    for right in (load, version):
+        room = width - text.cell_len - right.cell_len - 1
+        if room >= 2:
+            return Text.assemble(text, " " * room, right, " ", no_wrap=True)
+    keep = max(0, width - version.cell_len - 3)
+    head = text.copy()
+    head.truncate(keep, overflow="ellipsis")
+    return Text.assemble(head, "  ", version, " ", no_wrap=True)

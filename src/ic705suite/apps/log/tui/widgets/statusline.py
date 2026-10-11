@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from rich.text import Text
+
+from ic705suite.ui.sysload import with_load
 from textual.reactive import reactive
 from textual.widgets import Static
 
@@ -25,6 +27,10 @@ class StatusLine(Static):
     demo: reactive[bool] = reactive(False)
 
     def render(self) -> Text:
+        # The suite's load and version at the right end, as on the other applications.
+        return with_load(self.line(), self.size.width)
+
+    def line(self) -> Text:
         text = Text(no_wrap=True, overflow="ellipsis")
         if self.demo:
             text.append(f" {_('DEMO')} ", style="bold black on yellow")
@@ -55,3 +61,6 @@ class StatusLine(Static):
         chunk(_("RIG"), self.station, "white")
         chunk(_("PROFILE"), self.profile or _("(none)"), "bold blue")
         return text
+
+    def on_mount(self) -> None:
+        self.set_interval(2.0, self.refresh)     # the load, even when nothing changes

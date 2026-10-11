@@ -47,7 +47,7 @@ from ic705suite.apps.packet.tui.widgets import StatusLine as PktStatusLine
 from ic705suite.gui import theme
 from ic705suite.gui.borrow import borrow
 from ic705suite.gui.page import Page, _Dialog, _wait
-from ic705suite.gui.widgets import Frame, Table, hint_html, rich_html, span
+from ic705suite.gui.widgets import Frame, Table, hint_html, rich_html, span, with_load_html
 
 
 def feedback_colour(level: str) -> str:
@@ -285,6 +285,8 @@ class QtPktStatus(QLabel):
         self.link_state = "offline"
         self.radio_port = 1
         self.monitor = False
+        self.timer = QTimer(self, interval=2000, timeout=self.redraw)   # the load
+        self.timer.start()
         self.setTextFormat(Qt.TextFormat.RichText)
         self.setContentsMargins(6, 3, 6, 3)
         self.setStyleSheet(f"background:{theme.PANEL};border-bottom:1px solid {theme.BORDER};")
@@ -293,7 +295,10 @@ class QtPktStatus(QLabel):
         super().__setattr__(name, value)
         if name in ("mycall", "link_kind", "host", "link_state", "radio_port", "session",
                     "monitor") and hasattr(self, "monitor"):
-            self.setText(rich_html(PktStatusLine.render(self)))
+            self.redraw()
+
+    def redraw(self) -> None:
+        self.setText(with_load_html(rich_html(PktStatusLine.line(self))))
 
 
 class QtPktFooter(QLabel):

@@ -12,9 +12,9 @@ import asyncio
 import logging
 import sys
 
-from PySide6.QtCore import QEvent, QObject, QTimer
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtGui import QIcon, QKeyEvent
-from PySide6.QtWidgets import QApplication, QMainWindow, QStackedWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QStackedWidget
 
 from ic705suite.config import Config
 from ic705suite.gui import theme
@@ -23,6 +23,8 @@ from ic705suite.i18n import _
 from ic705suite.station.links import Link
 
 log = logging.getLogger(__name__)
+
+PROJECT_URL = "https://github.com/manuel-alcocer/ic705suite"
 
 
 class MainWindow(QMainWindow):
@@ -43,11 +45,54 @@ class MainWindow(QMainWindow):
         self.dashboard = DashboardPage(self, link, config, problem)
         self.stack.addWidget(self.dashboard)
         self.page: Page | None = None
+        self._help_menu()
         QApplication.instance().installEventFilter(self)
         if start_app is None:
             self.show_page(self.dashboard)
         else:
             self.open_app(start_app, standalone=True)
+
+    # ---- the Help menu ------------------------------------------------------------------
+
+    def _help_menu(self) -> None:
+        menu = self.menuBar().addMenu(_("Help"))
+        project = menu.addAction(_("Project page"))
+        project.triggered.connect(self._open_project)
+        menu.addSeparator()
+        about = menu.addAction(_("About ic705suite"))
+        about.triggered.connect(self.show_about)
+
+    @staticmethod
+    def _open_project() -> None:
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        QDesktopServices.openUrl(QUrl(PROJECT_URL))
+
+    def show_about(self) -> QMessageBox:
+        """Name, version, what it is, the author and licence, and what it runs on."""
+        import platform
+
+        import PySide6
+
+        from ic705suite import __version__
+
+        box = QMessageBox(self)
+        box.setWindowTitle(_("About ic705suite"))
+        box.setTextFormat(Qt.TextFormat.RichText)
+        box.setText(f"<h2>ic705suite {__version__}</h2>"
+                    + "<p>" + _("Station suite for the Icom IC-705: dashboard, rig view, CW, "
+                                "antenna tuning, logbook and packet; in the terminal and in "
+                                "this window.") + "</p>"
+                    + f"<p>© Manuel Alcocer · PolyForm Noncommercial 1.0.0<br>"
+                    f'<a href="{PROJECT_URL}" style="color:{theme.CYAN}">{PROJECT_URL}</a></p>'
+                    + f"<p><small>Python {platform.python_version()} · Qt {PySide6.__version__}"
+                    f" · {platform.system()} {platform.release()}</small></p>")
+        box.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)  # the link
+        box.setIcon(QMessageBox.Icon.Information)
+        box.addButton(_("Close"), QMessageBox.ButtonRole.AcceptRole)
+        box.open()                      # not modal-blocking: the loop (and the radio) go on
+        return box
 
     # ---- pages --------------------------------------------------------------------------
 

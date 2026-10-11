@@ -660,3 +660,18 @@ msgstr "ver foto"
 
 msgid "remove photo"
 msgstr "quitar foto"
+
+msgid "Help"
+msgstr "Ayuda"
+
+msgid "Project page"
+msgstr "Página del proyecto"
+
+msgid "About ic705suite"
+msgstr "Acerca de ic705suite"
+
+msgid "Station suite for the Icom IC-705: dashboard, rig view, CW, antenna tuning, logbook and packet; in the terminal and in this window."
+msgstr "Suite de estación para el Icom IC-705: panel, vista del equipo, CW, ajuste de antena, diario de contactos y packet; en el terminal y en esta ventana."
+
+msgid "Close"
+msgstr "Cerrar"

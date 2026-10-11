@@ -210,6 +210,25 @@ class Frame(QFrame):
 
 # ---- status line and footer ------------------------------------------------------------------
 
+def load_html() -> str:
+    """The suite's CPU and RAM, and its version: the right end of every status line."""
+    from ic705suite import __version__
+
+    load = LOAD.sample()
+    cpu_colour = theme.RED if load.cpu >= 80 else theme.YELLOW if load.cpu >= 50 else theme.TEXT
+    right = span("CPU ", theme.DIM) + span(f"{load.cpu:.0f}%", cpu_colour, True)
+    if load.ram is not None:
+        right += span(" · RAM ", theme.DIM) + span(f"{load.ram:.1f}%", theme.TEXT, True) \
+            + span(f" {load.rss / 2**20:.0f}M", theme.DIM)
+    return right + span(" · ", theme.DIM) + span(f"v{__version__}", theme.CYAN, True)
+
+
+def with_load_html(left: str) -> str:
+    """A status line: `left`, and the load and version on the right."""
+    return (f'<table width="100%"><tr><td>{left}</td>'
+            f'<td align="right">{load_html()}</td></tr></table>')
+
+
 class StatusLine(QLabel):
     """Badges, rig, frequency, mode, S-meter, power, the link, and the suite's CPU and RAM."""
 
@@ -257,15 +276,8 @@ class StatusLine(QLabel):
         for label, value in self.extra:
             chunk(label, value, theme.TEXT, False)
         chunk(_("LINK"), self.link_description, theme.BLUE)
-        load = LOAD.sample()
-        cpu_colour = theme.RED if load.cpu >= 80 else theme.YELLOW if load.cpu >= 50 else theme.TEXT
-        right = span("CPU ", theme.DIM) + span(f"{load.cpu:.0f}%", cpu_colour, True)
-        if load.ram is not None:
-            right += span(" · RAM ", theme.DIM) + span(f"{load.ram:.1f}%", theme.TEXT, True) \
-                + span(f" {load.rss / 2**20:.0f}M", theme.DIM)
         separator = span(" · ", theme.DIM)
-        self.setText(f'<table width="100%"><tr><td>{"".join(parts)}{separator.join(chunks)}'
-                     f'</td><td align="right">{right}</td></tr></table>')
+        self.setText(with_load_html("".join(parts) + separator.join(chunks)))
 
 
 class Footer(QLabel):
