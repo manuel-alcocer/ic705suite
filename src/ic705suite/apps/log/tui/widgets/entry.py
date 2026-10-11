@@ -90,6 +90,7 @@ FIELD_LAYOUT: dict[str, tuple[str, int | None]] = {
     "operator": (N_("OPERATOR"), 12),
     "repeater": (N_("REPEATER"), 12),
     "digital": (N_("DIGITAL"), None),
+    "dupe_rule": (N_("DUPES"), 6),
     # Repeaters view (F5).
     "output": (N_("OUTPUT"), 12),
     "input": (N_("INPUT"), 12),

@@ -213,7 +213,7 @@ async def test_f4_lists_the_profiles_in_place_of_the_log(operator):
         assert app.query_one(ItemTable).item_count == 1
         assert list(app.query_one(EntryPanel).values()) == [
             "slot", "name", "operator", "equipment",
-            "freq_hz", "mode", "power_w", "repeater", "digital",
+            "freq_hz", "mode", "power_w", "repeater", "dupe_rule", "digital",
         ]
 
 

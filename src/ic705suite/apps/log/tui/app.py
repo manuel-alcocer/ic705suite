@@ -531,16 +531,23 @@ class HamrlogApp(App[None]):
         known = ContactService.lookup(token) if self.state.autofill_from_book else None
         identity = known.summary if known else ""
 
-        previous = QsoService.find_duplicates(token, self.state.band, self.state.mode)
+        # A duplicate is the same band and mode today (UTC), or ever in a contest profile;
+        # another day is another QSO, only noted as known.
+        rule = self.state.dupe_rule or "day"
+        previous = [] if rule == "off" else QsoService.find_duplicates(
+            token, self.state.band, self.state.mode, since_day=rule == "day"
+        )
         if previous:
             last = previous[0]
             message = _(
+                " DUPLICATE  already worked {count}× today on {band}/{mode} · last {when} UTC"
+                if rule == "day" else
                 " DUPLICATE  already worked {count}× on {band}/{mode} · last {when} UTC"
             ).format(
                 count=len(previous),
                 band=last.band,
                 mode=last.mode,
-                when=f"{last.qso_utc:%Y-%m-%d %H:%M}",
+                when=f"{last.qso_utc:%H:%M}" if rule == "day" else f"{last.qso_utc:%Y-%m-%d %H:%M}",
             )
             name = identity or last.name
             panel.feedback(f"{message} · {name}" if name else message, "dup")
@@ -549,8 +556,9 @@ class HamrlogApp(App[None]):
         worked = QsoService.find_duplicates(token, "", "")
         if worked:
             last = worked[0]
-            message = _("Known: {count} previous QSO · last on {band}/{mode}").format(
-                count=len(worked), band=last.band, mode=last.mode
+            message = _("Known: {count} previous QSO · last on {band}/{mode} on {date}").format(
+                count=len(worked), band=last.band, mode=last.mode,
+                date=f"{last.qso_utc:%Y-%m-%d}",
             )
             name = identity or last.name
             panel.feedback(f"{message} · {name}" if name else message, "info")

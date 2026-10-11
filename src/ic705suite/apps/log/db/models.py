@@ -519,6 +519,9 @@ class Profile(Base):
     # Fast entry behaviour, so a contest profile can differ from a ragchew one.
     field_order: Mapped[list[str]] = mapped_column(default=list)
     separator: Mapped[str] = mapped_column(String(4), default=",")
+    #: When a callsign counts as a duplicate: "day" (same band and mode on the same UTC
+    #: day; empty means it too), "log" (ever, as in a contest) or "off".
+    dupe_rule: Mapped[str] = mapped_column(String(8), default="day")
 
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)

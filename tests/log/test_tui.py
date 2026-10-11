@@ -81,6 +81,33 @@ async def test_duplicate_warning_appears_while_typing(operator):
         assert "DUPLICADO" in feedback
 
 
+async def test_yesterdays_qso_is_known_not_a_duplicate(operator):
+    """Worked yesterday on the same band and mode: only known; with a contest profile's
+    rule (the whole log) it is a duplicate; with "off" never."""
+    import datetime as dt
+
+    from ic705suite.apps.log.core.entry import parse
+
+    app = HamrlogApp()
+    async with app.run_test(size=(120, 30)) as pilot:
+        state = app.state
+        parsed = parse("ea4abc,juan", field_order=state.field_order, mode_name=state.mode)
+        QsoService.log(parsed.fields, state, qso_utc=dt.datetime.now(dt.timezone.utc)
+                       .replace(tzinfo=None) - dt.timedelta(days=1))
+        panel = app.query_one(EntryPanel)
+        panel.set_first_value("ea4abc")
+        await pilot.pause()
+        feedback = app.query_one("#entry").message
+        assert "DUPLICADO" not in feedback and "Conocido" in feedback
+        for rule, dupe in (("log", True), ("off", False)):
+            state.dupe_rule = rule
+            panel.set_first_value("")
+            await pilot.pause()
+            panel.set_first_value("ea4abc")
+            await pilot.pause()
+            assert ("DUPLICADO" in app.query_one("#entry").message) is dupe
+
+
 async def test_band_command_changes_the_session(operator):
     app = HamrlogApp()
     async with app.run_test(size=(120, 30)) as pilot:

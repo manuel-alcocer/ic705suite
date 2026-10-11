@@ -1192,3 +1192,33 @@ msgstr "Al arrancar, busca una versión más nueva y ofrece instalarla"
 
 msgid "on or off; the HAMRLOG_NO_UPDATE_CHECK variable turns it off as well"
 msgstr "sí o no; la variable HAMRLOG_NO_UPDATE_CHECK también lo desactiva"
+
+msgid " DUPLICATE  already worked {count}× today on {band}/{mode} · last {when} UTC"
+msgstr " DUPLICADO  ya trabajado {count}× hoy en {band}/{mode} · último {when} UTC"
+
+msgid "Known: {count} previous QSO · last on {band}/{mode} on {date}"
+msgstr "Conocido: {count} QSO previos · último en {band}/{mode} el {date}"
+
+msgid "DUPES"
+msgstr "DUPL"
+
+msgid "DUPES: day (same band and mode on the same UTC day), log (ever: contests), off"
+msgstr "DUPL: día (misma banda y modo el mismo día UTC), log (siempre: concursos), no"
+
+msgid "duplicates: same day"
+msgstr "duplicados: mismo día"
+
+msgid "duplicates: whole log"
+msgstr "duplicados: todo el log"
+
+msgid "duplicates: not checked"
+msgstr "duplicados: sin comprobar"
+
+msgid "day"
+msgstr "día"
+
+msgid "log"
+msgstr "log"
+
+msgid "Duplicates: day (same UTC day), log (ever, as in a contest) or off."
+msgstr "Duplicados: día (el mismo día UTC), log (siempre, como en un concurso) o no."

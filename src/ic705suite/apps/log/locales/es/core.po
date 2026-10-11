@@ -523,3 +523,6 @@ msgstr "Ningún repetidor {call} encaja con «{hint}»"
 
 msgid "No repeater registered with the callsign «{call}»"
 msgstr "No hay ningún repetidor dado de alta con el indicativo «{call}»"
+
+msgid "Duplicates: day, log or off."
+msgstr "Duplicados: día, log o no."

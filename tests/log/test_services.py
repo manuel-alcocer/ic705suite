@@ -97,6 +97,26 @@ def test_duplicates_are_scoped_to_band_and_mode(state):
     assert len(QsoService.find_duplicates("EA4ABC/P", "40m", "SSB")) == 1
 
 
+def test_another_day_is_another_qso(state):
+    """The everyday rule: yesterday's QSO is not a duplicate today; the whole log is
+    still asked for a contest."""
+    yesterday = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) - dt.timedelta(days=1)
+    log_line("ea4abc,juan", state, qso_utc=yesterday)
+    assert QsoService.find_duplicates("EA4ABC", "40m", "SSB", since_day=True) == []
+    assert len(QsoService.find_duplicates("EA4ABC", "40m", "SSB")) == 1
+    log_line("ea4abc,juan", state)
+    assert len(QsoService.find_duplicates("EA4ABC", "40m", "SSB", since_day=True)) == 1
+
+
+def test_a_profile_keeps_its_duplicate_rule(state):
+    profile = ProfileService.save(None, name="Contest", dupe_rule="log")
+    assert profile.dupe_rule == "log"
+    ProfileService.apply_to_state(profile.id, state)
+    assert state.dupe_rule == "log"
+    with pytest.raises(ServiceError):
+        ProfileService.save(profile.id, name="Contest", dupe_rule="sometimes")
+
+
 def test_history_is_returned_oldest_first(state):
     for index, call in enumerate(["ea1aaa", "ea2bbb", "ea3ccc"]):
         log_line(call, state, qso_utc=dt.datetime(2026, 1, 15, 12, index))

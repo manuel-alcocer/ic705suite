@@ -1070,6 +1070,10 @@ class RepeaterService:
 # Profiles
 # --------------------------------------------------------------------------- #
 
+#: When a callsign is a duplicate (see ``SessionState.dupe_rule``).
+DUPE_RULES = ("day", "log", "off")
+
+
 class ProfileService:
     """Profiles: what every QSO inherits while one of them is active.
 
@@ -1122,6 +1126,7 @@ class ProfileService:
         mode: str = "",
         power_w: int | None = None,
         digital_data: dict[str, str] | None = None,
+        dupe_rule: str = "day",
     ) -> Profile:
         """Create (``profile_id`` None) or update a profile.
 
@@ -1163,6 +1168,9 @@ class ProfileService:
             profile.mode = mode
             profile.power_w = power_w
             profile.digital_data = dict(digital_data or {})
+            if dupe_rule not in DUPE_RULES:
+                raise ServiceError(_("Duplicates: day, log or off."))
+            profile.dupe_rule = dupe_rule
             session.flush()
             profile_id = profile.id
         saved = ProfileService.get(profile_id)
@@ -1259,6 +1267,7 @@ class ProfileService:
             profile.digital_data = dict(state.digital_data)
             profile.field_order = list(state.field_order)
             profile.separator = state.separator
+            profile.dupe_rule = state.dupe_rule
             if station is not None and station not in profile.stations:
                 profile.stations.append(station)
             session.flush()
@@ -1350,6 +1359,7 @@ class ProfileService:
                 state.freq_tx_hz = repeater.input_hz
         state.field_order = tuple(profile.field_order) if profile.field_order else state.field_order
         state.separator = profile.separator or ","
+        state.dupe_rule = profile.dupe_rule or "day"
         state.profile_id = profile.id
         state.profile_name = profile.name
         return state
@@ -1952,12 +1962,13 @@ class QsoService:
 
     @staticmethod
     def find_duplicates(
-        call: str, band: str, mode: str, *, within_minutes: int = 0
+        call: str, band: str, mode: str, *, within_minutes: int = 0, since_day: bool = False
     ) -> list[QsoRow]:
         """Previous contacts with the same station on the same band and mode.
 
         ``within_minutes`` restricts the search to a recent window, which is
-        the usual contest rule; zero means the whole log.
+        the usual contest rule; zero means the whole log. ``since_day`` keeps
+        only today's (UTC), the everyday rule: another day is another QSO.
         """
         base = callsign_module.base_call(call)
         with session_scope() as session:
@@ -1982,6 +1993,11 @@ class QsoService:
                     minutes=within_minutes
                 )
                 stmt = stmt.where(Qso.qso_utc >= since)
+            if since_day:
+                midnight = dt.datetime.now(dt.timezone.utc).replace(
+                    tzinfo=None, hour=0, minute=0, second=0, microsecond=0
+                )
+                stmt = stmt.where(Qso.qso_utc >= midnight)
             return _to_rows(session, list(session.scalars(stmt)))
 
     @staticmethod

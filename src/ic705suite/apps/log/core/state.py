@@ -35,6 +35,8 @@ class SessionState:
         field_order: Positional mapping of the fast entry line.
         separator: Token separator of the fast entry line.
         callsign_validation: "strict", "warn" or "off".
+        dupe_rule: When a callsign is flagged as a duplicate: "day" (same band
+            and mode on the same UTC day), "log" (ever, as in a contest), "off".
         freq_unit: Unit frequencies are shown in and assumed when typed.
         decimal_separator: Decimal separator for frequencies.
         thousands_separator: Thousands separator, empty to hide grouping.
@@ -63,6 +65,7 @@ class SessionState:
     field_order: tuple[str, ...] = DEFAULT_FIELD_ORDER
     separator: str = ","
     callsign_validation: str = DEFAULT_VALIDATION
+    dupe_rule: str = "day"
     freq_unit: str = units.UNIT_MHZ
     decimal_separator: str = "."
     thousands_separator: str = ""

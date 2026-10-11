@@ -27,6 +27,33 @@ from ..core.services import (
 from ..i18n import N_, _
 from .inventory import Item, Kind, ListSuggester
 
+#: The duplicate rules, as typed in the DUPES box (either language) and as shown.
+DUPE_WORDS: dict[str, str] = {
+    "": "day", "day": "day", "día": "day", "dia": "day", "today": "day", "hoy": "day",
+    "log": "log", "ever": "log", "contest": "log", "siempre": "log", "concurso": "log",
+    "off": "off", "no": "off", "never": "off", "nunca": "off",
+}
+DUPE_NAMES: dict[str, str] = {
+    "day": N_("duplicates: same day"),
+    "log": N_("duplicates: whole log"),
+    "off": N_("duplicates: not checked"),
+}
+
+
+def dupe_word(rule: str) -> str:
+    """The rule as the DUPES box shows it."""
+    return {"day": _("day"), "log": _("log"), "off": _("off")}.get(rule or "day", rule)
+
+
+def parse_dupe_rule(text: str) -> str:
+    rule = DUPE_WORDS.get(text.strip().lower())
+    if rule is None:
+        raise ServiceError(
+            _("Duplicates: day (same UTC day), log (ever, as in a contest) or off.")
+        )
+    return rule
+
+
 #: Marks of the INFO column.
 ACTIVE_MARK = "▶"
 DEFAULT_MARK = "★"
@@ -100,9 +127,10 @@ class ProfileKind(Kind):
         N_("NEW PROFILE   what every QSO inherits while it is active"),
         N_("CTRL: 0-9, activated with Ctrl+digit · OPERATOR: callsign · SETUP from F2"),
         N_("REPEATER: callsign · PWR: watts · DIGITAL: TG=214, CC=1"),
+        N_("DUPES: day (same band and mode on the same UTC day), log (ever: contests), off"),
     )
     fields = ("slot", "name", "operator", "equipment")
-    second_row = ("freq_hz", "mode", "power_w", "repeater", "digital")
+    second_row = ("freq_hz", "mode", "power_w", "repeater", "dupe_rule", "digital")
     columns = (
         ("INFO", 4),
         ("CTRL", 4),
@@ -179,6 +207,7 @@ class ProfileKind(Kind):
                                 profile.mode,
                                 digital,
                                 power,
+                                _(DUPE_NAMES.get(profile.dupe_rule or "day", "")),
                             )
                             if part
                         ),
@@ -202,6 +231,7 @@ class ProfileKind(Kind):
             "power_w": str(profile.power_w or ""),
             "repeater": RepeaterService.label(profile.repeater) if profile.repeater else "",
             "digital": format_digital(dict(profile.digital_data or {})),
+            "dupe_rule": dupe_word(profile.dupe_rule),
         }
 
     def save(self, item_id: int | None, values: dict[str, str]) -> str:
@@ -274,6 +304,7 @@ class ProfileKind(Kind):
             mode=mode_name,
             power_w=int(power_text) if power_text else None,
             digital_data=digital,
+            dupe_rule=parse_dupe_rule(values.get("dupe_rule", "")),
         ).name
 
     def delete(self, item_id: int) -> None:
@@ -285,6 +316,7 @@ class ProfileKind(Kind):
             "equipment": ListSuggester([e.name for e in EquipmentService.list_all()]),
             "mode": ListSuggester([mode.name for mode in modes.MODES]),
             "repeater": ListSuggester(RepeaterService.labels()),
+            "dupe_rule": ListSuggester([_("day"), _("log"), _("off")]),
         }
 
 
