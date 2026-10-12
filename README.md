@@ -374,6 +374,14 @@ the core, once. `ic705suite --copy-logbook FROM TO` moves an existing logbook (t
 file of a computer, say) into it, ids and all, into an empty database only. The clients
 need the `postgres` extra (psycopg); nothing to set on them.
 
+**LoTW from the core.** With the shared logbook and a `[lotw]` section (TQSL's station
+location; `apt install trustedqsl xvfb` and the certificate in `~/.tqsl` of the core's
+machine) the core signs and uploads every few minutes the logbook's QSOs not sent yet,
+whichever client logged them (not those through a repeater, which LoTW does not count, nor
+other operators'), and every few hours brings back the confirmations with the LoTW
+website's account (`username`, `password`). Each QSO keeps ADIF's LOTW_QSL_SENT and
+LOTW_QSL_RCVD with their dates.
+
 ## Development
 
 ```sh

@@ -1356,3 +1356,15 @@ msgstr "Los cinco mensajes del QSO: cuántos van del total"
 
 msgid "They answered: sending their report"
 msgstr "Han contestado: enviando su reporte"
+
+msgid "LoTW: no confirmations: {error}"
+msgstr "LoTW: sin confirmaciones: {error}"
+
+msgid "LoTW: not uploaded: {error}"
+msgstr "LoTW: no se ha subido: {error}"
+
+msgid "LoTW: {count} QSOs confirmed ({calls})"
+msgstr "LoTW: {count} QSO confirmados ({calls})"
+
+msgid "LoTW: {count} QSOs signed and uploaded"
+msgstr "LoTW: {count} QSO firmados y subidos"

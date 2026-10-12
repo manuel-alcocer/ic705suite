@@ -160,6 +160,15 @@ max_power = 30
 # database = "postgresql+psycopg://ic705suite@localhost/hamrlog"
 # password_file = "~/.config/ic705suite/logbook-db-password"
 
+[lotw]
+# On the core, with the shared logbook: its QSOs signed with TQSL's station location and
+# uploaded to ARRL's LoTW (apt install trustedqsl xvfb; the certificate in ~/.tqsl), and
+# the confirmations brought back with the LoTW website's account. Keep this file to yourself.
+# location = "Home"
+# key_password = ""        # only if the signing key has one
+# username = ""
+# password = ""
+
 [ui]
 # Interface language: "en" or "es" (default: the system language; IC705SUITE_LANG overrides)
 # language = "es"
@@ -245,6 +254,12 @@ class Config:
     # [logbook] (on the core: the logbook every client shares; see shared_logbook)
     logbook_database: str = ""
     logbook_password_file: str = ""
+    # [lotw] (on the core, with the shared logbook)
+    lotw_location: str = ""          # TQSL's station location: sign and upload with it
+    lotw_tqsl: str = "tqsl"
+    lotw_key_password: str = ""      # the signing key's, if it has one
+    lotw_username: str = ""          # the LoTW website's, for the confirmations
+    lotw_password: str = ""
     packet_core: str = ""            # "host:port" of the core packet runs on ("" = this one)
     packet_core_token: str = ""
     packet_bbs_call: str = ""        # "" = the station callsign -1
@@ -333,6 +348,12 @@ def load_config(path: Path | None = None) -> Config:
         cfg.logbook_database = str(logbook.get("database", cfg.logbook_database)).strip()
         cfg.logbook_password_file = str(logbook.get("password_file",
                                                     cfg.logbook_password_file)).strip()
+        lotw = data.get("lotw", {})
+        cfg.lotw_location = str(lotw.get("location", cfg.lotw_location)).strip()
+        cfg.lotw_tqsl = str(lotw.get("tqsl", cfg.lotw_tqsl)).strip() or "tqsl"
+        cfg.lotw_key_password = str(lotw.get("key_password", cfg.lotw_key_password))
+        cfg.lotw_username = str(lotw.get("username", cfg.lotw_username)).strip()
+        cfg.lotw_password = str(lotw.get("password", cfg.lotw_password))
         server, client = data.get("server", {}), data.get("client", {})
         cfg.listen = str(server.get("listen", cfg.listen))
         cfg.server_token = str(server.get("token", cfg.server_token))

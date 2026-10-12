@@ -49,6 +49,7 @@ from ic705suite import __version__
 from ic705suite.apps.cw.session import Session
 from ic705suite.config import Config
 from ic705suite.i18n import N_
+from ic705suite.lotw import LotwService
 from ic705suite.rig import open_rig
 from ic705suite.rig.base import RigError
 from ic705suite.rig.transport import Transport, TransportError
@@ -187,6 +188,7 @@ class Core:
         self.swr = SwrService(self.station, config, self.hub)
         self.packet = PacketService(config, self.hub, self.station)
         self.ft8 = Ft8Service(self.station, config, self.hub)
+        self.lotw = LotwService(config, self.hub)
         self._ticker: asyncio.Task | None = None
         self.started = False
 
@@ -218,6 +220,7 @@ class Core:
         # Services that do not need the radio (the antenna page, packet) come up first.
         await self.swr.start()
         await self.packet.start()
+        await self.lotw.start()
         self._ticker = asyncio.create_task(self._tick())
         if self.config.connection == "none":
             # A core for packet only (a Raspberry Pi with a Digirig): nothing to look for.
@@ -254,6 +257,7 @@ class Core:
         await self.swr.stop()
         await self.packet.stop()
         await self.ft8.stop()
+        await self.lotw.stop()
         await self.session.stop()
         await self.station.stop()
 
@@ -293,6 +297,8 @@ class Core:
             return await self.swr.call(method[4:], params)
         if method.startswith("pkt."):
             return await self.packet.call(method[4:], params)
+        if method.startswith("lotw."):
+            return await self.lotw.call(method[5:], params)
         if method.startswith("ft8."):
             return await self.ft8.call(method[4:], params)
         return {"error": f"unknown method {method}"}
