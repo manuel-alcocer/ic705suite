@@ -908,9 +908,11 @@ def test_their_rr73_just_after_the_last_try(tmp_path, monkeypatch):
                                  or "RR73" in air["says"]):
             return []                # the narrow pass looks elsewhere, or misses the RR73
         if "RR73" in air["says"]:
-            # The full pass takes its time: done after our next turn began (on a fast
-            # machine too), when the tries have run out.
-            time.sleep(0.4)
+            # The full pass takes its time: done once our next turn began and the tries
+            # ran out (whatever the machine's timers: Windows' raced it).
+            deadline = time.monotonic() + 3.0
+            while air["ft8"].tx_on and time.monotonic() < deadline:
+                time.sleep(0.01)
         return jt9.parse(f"{stamp} -11  0.1 {air['freq']} ~  {air['says']}")
 
     monkeypatch.setattr(service_module.encode, "audio", audio)
@@ -921,6 +923,7 @@ def test_their_rr73_just_after_the_last_try(tmp_path, monkeypatch):
                         tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
         link = LocalLink(None, config)
         await link.connect()
+        air["ft8"] = link.core.ft8
         events: list[dict] = []
         link.attach(lambda e: e.get("type") in ("info", "ft8.qso", "ft8.cycle")
                     and events.append(e))
