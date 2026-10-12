@@ -887,10 +887,16 @@ def test_their_rr73_just_after_the_last_try(tmp_path, monkeypatch):
         return np.zeros(int(rate * 0.2), np.float32)
 
     def decode(program, wav, depth=3, timeout=30.0, band=None):
+        import time
+
         stamp = wav.stem.split("_")[1]
         if band is not None and (not band[0] <= air["freq"] <= band[1]
                                  or "RR73" in air["says"]):
             return []                # the narrow pass looks elsewhere, or misses the RR73
+        if "RR73" in air["says"]:
+            # The full pass takes its time: done after our next turn began (on a fast
+            # machine too), when the tries have run out.
+            time.sleep(0.4)
         return jt9.parse(f"{stamp} -11  0.1 {air['freq']} ~  {air['says']}")
 
     monkeypatch.setattr(service_module.encode, "audio", audio)

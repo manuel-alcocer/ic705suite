@@ -4,6 +4,7 @@ the confirmations marked; repeaters and other operators left out."""
 import asyncio
 import datetime as dt
 import stat
+import sys
 
 import pytest
 
@@ -12,12 +13,24 @@ from ic705suite.config import Config
 
 
 def fake_tqsl(tmp_path, code: int = 0):
-    """A tqsl that keeps its arguments and the log it was given, and exits with `code`."""
+    """A tqsl that keeps its arguments and the log it was given, and exits with `code`: a
+    Python script, started by a .cmd on Windows and by a shell script elsewhere."""
     seen = tmp_path / "seen"
-    script = tmp_path / "tqsl"
-    script.write_text(f"#!/bin/sh\necho \"$@\" > {seen}.args\ncp \"$(eval echo \\${{$#}})\" "
-                      f"{seen}.adi\necho 'Final Status: Success'\nexit {code}\n")
-    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    body = tmp_path / "fake_tqsl.py"
+    body.write_text(
+        "import shutil, sys\n"
+        f"seen = {str(seen)!r}\n"
+        "open(seen + '.args', 'w').write(' '.join(sys.argv[1:]) + '\\n')\n"
+        "shutil.copy(sys.argv[-1], seen + '.adi')\n"
+        "print('Final Status: Success')\n"
+        f"sys.exit({code})\n")
+    if sys.platform == "win32":
+        script = tmp_path / "tqsl.cmd"
+        script.write_text(f'@"{sys.executable}" "{body}" %*\r\n@exit /b %ERRORLEVEL%\r\n')
+    else:
+        script = tmp_path / "tqsl"
+        script.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{body}" "$@"\n')
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return str(script), seen
 
 
