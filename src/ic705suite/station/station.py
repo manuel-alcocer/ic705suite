@@ -13,6 +13,7 @@ import asyncio
 import base64
 import contextlib
 import logging
+import time
 import wave
 from collections.abc import Awaitable, Callable
 from typing import Protocol
@@ -33,6 +34,11 @@ POLL_INTERVAL = 0.25
 # A radio left with an open session (program killed, WiFi dropped) ignores new
 # connections until that session expires, which takes up to about a minute.
 STALE_SESSION_WAIT = 90.0
+# A session can go half dead (seen after reconnecting while the radio still held the old
+# one): the radio answers the link's pings, so the link stays up, but CI-V gets no answers
+# and the audio stops. Then the station treats it as lost and connects again.
+SILENT_CIV = 10.0          # seconds of CI-V without an answer
+SILENT_AUDIO = 15.0        # seconds without audio, when audio had been coming
 
 AudioListener = Callable[[np.ndarray], None]
 TuneListener = Callable[[int | None, int], None]       # (old, new) dial frequency
@@ -179,6 +185,8 @@ class Station:
         await self.rig.connect()
         self.connected = True
         self._told_connecting = self._told_unreachable = False
+        self._answered_at = time.monotonic()
+        self._audio_at: float | None = None
         await self._read_state()
         for callback in list(self._on_connect):
             await callback()
@@ -239,6 +247,7 @@ class Station:
             self._sidecar = None
 
     def _on_audio(self, samples: np.ndarray) -> None:
+        self._audio_at = time.monotonic()
         if self._recorder is not None:
             self._recorder.writeframes((np.clip(samples, -1, 1) * 32767).astype("<i2").tobytes())
             self._sidecar.note(self._recorded, self.rig.state.frequency)
@@ -269,9 +278,22 @@ class Station:
                 await self._poll_meters(tick)
                 if tick % 2 == 0:
                     await self._poll_next_control()
+                self._answered_at = time.monotonic()
             except (RigError, TransportError) as exc:
                 log.debug("poll: %s", exc)
+            self._check_alive()
             self.ui.status_changed()
+
+    def _check_alive(self) -> None:
+        """A session that only looks alive (see SILENT_CIV): lost, and connected again."""
+        now = time.monotonic()
+        if self.rig.state.transmitting and getattr(self, "_audio_at", None) is not None:
+            self._audio_at = now                   # the radio may send none while it is
+        if now - getattr(self, "_answered_at", now) > SILENT_CIV:
+            self._on_disconnect(f"no answer to CI-V for {SILENT_CIV:.0f} s")
+        elif getattr(self, "_audio_at", None) is not None and \
+                now - self._audio_at > SILENT_AUDIO:
+            self._on_disconnect(f"no audio for {SILENT_AUDIO:.0f} s")
 
     async def _poll_meters(self, tick: int) -> None:
         meters = self.rig.state.meters
