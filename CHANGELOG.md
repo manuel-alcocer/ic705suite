@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v0.15.0 (2026-10-12)
+
+### Bug Fixes
+
+- **ft8**: A message heard while ours goes out is not taken as sent
+  ([`151ea52`](https://github.com/manuel-alcocer/ic705suite/commit/151ea526e452f4e7f84c4a2ef9c6738acc054ec3))
+
+- **ft8**: Each cycle taken once when a timer wakes a little early (Windows)
+  ([`731fcd6`](https://github.com/manuel-alcocer/ic705suite/commit/731fcd66aa7fe16e0dd5c016296f8979c4bf7ef2))
+
+- **gui**: FT8 opens from the Qt dashboard and with ft8 --gui
+  ([`5b5ab25`](https://github.com/manuel-alcocer/ic705suite/commit/5b5ab258ecd467d4f1b89f8078c27a35bcc5b2a7))
+
+### Features
+
+- **ft8**: The QSO beside the band's activity, and TX frequency, level, power and ALC at hand
+  ([`5cc5b5e`](https://github.com/manuel-alcocer/ic705suite/commit/5cc5b5e3593f130ddb18b9bb8c0aa5ddd71c7421))
+
+
 ## v0.14.0 (2026-10-11)
 
 ### Features
