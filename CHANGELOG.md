@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.16.2 (2026-10-12)
+
+### Bug Fixes
+
+- **ft8**: QSOs logged with the power measured and the setup of the radio used
+  ([`3a67477`](https://github.com/manuel-alcocer/ic705suite/commit/3a67477d0f5f75daa62d26b82881a8c0bd04fce1))
+
+
 ## v0.16.1 (2026-10-12)
 
 ### Bug Fixes
