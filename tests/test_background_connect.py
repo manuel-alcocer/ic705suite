@@ -97,11 +97,12 @@ def test_a_half_dead_session_is_connected_again(tmp_path, monkeypatch):
                 await asyncio.sleep(0.05)
             assert any("no answer to CI-V" in t for t in texts)
             station.rig.read_smeter = real
-            for _ in range(100):
-                if station.connected:
+            for _ in range(200):
+                # Audio heard again first: only then is its silence taken for a loss.
+                if station.connected and station._audio_at is not None:
                     break
                 await asyncio.sleep(0.05)
-            assert station.connected
+            assert station.connected and station._audio_at is not None
 
             texts.clear()
             emit, sim._emit_audio = sim._emit_audio, lambda samples: None   # audio gone

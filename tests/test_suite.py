@@ -205,8 +205,11 @@ def test_dashboard_settings_and_scope(tmp_path):
                 await pilot.press("enter", *typed("7.010"), "enter")
                 assert await until(pilot, lambda: station.state.frequency == 7_010_000)
                 assert not panel.editing
-                await pilot.press("enter", "right", "right", "enter")   # +200 Hz
-                assert await until(pilot, lambda: station.state.frequency == 7_010_200)
+                await pilot.press("enter")                    # editing: the keys step it
+                assert await until(pilot, lambda: panel.editing)
+                await pilot.press("right", "right")           # +200 Hz
+                assert await until(pilot, lambda: station.state.frequency == 7_010_200, 10.0)
+                await pilot.press("enter")
                 await pilot.press("right")                    # Receive: AF
                 af = station.state.controls["af"]
                 await pilot.press("space", "up", "escape")    # changed, then put back
