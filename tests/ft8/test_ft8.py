@@ -875,6 +875,15 @@ def test_the_alc_as_icom_wants_it(tmp_path):
             count = len(texts)
             ft8._sent(60, "CQ EA7KLX IM77", 0.0, 9.0)                   # near enough
             assert len(texts) == count
+            # Audio enough (the ALC acts) and little power: the radio cuts it (a high SWR).
+            ft8._sent(75, "CQ EA7KLX IM77", 0.8, 0.7, 2.45)
+            assert "only 0.7 W of the 10 W set" in texts[-1] and "SWR 2.45" in texts[-1]
+            count = len(texts)
+            ft8._sent(90, "CQ EA7KLX IM77", 0.8, 0.7, 2.45)             # said once
+            assert len(texts) == count
+            ft8._sent(105, "CQ EA7KLX IM77", 0.6, 10.5, 1.66)           # back: said again
+            ft8._sent(120, "CQ EA7KLX IM77", 0.8, 0.7, 2.45)
+            assert len(texts) == count + 1
         finally:
             await link.close()
 
@@ -944,6 +953,37 @@ def test_their_rr73_just_after_the_last_try(tmp_path, monkeypatch):
             assert (qso["CALL"], qso["RST_SENT"], qso["RST_RCVD"]) == ("DL1ABC", "-11", "-07")
             assert air["sent"].count("DL1ABC EA7KLX R-11") == 6
             assert not link.core.ft8.tx_on and not link.core.station.transport.ptt
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_the_power_set_is_read_before_sending(tmp_path):
+    """Set on the radio itself (0.5 W, left so after tuning the antenna), the power is read
+    again before each message: the status says it, and a low setting is said once."""
+    async def scenario():
+        link = await sim_link(tmp_path)
+        texts: list[str] = []
+        link.attach(lambda e: e.get("type") == "info" and texts.append(e["text"]))
+        ft8 = link.core.ft8
+        rig = link.core.station.rig
+        try:
+            read = []
+
+            async def read_power():
+                read.append(True)
+                rig.state.power = 5                                   # 0.5 W on the radio
+                return 5
+
+            rig.read_power = read_power
+            rig.state.power = 100                                     # as read when connecting
+            await ft8._read_power()
+            assert read and rig.state.power == 5
+            assert "the radio is set to 0.5 W (5 %)" in texts[-1]
+            count = len(texts)
+            await ft8._read_power()
+            assert len(texts) == count                                # said once
         finally:
             await link.close()
 

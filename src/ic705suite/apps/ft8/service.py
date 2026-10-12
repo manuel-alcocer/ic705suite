@@ -82,6 +82,8 @@ LEVEL_RANGE = (0.05, 1.0)  # the transmit audio, of full scale ([ft8] level; the
 ALC_HIGH = 1.0             # over this: past the zone, lower the level
 ALC_IDLE = 0.05            # under this the ALC does not move at all
 SHORT_OF_POWER = 0.8       # of the power set: less, with the ALC still, says raise the level
+CUT_POWER = 0.5            # of the power set: less with the ALC acting, the radio cuts it
+LOW_SETTING_W = 2.0        # the radio set to less than this: said (it may have been left so)
 LONGEST_KEY = 16.0         # the PTT watchdog while a message goes out
 CQ_TURNS = 20              # CQs with nobody answering (5 minutes): stop
 WORKED_EVERY = 60.0        # seconds between readings of the worked index (the logbook)
@@ -165,6 +167,8 @@ class Ft8Service:
         self.qso_watts = 0.0                     # the RF power the radio gave in this QSO
         self._late_until = 0.0                   # a give-up whose answer may still come
         self._short_said: float | None = None    # the level "short of power" was said for
+        self._cut_said = False                   # "the radio cuts its power" said
+        self._setting_said: int | None = None    # the low power setting said
         # Who is where, and what has been worked (the shared logbook: worked.py).
         self.worked = None
         self._worked_task: asyncio.Task | None = None
@@ -750,6 +754,7 @@ class Ft8Service:
             self.hub.info(msgid, **args)
             await self.halt()
             return
+        await self._read_power()
         rate = self.station.transport.sample_rate
         try:
             sound = await asyncio.to_thread(encode.audio, self.coder, message, self.tx_freq)
@@ -762,7 +767,7 @@ class Ft8Service:
         pcm = (np.clip(sound, -1, 1) * 32767).astype("<i2").tobytes()
         piece = int(rate * PIECE) * 2
         meters = self.station.rig.state.meters
-        alc = watts = 0.0
+        alc = watts = swr = 0.0
         try:
             await asyncio.sleep(max(0.0, begin - LEAD - 0.2 - time.time()))
             # Marked first: halted while the radio is being keyed, it is still released.
@@ -782,9 +787,11 @@ class Ft8Service:
                 if index % 25 == 0:      # the station reads the meters while transmitting
                     alc = max(alc, float(meters.get("alc") or 0))
                     watts = max(watts, float(meters.get("po") or 0))
+                    swr = max(swr, float(meters.get("swr") or 0))
             await asyncio.sleep(max(0.0, began + len(pcm) / 2 / rate - time.time()) + TAIL)
             alc = max(alc, float(meters.get("alc") or 0))
             watts = max(watts, float(meters.get("po") or 0))
+            swr = max(swr, float(meters.get("swr") or 0))
         except (RigError, TransportError) as exc:
             self.hub.error(N_("FT8 transmission failed: {error}"), error=str(exc))
             await self.halt()
@@ -792,7 +799,7 @@ class Ft8Service:
         finally:
             if self.transmitting:
                 await self._unkey()
-        self._sent(start, message, alc, watts)
+        self._sent(start, message, alc, watts, swr)
         qso.sent(message)
         self._touch()
         if qso.step == "done":
@@ -834,7 +841,7 @@ class Ft8Service:
         piece = int(rate * PIECE)
         step = 2 * np.pi * self.tx_freq / rate
         meters = self.station.rig.state.meters
-        alc = watts = 0.0
+        alc = watts = swr = 0.0
         began = time.time()
         try:
             self.transmitting = True
@@ -853,6 +860,7 @@ class Ft8Service:
                 if index % 25 == 0:
                     alc = max(alc, float(meters.get("alc") or 0))
                     watts = max(watts, float(meters.get("po") or 0))
+                    swr = max(swr, float(meters.get("swr") or 0))
                 index += 1
             await asyncio.sleep(TAIL)
         except (RigError, TransportError) as exc:
@@ -862,15 +870,18 @@ class Ft8Service:
                 await self._unkey()
             alc = max(alc, float(meters.get("alc") or 0))
             watts = max(watts, float(meters.get("po") or 0))
+            swr = max(swr, float(meters.get("swr") or 0))
             if time.time() - began > 1:
-                self._sent(began, N_("tone"), alc, watts)
+                self._sent(began, N_("tone"), alc, watts, swr)
             self._touch()
 
-    def _sent(self, start: float, message: str, alc: float, watts: float) -> None:
+    def _sent(self, start: float, message: str, alc: float, watts: float,
+              swr: float = 0.0) -> None:
         if self.tx_on:                            # a QSO's message (not the tone)
             self.qso_watts = max(self.qso_watts, round(watts, 1))
         self.last_sent = {"start": start, "message": message, "alc": round(alc, 2),
-                          "watts": round(watts, 1), "level": self.tx_level}
+                          "watts": round(watts, 1), "swr": round(swr, 2),
+                          "level": self.tx_level}
         self.hub.emit({"type": "ft8.sent", **self.last_sent})
         if alc > ALC_HIGH:
             self.hub.info(N_("FT8: the ALC went past its zone ({alc}) while sending: lower the "
@@ -886,6 +897,35 @@ class Ft8Service:
                              "level can go up (now {level} %) while the ALC stays within its "
                              "zone"), watts=f"{watts:.1f}", wanted=f"{wanted:g}",
                           level=round(self.tx_level * 100))
+        elif alc >= ALC_IDLE and watts and wanted and watts < CUT_POWER * wanted:
+            # Audio enough (the ALC acts) and still little power: the radio cuts it, as it
+            # does with a high SWR. Said once, until the power comes back.
+            if not self._cut_said:
+                self._cut_said = True
+                self.hub.info(N_("FT8: only {watts} W of the {wanted} W set, with the ALC "
+                                 "acting: the radio is cutting its power, most often for a "
+                                 "high SWR (check the antenna: SWR {swr})"),
+                              watts=f"{watts:.1f}", wanted=f"{wanted:g}",
+                              swr=self.last_sent.get("swr") or "?")
+        elif watts and wanted and watts >= SHORT_OF_POWER * wanted:
+            self._cut_said = False
+
+    async def _read_power(self) -> None:
+        """The power set, read again before each message: it may have been changed on the
+        radio itself (read only when connecting, it said 100 % while 0.5 W were set)."""
+        rig = self.station.rig
+        try:
+            percent = await rig.read_power()
+        except (RigError, TransportError):
+            return
+        wanted = percent * self.station.model.max_power_w / 100
+        if wanted < LOW_SETTING_W:
+            if self._setting_said != percent:
+                self._setting_said = percent
+                self.hub.info(N_("FT8: the radio is set to {wanted} W ({percent} %): , . or the "
+                                 "radio raise it"), wanted=f"{wanted:.1f}", percent=percent)
+        else:
+            self._setting_said = None
 
     async def _unkey(self) -> None:
         with contextlib.suppress(RigError, TransportError):

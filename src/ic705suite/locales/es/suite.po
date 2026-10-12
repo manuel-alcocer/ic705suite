@@ -1446,3 +1446,9 @@ msgstr "respondiendo ({missed}/{stations} sin QSO)"
 
 msgid "calling CQ"
 msgstr "llamando CQ"
+
+msgid "FT8: only {watts} W of the {wanted} W set, with the ALC acting: the radio is cutting its power, most often for a high SWR (check the antenna: SWR {swr})"
+msgstr "FT8: solo {watts} W de los {wanted} W ajustados, con el ALC actuando: la emisora está recortando la potencia, casi siempre por ROE alta (revisa la antena: ROE {swr})"
+
+msgid "FT8: the radio is set to {wanted} W ({percent} %): , . or the radio raise it"
+msgstr "FT8: la emisora está ajustada a {wanted} W ({percent} %): súbela con , . o en la propia emisora"
