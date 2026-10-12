@@ -148,6 +148,11 @@ max_power = 30
 # whose radio for the band is the one FT8 uses
 # setup = "IC-705 HF casa"
 
+[qrz]
+# QRZ.com's logbook access key (on QRZ.com: your logbook > Settings > API Access Key);
+# ic705suite --qrz-status checks it. Keep this file to yourself.
+# api_key = ""
+
 [ui]
 # Interface language: "en" or "es" (default: the system language; IC705SUITE_LANG overrides)
 # language = "es"
@@ -228,6 +233,8 @@ class Config:
     ft8_tx_freq: int = 1500
     ft8_level: float = 0.5
     ft8_setup: str = ""              # the logbook's setup FT8 QSOs go with ("": by radio)
+    # [qrz]
+    qrz_api_key: str = ""            # QRZ.com's logbook access key (never shown)
     packet_core: str = ""            # "host:port" of the core packet runs on ("" = this one)
     packet_core_token: str = ""
     packet_bbs_call: str = ""        # "" = the station callsign -1
@@ -311,6 +318,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.ft8_tx_freq = int(ft8.get("tx_freq", cfg.ft8_tx_freq))
         cfg.ft8_level = float(ft8.get("level", cfg.ft8_level))
         cfg.ft8_setup = str(ft8.get("setup", cfg.ft8_setup))
+        cfg.qrz_api_key = str(data.get("qrz", {}).get("api_key", cfg.qrz_api_key)).strip()
         server, client = data.get("server", {}), data.get("client", {})
         cfg.listen = str(server.get("listen", cfg.listen))
         cfg.server_token = str(server.get("token", cfg.server_token))

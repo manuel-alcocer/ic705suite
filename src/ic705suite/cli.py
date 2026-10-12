@@ -13,12 +13,12 @@ from pathlib import Path
 from ic705suite import __version__, paths
 from ic705suite.config import DEFAULT_PATH, load_config, migrate_legacy, write_template
 from ic705suite.i18n import render, set_language
-from ic705suite.ui import glyphs
 from ic705suite.rig import MODELS
 from ic705suite.rig.base import RigError
 from ic705suite.rig.transport import Transport, TransportError
 from ic705suite.station.core import DEFAULT_PORT
 from ic705suite.station.links import Link, LinkError, LocalLink, RemoteLink
+from ic705suite.ui import glyphs
 
 TRACE = 5
 APP_CHOICES = ("view", "cw", "swr", "log", "packet", "ft8", "dstar")
@@ -81,6 +81,8 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
                         "defaults), save them and exit")
     p.add_argument("--show-config", action="store_true",
                    help="show the main settings (password hidden) and exit")
+    p.add_argument("--qrz-status", action="store_true",
+                   help="check the QRZ.com logbook key ([qrz] api_key) and show the logbook")
     p.add_argument("--update-scp", action="store_true",
                    help="download MASTER.SCP (callsign database used by the CW skimmer) and exit")
     p.add_argument("--debug", action="store_true", help="debug logging (add -v for packet dumps)")
@@ -236,6 +238,26 @@ def update_scp(path: Path) -> int:
     return 0
 
 
+def qrz_status(config) -> int:
+    from ic705suite import qrz
+
+    try:
+        answer = qrz.status(config.qrz_api_key, config.callsign)
+    except qrz.QrzError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if answer.get("RESULT") != "OK":
+        print(f"QRZ.com: {answer.get('RESULT', '?')} {answer.get('REASON', '')}".rstrip())
+        return 1
+    for name, label in (("CALLSIGN", "logbook of"), ("BOOK_NAME", "name"),
+                        ("COUNT", "QSOs"), ("TOTAL_QSOS", "QSOs"), ("CONFIRMED", "confirmed"),
+                        ("DXCC_COUNT", "DXCC"), ("START_DATE", "from"), ("END_DATE", "to")):
+        if answer.get(name):
+            print(f"{label}: {answer[name]}")
+    print("QRZ.com: the key works")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.init_config:
@@ -259,6 +281,8 @@ def main(argv: list[str] | None = None) -> int:
     config = load_config(args.config)
     if args.update_scp:
         return update_scp(config.scp_path)
+    if args.qrz_status:
+        return qrz_status(config)
     apply_overrides(args, config)
     if config.connection == "server" and args.connect is None and not args.serve \
             and not args.wav:
