@@ -350,3 +350,39 @@ def test_the_map_in_the_page(tmp_path, run, monkeypatch):
             win.close()
 
     run(scenario())
+
+
+def test_a_long_list_with_a_row_chosen_fills_fast(qapp):
+    """Columns sized to their contents are sized once per fill: with a row chosen Qt
+    measured every row after every cell (800 lines: over a minute at 100 % CPU)."""
+    import time as clock
+
+    from PySide6.QtWidgets import QHeaderView, QTableWidgetItem
+
+    from ic705suite.gui.widgets import Table
+
+    table = Table(0, 6)
+    header = table.horizontalHeader()
+    for column in range(6):
+        header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+    table.resize(900, 500)
+    table.show()
+
+    def fill(n):
+        with table.filling():
+            table.setRowCount(n)
+            for row in range(n):
+                for column in range(6):
+                    table.setItem(row, column, QTableWidgetItem(f"{row}·{column} EA7KLX"))
+
+    fill(600)
+    table.selectRow(300)
+    table.setFocus()
+    qapp.processEvents()
+    began = clock.perf_counter()
+    fill(600)
+    qapp.processEvents()
+    assert clock.perf_counter() - began < 3.0
+    assert header.sectionResizeMode(0) == QHeaderView.ResizeMode.ResizeToContents
+    assert header.sectionSize(0) >= table.fontMetrics().horizontalAdvance("599·0 EA7KLX")
+    table.close()

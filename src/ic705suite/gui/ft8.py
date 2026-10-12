@@ -437,6 +437,10 @@ class Ft8Page(Page):
         self._fill_qso()
 
     def _paint(self, table: Table, lines: list[tuple]) -> None:
+        with table.filling():
+            self._paint_cells(table, lines)
+
+    def _paint_cells(self, table: Table, lines: list[tuple]) -> None:
         table.setRowCount(len(lines))
         for row, (_start, decode, cells, style) in enumerate(lines):
             fg, bg, bold = self._colours(style)

@@ -9,6 +9,7 @@ import datetime as dt
 import html
 import re
 from collections import deque
+from contextlib import contextmanager
 
 import numpy as np
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, Signal
@@ -27,6 +28,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QSizePolicy,
     QTableWidget,
@@ -1073,6 +1075,23 @@ class Table(QTableWidget):
             if header is not None:
                 header.setTextAlignment(Qt.AlignmentFlag.AlignRight
                                         | Qt.AlignmentFlag.AlignVCenter)
+
+    @contextmanager
+    def filling(self):
+        """Many cells at once: the columns sized to their contents are sized once, at the
+        end, not after every cell (with a row chosen Qt measures them all each time: a
+        list of 800 lines took over a minute)."""
+        header = self.horizontalHeader()
+        modes = [header.sectionResizeMode(c) for c in range(header.count())]
+        for column, mode in enumerate(modes):
+            if mode == QHeaderView.ResizeMode.ResizeToContents:
+                header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
+        try:
+            yield self
+        finally:
+            for column, mode in enumerate(modes):
+                if mode == QHeaderView.ResizeMode.ResizeToContents:
+                    header.setSectionResizeMode(column, mode)
 
     def setItem(self, row: int, column: int, item) -> None:  # noqa: N802 - Qt's name
         if column in self.right_columns:
