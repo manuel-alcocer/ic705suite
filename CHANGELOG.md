@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v0.17.0 (2026-10-12)
+
+### Bug Fixes
+
+- **station**: A half-dead radio session is connected again
+  ([`457f2ea`](https://github.com/manuel-alcocer/ic705suite/commit/457f2eaa1d55a05073a81c1fddbfb27410469317))
+
+### Features
+
+- **ft8**: The ALC as Icom wants it, the TX level kept, a still waterfall without audio
+  ([`65deca2`](https://github.com/manuel-alcocer/ic705suite/commit/65deca20b86a28c0d0b838da16fef267c4875dc7))
+
+### Testing
+
+- The suite's data folder kept away from the operator's (tests wrote QSOs into ft8_log.adi)
+  ([`127539d`](https://github.com/manuel-alcocer/ic705suite/commit/127539d2f106473d410dc176d7cd98d1fbe7e13b))
+
+
 ## v0.16.2 (2026-10-12)
 
 ### Bug Fixes
