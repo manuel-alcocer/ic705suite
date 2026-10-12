@@ -10,8 +10,8 @@ import logging
 from websockets.asyncio.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
 
-from ic705suite.station.core import PROTOCOL_VERSION, Core
 from ic705suite.i18n import N_
+from ic705suite.station.core import PROTOCOL_VERSION, Core
 
 log = logging.getLogger(__name__)
 

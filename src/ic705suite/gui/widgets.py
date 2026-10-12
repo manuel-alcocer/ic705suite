@@ -41,7 +41,7 @@ from ic705suite.rig import bands
 from ic705suite.rig.base import smeter_text
 from ic705suite.rig.controls import LEVEL, OFFSET, TOGGLE
 from ic705suite.ui.panelmodel import PanelModel, format_value, fraction
-from ic705suite.ui.sysload import LOAD
+from ic705suite.ui.sysload import LOAD, core_load, host_name
 from ic705suite.ui.waterfall import PALETTE_STOPS, ScopeView, find_signals
 
 KEY = re.compile(r"F\d+(?:-F\d+)?|Esc|PgUp/PgDn|Ctrl\+\w(?:/Ctrl\+\w)?|Enter|Shift\+Tab|Tab|"
@@ -255,12 +255,30 @@ def load_html() -> str:
     from ic705suite import __version__
 
     load = LOAD.sample()
-    cpu_colour = theme.RED if load.cpu >= 80 else theme.YELLOW if load.cpu >= 50 else theme.TEXT
-    right = span("CPU ", theme.DIM) + span(f"{load.cpu:.0f}%", cpu_colour, True)
-    if load.ram is not None:
-        right += span(" · RAM ", theme.DIM) + span(f"{load.ram:.1f}%", theme.TEXT, True) \
-            + span(f" {load.rss / 2**20:.0f}M", theme.DIM)
+    core = core_load()
+    right = ""
+    if core is not None:            # the radio's core on another machine: both, by name
+        right += span(host_name() + " ", theme.CYAN, True)
+    right += _load_html(load.cpu, load.ram, load.rss, load.temp)
+    if core is not None:
+        right += span(" │ ", theme.DIM) + span(str(core.get("name") or "core") + " ",
+                                                theme.CYAN, True) \
+            + _load_html(float(core.get("cpu") or 0), core.get("ram"), core.get("rss"),
+                         core.get("temp"))
     return right + span(" · ", theme.DIM) + span(f"v{__version__}", theme.CYAN, True)
+
+
+def _load_html(cpu: float, ram: float | None, rss: int | None, temp: float | None) -> str:
+    cpu_colour = theme.RED if cpu >= 80 else theme.YELLOW if cpu >= 50 else theme.TEXT
+    part = span("CPU ", theme.DIM) + span(f"{cpu:.0f}%", cpu_colour, True)
+    if ram is not None:
+        part += span(" · RAM ", theme.DIM) + span(f"{ram:.1f}%", theme.TEXT, True)
+        if rss:
+            part += span(f" {rss / 2**20:.0f}M", theme.DIM)
+    if temp is not None:
+        colour = theme.RED if temp >= 80 else theme.YELLOW if temp >= 70 else theme.TEXT
+        part += span(" · ", theme.DIM) + span(f"{temp:.0f}°C", colour, True)
+    return part
 
 
 def with_load_html(left: str) -> str:

@@ -24,6 +24,7 @@ from ic705suite.i18n import N_
 from ic705suite.rig import bands
 from ic705suite.rig.base import Rig, RigError, smeter_text
 from ic705suite.rig.transport import TransportError
+from ic705suite.ui.sysload import LOAD
 
 log = logging.getLogger(__name__)
 
@@ -399,6 +400,7 @@ class Station:
             "controls": dict(st.controls),
             "meters": dict(st.meters),
             "scope": self.scope_on,
+            "host": LOAD.as_dict(),        # this machine: shown when the client is elsewhere
         }
 
     async def execute(self, line: str) -> bool:
