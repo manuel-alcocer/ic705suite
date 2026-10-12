@@ -22,6 +22,7 @@ from ic705suite.config import Config
 from ic705suite.i18n import N_
 from ic705suite.rig.transport import Transport, TransportError
 from ic705suite.station.core import BACKLOG, DEFAULT_PORT, PROTOCOL_VERSION, Core
+from ic705suite.ui.sysload import set_core
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +35,11 @@ TEXT = ("rx", "tx", "info", "error", "history")
 
 class LinkError(Exception):
     pass
+
+
+# The answer to a call when the connection to the server is lost.
+LOST = {"error": "not connected to the server", "msgid": N_("not connected to the server"),
+        "args": {}}
 
 
 class Link(abc.ABC):
@@ -161,7 +167,13 @@ def parse_address(address: str) -> str:
 
 
 class RemoteLink(Link):
-    """Talks to an `ic705suite --serve` instance over WebSocket."""
+    """Talks to an `ic705suite --serve` instance over WebSocket.
+
+    When the connection is lost (the core restarted, the network down) it says so, shows the
+    radio as disconnected, answers calls with an error at once, and connects again by itself
+    when the core is back: then a "reconnected" event lets a screen start over."""
+
+    RETRY = 5.0                    # seconds between attempts to connect again
 
     def __init__(self, address: str, token: str, client_name: str = "ic705suite") -> None:
         super().__init__()
@@ -174,6 +186,7 @@ class RemoteLink(Link):
         self._closing = False
         self._calls: dict[int, asyncio.Future] = {}
         self._call_id = 0
+        self._again: asyncio.Task | None = None
 
     async def _connect(self) -> None:
         try:
@@ -204,18 +217,51 @@ class RemoteLink(Link):
                     if future is not None and not future.done():
                         future.set_result(event.get("result") or {})
                     continue
+                if event.get("type") == "rig":
+                    set_core(event.get("host"))    # the core's machine, for the status lines
                 self._dispatch(event)
         except ConnectionClosed:
             pass
         finally:
-            if not self._closing:
-                self._dispatch({"type": "error", "msgid": N_("connection to the server lost"),
-                                "args": {}, "text": "connection to the server lost"})
             self.connected = False
-            self.closed.set()
+            for future in self._calls.values():
+                if not future.done():
+                    future.set_result(dict(LOST))
+            self._calls.clear()
+            if self._closing:
+                self.closed.set()
+            else:
+                self._lost()
+
+    def _lost(self) -> None:
+        self._dispatch({"type": "error", "msgid": N_("connection to the server lost; "
+                                                     "connecting again when it is back"),
+                        "args": {}, "text": "connection to the server lost"})
+        if "rig" in self.latest:          # every screen's status line: no radio now
+            self._dispatch({**self.latest["rig"], "connected": False})
+        if self._again is None or self._again.done():
+            self._again = asyncio.create_task(self._reconnect())
+
+    async def _reconnect(self) -> None:
+        while not self._closing:
+            await asyncio.sleep(self.RETRY)
+            if self._closing:
+                return
+            try:
+                await self._connect()
+            except LinkError as exc:
+                log.debug("reconnecting: %s", exc)
+                continue
+            self.connected = True
+            self._dispatch({"type": "info", "msgid": N_("connected to the server again"),
+                            "args": {}, "text": "connected to the server again"})
+            self._dispatch({"type": "reconnected"})
+            return
 
     async def close(self) -> None:
         self._closing = True
+        if self._again is not None:
+            self._again.cancel()
         if self._reader:
             self._reader.cancel()
         if self._ws is not None:
@@ -234,12 +280,18 @@ class RemoteLink(Link):
     async def call(self, method: str, **params) -> dict:
         if self._ws is None:
             raise LinkError("not connected")
+        if not self.connected and self._again is not None:
+            return dict(LOST)                  # lost: an error at once, not a hang
         self._call_id += 1
         call_id = self._call_id
         future = asyncio.get_running_loop().create_future()
         self._calls[call_id] = future
-        await self._ws.send(json.dumps({"type": "call", "id": call_id,
-                                        "method": method, "params": params}))
+        try:
+            await self._ws.send(json.dumps({"type": "call", "id": call_id,
+                                            "method": method, "params": params}))
+        except ConnectionClosed:
+            self._calls.pop(call_id, None)
+            return dict(LOST)
         try:
             return await asyncio.wait_for(future, 30)
         except TimeoutError:

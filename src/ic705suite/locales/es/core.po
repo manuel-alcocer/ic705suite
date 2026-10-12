@@ -7,8 +7,14 @@ msgstr ""
 msgid "cannot reach the radio: {error}; it keeps trying in the background (the logbook and packet work without it)"
 msgstr "no se puede contactar con la radio: {error}; se sigue intentando en segundo plano (el diario y el packet funcionan sin ella)"
 
-msgid "connection to the server lost"
-msgstr "se ha perdido la conexión con el servidor"
+msgid "connection to the server lost; connecting again when it is back"
+msgstr "conexión con el servidor perdida; se volverá a conectar cuando vuelva"
+
+msgid "connected to the server again"
+msgstr "conectado de nuevo al servidor"
+
+msgid "not connected to the server"
+msgstr "sin conexión con el servidor"
 
 msgid "server listening on {host}:{port}"
 msgstr "servidor escuchando en {host}:{port}"

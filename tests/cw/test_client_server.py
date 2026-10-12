@@ -110,3 +110,50 @@ def test_render_translates_core_events():
         assert i18n.render(event) == "signal found at 7.012.00 MHz (/next to keep searching)"
     finally:
         i18n.set_language("en")
+
+
+def test_the_client_survives_the_core_going_away():
+    """The core restarted (or the network down): calls answer an error at once instead of
+    hanging, the radio shows as disconnected, and the link connects again by itself."""
+    async def scenario():
+        core, stop, task, port = await start_server(Config(), SimTransport(stations=[], seed=3))
+        events: list[dict] = []
+        link = RemoteLink(f"127.0.0.1:{port}", "secret")
+        link.RETRY = 0.3
+        link.attach(events.append, replay=False)
+        try:
+            await link.connect()
+            for _ in range(60):
+                if "rig" in link.latest:
+                    break
+                await asyncio.sleep(0.05)
+            stop.set()
+            await task
+            await core.stop()
+            for _ in range(60):
+                if not link.connected:
+                    break
+                await asyncio.sleep(0.05)
+            assert not link.connected and not link.closed.is_set()
+            reply = await asyncio.wait_for(link.call("ft8.state"), 1)
+            assert reply["error"] == "not connected to the server"
+            assert any(e.get("type") == "rig" and e.get("connected") is False for e in events)
+            assert any("connection to the server lost" in e.get("text", "") for e in events)
+
+            core = Core(SimTransport(stations=[], seed=4), Config())       # back, same port
+            await core.start()
+            stop = asyncio.Event()
+            task = asyncio.create_task(CoreServer(core, "127.0.0.1", port, "secret").run(stop))
+            for _ in range(100):
+                if any(e.get("type") == "reconnected" for e in events):
+                    break
+                await asyncio.sleep(0.05)
+            assert link.connected
+            assert "on" in await link.call("ft8.state")
+        finally:
+            await link.close()
+            stop.set()
+            await task
+            await core.stop()
+
+    asyncio.run(scenario())
