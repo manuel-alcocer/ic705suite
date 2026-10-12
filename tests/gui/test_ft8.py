@@ -176,6 +176,7 @@ def test_the_waterfall(tmp_path, run, monkeypatch):
     from PySide6.QtTest import QTest
 
     fake_jt9(monkeypatch)
+    monkeypatch.setattr(service_module.encode, "find_ft8code", lambda configured="": "ft8code")
 
     async def scenario():
         from ic705suite.gui.app import MainWindow
