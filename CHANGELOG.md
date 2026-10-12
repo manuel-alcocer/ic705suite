@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v0.20.1 (2026-10-12)
+
+### Bug Fixes
+
+- **ft8**: A caller to our CQ is answered in the next turn, not one later
+  ([`d9d2ac0`](https://github.com/manuel-alcocer/ic705suite/commit/d9d2ac01096a292e129359a8122d62e2cfb178a1))
+
+- **gui**: The map's lines go when the QSO is completed, and closing words draw none
+  ([`d96f20b`](https://github.com/manuel-alcocer/ic705suite/commit/d96f20b517ab3d8a9083fe79cc03e7bfb472ccb8))
+
+
 ## v0.20.0 (2026-10-12)
 
 ### Features
