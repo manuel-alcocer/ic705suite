@@ -1293,3 +1293,9 @@ msgstr "Se está transmitiendo un mensaje: primero páralo con H"
 
 msgid "tone"
 msgstr "tono"
+
+msgid "Curve"
+msgstr "Curva"
+
+msgid "the sweep of {time}, before it was saved"
+msgstr "la del barrido de las {time}, antes de guardarla"

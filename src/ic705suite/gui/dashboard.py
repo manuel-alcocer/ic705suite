@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from ic705suite import __version__
 from ic705suite.apps import BY_ID, catalog
+from ic705suite.apps.swr.web import antenna_url
 from ic705suite.dashboard.app import (
     DASH_GROUPS,
     FEATURE_NAMES,
@@ -296,11 +297,8 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
         if features:
             lines.append(span(f"{_('Can do')}: ", theme.DIM)
                          + span(", ".join(features), theme.TEXT))
-        port = self.welcome.get("swr_port")
-        if port:
-            from ic705suite.apps.swr.web import lan_address
-
-            url = f"http://{lan_address()}:{port}"
+        url = antenna_url(self.welcome.get("swr_url"), self.welcome.get("swr_port"))
+        if url:
             lines.append(span(f"{_('Antenna page')}: ", theme.DIM)
                          + f'<a style="color:{theme.CYAN}" href="{esc(url)}">{esc(url)}</a>')
         lines.append(span(f"ic705suite {__version__}", theme.DIM))

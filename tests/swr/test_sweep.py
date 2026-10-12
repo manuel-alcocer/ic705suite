@@ -485,3 +485,47 @@ def test_phone_switches_the_remote_control_with_the_password(tmp_path):
         post(service, {"on": True, "password": "nope"})
     reply = post(service, {"on": True, "password": "arriba"})
     assert b"too many" in reply and not service.remote
+
+
+def test_the_phone_page_at_the_cores_address(tmp_path, monkeypatch):
+    """The core gives the phone page with its own address: a client on another machine
+    shows it as it is, not with its own address."""
+    from ic705suite.apps.swr import web
+
+    config = Config(swr_web=False, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+    station = Station(open_rig(config, FakeRadio(7_100_000)), config, _Ui())
+    service = SwrService(station, config, station.ui)
+    assert service.url == "" and service.state()["url"] == ""
+    monkeypatch.setattr(web, "lan_address", lambda: "192.168.1.87")    # the core's machine
+    service.port = 8705
+    assert service.state()["url"] == "http://192.168.1.87:8705"
+    monkeypatch.setattr(web, "lan_address", lambda: "192.168.1.20")    # the client's
+    assert web.antenna_url("http://192.168.1.87:8705", 8705) == "http://192.168.1.87:8705"
+    assert web.antenna_url(None, 8705) == "http://192.168.1.20:8705"  # an older core
+    assert web.antenna_url(None, None) == ""
+
+
+def test_a_position_saved_shows_the_curve_it_came_from(tmp_path):
+    """A position saved without a curve of its own shows the last SWR sweep of its band made
+    before it that day; not a later one, another band's or another day's."""
+    config = Config(swr_web=False, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+    station = Station(open_rig(config, FakeRadio(7_100_000)), config, _Ui())
+    service = SwrService(station, config, station.ui)
+    history = service.history
+    curve = [{"f": 14_000_000, "v": 1.8}, {"f": 14_100_000, "v": 1.1}]
+    history.add({"ts": "2026-10-10 11:00:00", "band": "20m", "kind": "swr", "points": curve})
+    history.add({"ts": "2026-10-11 11:00:00", "band": "40m", "kind": "swr", "points": curve})
+    early = history.add({"ts": "2026-10-11 11:30:00", "band": "20m", "kind": "swr",
+                         "points": curve, "target": 14_074_000})
+    history.add({"ts": "2026-10-11 11:40:00", "band": "20m", "kind": "swr", "points": [],
+                 "error": "stopped"})
+    saved = history.add({"ts": "2026-10-11 12:29:00", "band": "20m", "kind": "final",
+                         "coil": 3.2})
+    history.add({"ts": "2026-10-11 13:00:00", "band": "20m", "kind": "swr", "points": curve})
+    entry = service.entry_with_curve(saved)
+    assert entry["points"] == curve and entry["curve_from"] == "2026-10-11 11:30:00"
+    assert entry["target"] == 14_074_000
+    assert service.entry_with_curve(early).get("curve_from") is None   # a sweep: as it is
+    lonely = history.add({"ts": "2026-10-12 07:00:00", "band": "20m", "kind": "final",
+                          "coil": 3.0})
+    assert not service.entry_with_curve(lonely).get("points")          # none that day

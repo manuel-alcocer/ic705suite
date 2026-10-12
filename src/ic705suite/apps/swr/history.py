@@ -11,8 +11,14 @@ from textual.containers import Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Static
 
-from ic705suite.apps.swr.photos import PhotoError, download, open_with_viewer, read_photo, \
-    save_copy, upload
+from ic705suite.apps.swr.photos import (
+    PhotoError,
+    download,
+    open_with_viewer,
+    read_photo,
+    save_copy,
+    upload,
+)
 from ic705suite.i18n import N_, _
 from ic705suite.rig.bands import format_frequency
 from ic705suite.station.links import Link
@@ -331,6 +337,9 @@ def details_facts(entry: dict) -> Text:
     fact(_("Note"), entry.get("note") or "—", "white")
     fact(_("Photo"), _("yes (V opens it)") if entry.get("photo") else _("none (F adds one)"),
          "white")
+    if entry.get("curve_from"):
+        fact(_("Curve"), _("the sweep of {time}, before it was saved").format(
+            time=entry["curve_from"][11:16]), "white")
     if not entry.get("points"):
         text.append(_("No curve kept for this one (measured before version 0.3.1, or a "
                       "position saved without a sweep).") + "\n", style="dim")

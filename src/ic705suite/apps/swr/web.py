@@ -131,6 +131,14 @@ def lan_address() -> str:
     return "127.0.0.1"
 
 
+def antenna_url(url: str | None, port: int | None) -> str:
+    """The phone page as the core gives it (its own address); a core from before that
+    gave only the port: this machine's address then."""
+    if url:
+        return url
+    return f"http://{lan_address()}:{port}" if port else ""
+
+
 async def serve(service: SwrService, host: str, port: int) -> asyncio.Server:
     server = await asyncio.start_server(lambda r, w: handle(service, r, w), host, port)
     log.info("antenna page on http://%s:%d", lan_address() if host in ("0.0.0.0", "") else host,

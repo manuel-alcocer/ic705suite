@@ -12,11 +12,12 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Static
 
+from ic705suite.apps.swr.web import antenna_url
 from ic705suite.i18n import N_, _, render
 from ic705suite.rig import bands
 from ic705suite.station.links import Link
-from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui import glyphs
+from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.widgets import ChoiceScreen, NameScreen, clock_footer, css
 
 HINT = N_("F2-F9 Band · ↑↓ Band or preset · P Presets · H History · A Antennas · "
@@ -134,11 +135,10 @@ class SweepPanel(Static):
         if not state.get("allow_tx"):
             text.append(_("Receive only: noise sweeps only (start with --tx for SWR sweeps)") + "\n",
                         style="bold yellow")
-        if state.get("port"):
-            from ic705suite.apps.swr.web import lan_address
-
+        url = antenna_url(state.get("url"), state.get("port"))
+        if url:
             text.append(_("Phone page") + ": ", style="dim")
-            text.append(f"http://{lan_address()}:{state['port']}\n", style="white")
+            text.append(f"{url}\n", style="white")
         if not sweep.get("kind"):
             text.append("\n" + _("Choose a band and start a sweep."), style="dim")
             return text

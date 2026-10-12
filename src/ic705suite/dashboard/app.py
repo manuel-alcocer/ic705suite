@@ -19,6 +19,7 @@ from textual.widgets import DataTable, Input, Static
 
 from ic705suite import __version__
 from ic705suite.apps import APPS, BY_ID, catalog
+from ic705suite.apps.swr.web import antenna_url
 from ic705suite.config import Config
 from ic705suite.dashboard.quicklog import QuickLog
 from ic705suite.i18n import N_, _, render
@@ -145,12 +146,10 @@ class StationPanel(Static):
         if features:
             text.append(f"{_('Can do')}: ", style="dim")
             text.append(", ".join(features) + "\n", style="white")
-        port = self.welcome.get("swr_port")
-        if port:
-            from ic705suite.apps.swr.web import lan_address
-
+        url = antenna_url(self.welcome.get("swr_url"), self.welcome.get("swr_port"))
+        if url:
             text.append(f"{_('Antenna page')}: ", style="dim")
-            text.append(f"http://{lan_address()}:{port}\n", style="white")
+            text.append(f"{url}\n", style="white")
         text.append(f"ic705suite {__version__}", style="dim")
         return text
 

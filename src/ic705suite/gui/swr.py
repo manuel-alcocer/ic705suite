@@ -25,6 +25,16 @@ from PySide6.QtWidgets import (
 )
 
 from ic705suite.apps.swr.antennas import SIGNS, AntennaScreen, PresetScreen, settings_text
+from ic705suite.apps.swr.app import (
+    HINT,
+    SHORT_HINT,
+    SwrApp,
+    advice,
+    noise_request,
+    row_label,
+    saved_setting,
+    swr_request,
+)
 from ic705suite.apps.swr.history import (
     EntryScreen,
     HistoryScreen,
@@ -43,16 +53,7 @@ from ic705suite.apps.swr.photos import (
     save_copy,
     upload,
 )
-from ic705suite.apps.swr.app import (
-    HINT,
-    SHORT_HINT,
-    SwrApp,
-    advice,
-    noise_request,
-    row_label,
-    saved_setting,
-    swr_request,
-)
+from ic705suite.apps.swr.web import antenna_url
 from ic705suite.gui import theme
 from ic705suite.gui.page import Overlay, Page, ask_text, choose
 from ic705suite.gui.widgets import Footer, Frame, StatusLine, Table, badge, esc, rich_html, span
@@ -60,7 +61,6 @@ from ic705suite.i18n import N_, _, render
 from ic705suite.rig import bands
 from ic705suite.station.links import Link
 from ic705suite.ui.widgets import ChoiceScreen, NameScreen
-
 
 # An entry without its points: measured before the history kept the curves (v0.3.1), or a
 # position saved on its own.
@@ -360,10 +360,8 @@ class SwrPage(Page):
         if not state.get("allow_tx"):
             notes.append(span(_("Receive only: noise sweeps only (start with --tx for SWR "
                                 "sweeps)"), theme.YELLOW, True))
-        if state.get("port"):
-            from ic705suite.apps.swr.web import lan_address
-
-            url = f"http://{lan_address()}:{state['port']}"
+        url = antenna_url(state.get("url"), state.get("port"))
+        if url:
             notes.append(span(_("Phone page") + ": ", theme.DIM)
                          + f'<a style="color:{theme.CYAN}" href="{esc(url)}">{esc(url)}</a>')
         self.notes.setText("<br>".join(notes))

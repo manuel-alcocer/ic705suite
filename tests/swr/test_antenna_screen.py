@@ -222,3 +222,25 @@ def test_history_from_the_keyboard(tmp_path, monkeypatch):
             await link.close()
 
     asyncio.run(run())
+
+
+def test_bars_in_the_sweep_and_in_the_history():
+    """The terminal draws a curve as bars, one per frequency: the sweep under way, a sweep
+    of the history, and a position saved with the curve it came from."""
+    from ic705suite.apps.swr.app import SweepPanel
+    from ic705suite.apps.swr.history import details
+
+    points = [{"f": 14_000_000 + i * 25_000, "v": v}
+              for i, v in enumerate((2.6, 1.9, 1.3, 1.1, 1.4, 2.2))]
+    panel = SweepPanel()
+    panel.state = {"allow_tx": True, "sweep": {"kind": "swr", "band": "20m", "running": True,
+                                               "total": 10, "points": points}}
+    shown = panel.render().plain.splitlines()
+    bars = [line for line in shown if "█" in line]
+    assert len(bars) == len(points) and bars[0].startswith("14.000.00")
+    assert max(bars, key=len).endswith("2.60") and min(bars, key=len).endswith("1.10")
+    saved = {"ts": "2026-10-11 12:29:00", "band": "20m", "kind": "final", "coil": 3.2,
+             "points": points, "curve_from": "2026-10-11 11:30:00", "target": 14_075_000}
+    text = details(saved).plain
+    assert sum("█" in line for line in text.splitlines()) == len(points)
+    assert "11:30" in text and "◀" in text                  # where it came from; the target

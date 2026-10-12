@@ -197,7 +197,7 @@ class Core:
                         **self.station.describe()},
                 "apps": catalog(model), "tx_enabled": self.config.tx_enabled,
                 "callsign": self.config.callsign, "macros": dict(self.config.macros),
-                "swr_port": self.swr.port}
+                "swr_port": self.swr.port, "swr_url": self.swr.url}
 
     def subscribe(self, callback: Subscriber, replay: bool = True) -> Callable[[], None]:
         """Register a client; it first gets welcome, the text backlog and the current state."""

@@ -664,7 +664,34 @@ class SwrService:
         self._version += 1
         return entry
 
+    def entry_with_curve(self, entry_id: int) -> dict:
+        """An entry of the history; a position saved without a curve gets the one of the
+        last SWR sweep of its band (and preset) made before it, the same day: the curve it
+        was saved after (`curve_from` says which)."""
+        entry = self.history.entry(entry_id)
+        if entry.get("kind") != "final" or entry.get("points"):
+            return entry
+        before = [e for e in self.history.entries(band=entry["band"])
+                  if e.get("kind") == "swr" and e.get("points") and not e.get("error")
+                  and e.get("preset") == entry.get("preset")
+                  and e["ts"][:10] == entry["ts"][:10] and e["ts"] <= entry["ts"]]
+        if before:
+            sweep = before[-1]
+            entry = {**entry, "points": sweep["points"], "curve_from": sweep["ts"]}
+            entry.setdefault("target", sweep.get("target"))
+        return entry
+
     # ---- API ------------------------------------------------------------------------------
+
+    @property
+    def url(self) -> str:
+        """The phone page, at this machine's address (the core's: a client elsewhere shows
+        it as it is)."""
+        if not self.port:
+            return ""
+        from ic705suite.apps.swr.web import lan_address
+
+        return f"http://{lan_address()}:{self.port}"
 
     def state(self) -> dict:
         st, s = self.station.state, self.sweep
@@ -677,6 +704,7 @@ class SwrService:
                 "antenna": {"id": antenna["id"], "name": antenna["name"]},
                 "allow_tx": self.allow_tx, "remote": self.remote,
                 "remote_password": bool(self.remote_password), "max_power": self.max_power, "port": self.port,
+                "url": self.url,
                 "frequency": st.frequency, "mode": st.mode,
                 "sweep": {"kind": s.kind, "running": s.running, "band": s.band, "target": s.target,
                           "preset": s.preset, "entry_id": s.entry_id,
@@ -794,7 +822,7 @@ class SwrService:
                                                limit=params.get("limit"))
                 return {"history": [summary(e) for e in reversed(entries)]}
             if method == "entry":
-                return {"entry": self.history.entry(int(params["id"]))}
+                return {"entry": self.entry_with_curve(int(params["id"]))}
             if method == "entry.update":
                 return {"entry": self.update_entry(int(params["id"]), params)}
             if method == "entry.delete":
