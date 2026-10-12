@@ -325,9 +325,11 @@ what it would be for the log, as GridTracker and JTAlert do: **NEW DXCC** (magen
 new band for that entity, **NEW GRID**, **B4** (worked before on this band, dim) or ✓
 (the entity confirmed in LoTW). Beside the waterfall, the **Map** tab draws them on the
 world (Natural Earth's land, public domain) with the grey line, Maidenhead's fields and
-squares, the squares worked (orange) and confirmed (green), our station and the great
-circle to the station we work; the wheel zooms, a drag moves it, a click on a station
-chooses it and a double click answers it.
+squares, the squares worked (orange) and confirmed (green), our station, and the great
+circle to the station we call and from each station calling us, with arrows running the way
+the call goes. A key in the bottom right corner says what each mark is, and its last line
+what is under the mouse (a station, or the locator, distance and bearing there). The wheel
+zooms, a drag moves it, a click on a station chooses it and a double click answers it.
 
 **A** (the Auto button) turns on the super-automatic mode: the core works the band by
 itself. It answers a station calling us first, then the CQs of entities never worked, new
@@ -335,7 +337,13 @@ on this band, the least worked, and our own country last (the loudest among equa
 calls each; never a station worked on this band, a CQ meant for others (CQ NA, CQ DX from
 our continent) nor one called in the last 15 minutes. After six stations without a QSO, or
 with nobody to call, it calls CQ six times, then answers again, until **A** or **H** stops
-it (a transmission error stops it too).
+it (a transmission error stops it too). A station it calls that answers someone else is left
+at once for the next one.
+
+**I** ignores the chosen station, and **Shift+I** its whole country (again: no longer); in
+the graphical client a right click on a line does the same and lists what is ignored. The
+auto mode never calls an ignored station or country, nor answers it when it calls our CQ;
+its lines are marked IGN. The lists are kept by the core.
 
 Beside the band's activity (under it in the terminal), the **QSO** area shows the
 conversation alone: what we send, what is sent to us and what the station we work says.

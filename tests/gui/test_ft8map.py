@@ -61,3 +61,48 @@ def test_a_click_chooses_and_a_double_click_answers(qapp):
     view.zoom *= 2
     assert view._scale() > 0 and view.zoom == zoom * 2
     view.close()
+
+
+def test_arrows_the_way_each_call_goes(qapp):
+    """Our call goes out to the station we call; a station calling us comes in: each has
+    its path, and the frames run only while there are arrows and the map is shown."""
+    view = ft8map.MapView()
+    view.resize(900, 450)
+    view.mycall = "EA7KLX"
+    view.set_home(37.31, -5.96, "IM77AH")
+    view.add_decodes(1000.0, [decode("MW3FLI", 53.5, -3.0),
+                              decode("DL1ABC", 51.0, 10.0, kind="call", to="EA7KLX",
+                                     message="EA7KLX DL1ABC JO61"),
+                              decode("F5ABC", 46.0, 2.0, kind="call", to="G4XYZ")])
+    assert view.paths() == [("DL1ABC", False)]               # calling us: towards us
+    view.set_them("MW3FLI")
+    assert sorted(view.paths()) == [("DL1ABC", False), ("MW3FLI", True)]
+    assert not view._frames.isActive()                        # not shown: no frames
+    view.show()
+    qapp.processEvents()
+    assert view._frames.isActive()
+    view.grab()                                               # draws (arrows and key)
+    still = view._background
+    view.grab()
+    assert view._background is still                          # the world drawn once
+    view.zoom = 2.0
+    view.grab()
+    assert view._background is not still                      # a new view: drawn again
+    view.heard["DL1ABC"].seen -= ft8map.CALLING_FOR + 1       # its call went by
+    view.set_them("")
+    assert view.paths() == []
+    view.grab()
+    assert not view._frames.isActive()
+    view.hide()
+
+
+def test_the_key_says_what_is_under_the_mouse(qapp):
+    view = ft8map.MapView()
+    view.resize(900, 450)
+    view.set_home(37.31, -5.96, "IM77AH")
+    view.add_decodes(1000.0, [decode("MW3FLI", 53.5, -3.0, country="Wales", km=1814, az=6)])
+    view.grab()
+    spot = view._spots[0][0].center()
+    assert view.under(spot) == "MW3FLI · Wales · 1814 km 6° · -10 dB"
+    elsewhere = view.under(view._xy(37.31, -5.96))
+    assert elsewhere.startswith("IM77AH · 0 km ")                 # our own square

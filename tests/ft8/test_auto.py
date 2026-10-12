@@ -152,3 +152,78 @@ def test_the_mode_needs_transmission(tmp_path):
             await link.close()
 
     asyncio.run(scenario())
+
+
+def test_a_busy_station_and_an_ignored_country(tmp_path, monkeypatch):
+    """France ignored: its CQ is not answered, nor its call to our CQ. England is called; it
+    answers another station: left at once for the next (nobody: CQ)."""
+    air = short_turns(monkeypatch)
+    monkeypatch.setattr(service_module, "data_dir", lambda: tmp_path)
+    table = geo.Cty(CTY)
+    monkeypatch.setattr(geo, "cty", lambda: table)
+    air["says"] = ""
+
+    def decode(program, wav, depth=3, timeout=30.0, band=None):
+        stamp = wav.stem.split("_")[1]
+        lines = [f"{stamp} -12  0.1  900 ~  CQ F5ABC JN12"]
+        if air["says"]:
+            lines.append(f"{stamp}  -8  0.1 1700 ~  {air['says']}")
+        return jt9.parse("\n".join(lines))
+
+    sent: list[str] = []
+
+    def audio(program, message, frequency, rate=12_000):
+        sent.append(message)
+        if message == "G4XYZ EA7KLX IM77":
+            air["says"] = "EA1AAA G4XYZ -05"              # England works someone else
+        elif message.startswith("CQ "):
+            air["says"] = "EA7KLX F5ABC JN12"             # France calls us: ignored
+        return np.zeros(int(rate * 0.2), np.float32)
+
+    monkeypatch.setattr(service_module.jt9, "decode", decode)
+    monkeypatch.setattr(service_module.encode, "audio", audio)
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        said: list[str] = []
+        link.attach(lambda e: e.get("type") == "info" and said.append(e.get("text", "")))
+        try:
+            reply = await link.call("ft8.ignore", country="France")
+            assert reply == {"calls": [], "countries": ["France"]}
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            air["says"] = "CQ G4XYZ IO91"
+            await link.call("ft8.auto", on=True)
+            await until(lambda: any("is working EA1AAA" in s for s in said), 20)
+            await until(lambda: any(m.startswith("CQ ") for m in sent), 20)
+            await until(lambda: sent.count("CQ EA7KLX IM77") >= 3, 20)
+            assert not any(m.startswith("F5ABC") for m in sent)       # never France
+            assert sent.count("G4XYZ EA7KLX IM77") < 3                 # left early
+            state = (await link.call("ft8.state"))
+            assert state["ignore"]["countries"] == ["France"]
+            assert state["tx"]["step"] == "cq"                         # not answered
+            await link.call("ft8.halt")
+        finally:
+            await link.close()
+        # Kept for the next time.
+        link = LocalLink(None, config)
+        await link.connect()
+        try:
+            assert (await link.call("ft8.state"))["ignore"]["countries"] == ["France"]
+            assert (await link.call("ft8.ignore", country="France", on=False))["countries"] == []
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_ignored_lines_are_marked():
+    from ic705suite.apps.ft8.app import mark
+
+    ignore = {"calls": ["DL1ABC"], "countries": ["France"]}
+    assert mark({"sender": "DL1ABC/P", "dxcc": "new"}, ignore)[0] == "IGN"
+    assert mark({"sender": "F5ABC", "country": "France", "b4": True}, ignore)[0] == "IGN"
+    assert mark({"sender": "G4XYZ", "country": "England", "b4": True}, ignore)[0] == "B4"

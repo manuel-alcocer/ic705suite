@@ -19,6 +19,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import DataTable, Static
 
+from ic705suite.apps.ft8.messages import base
 from ic705suite.apps.ft8.service import CYCLE, DIALS
 from ic705suite.i18n import N_, _, render
 from ic705suite.rig import bands
@@ -47,6 +48,7 @@ STYLE_NEW_BAND = "magenta"
 STYLE_NEW_GRID = "bold cyan"
 STYLE_B4 = "dim"
 STYLE_CONFIRMED = "green"
+STYLE_IGNORED = "dim strike"
 
 
 def kind_style(decode: dict, mycall: str) -> str:
@@ -102,8 +104,20 @@ def where(d: dict) -> str:
     return f"{'~' if d.get('approx') else ''}{d['km']} km {d.get('az', 0)}°"
 
 
-def mark(d: dict) -> tuple[str, str]:
-    """(text, style) of what the logbook says of the sender: the newest thing first."""
+def is_ignored(d: dict, ignore: dict | None) -> bool:
+    """The sender, or its country, in the core's ignore lists (the auto mode leaves it)."""
+    if not ignore:
+        return False
+    sender = base(d.get("sender") or "")
+    return bool(sender) and (sender in ignore.get("calls", ())
+                             or (d.get("country") or "") in ignore.get("countries", ()))
+
+
+def mark(d: dict, ignore: dict | None = None) -> tuple[str, str]:
+    """(text, style) of what the logbook says of the sender: the newest thing first; IGN
+    when it is ignored."""
+    if is_ignored(d, ignore):
+        return "IGN", STYLE_IGNORED
     if d.get("dxcc") == "new":
         return _("NEW DXCC"), STYLE_NEW_DXCC
     if d.get("dxcc") == "new_band":
@@ -117,7 +131,8 @@ def mark(d: dict) -> tuple[str, str]:
     return "", ""
 
 
-def rows(cycles: list[dict], cq_only: bool, mycall: str) -> list[tuple]:
+def rows(cycles: list[dict], cq_only: bool, mycall: str,
+         ignore: dict | None = None) -> list[tuple]:
     """(cycle start, decode or None, cells, style) for each line of the list: time, dB, DT,
     audio frequency, message, the sender's country, how far and where (where()), and its
     mark (mark())."""
@@ -138,7 +153,7 @@ def rows(cycles: list[dict], cq_only: bool, mycall: str) -> list[tuple]:
                 out.append((cycle["start"], d, [stamp, str(d["snr"]), f"{d['dt']:.1f}",
                                                 str(d["freq"]), d["message"],
                                                 _(d["country"]) if d.get("country") else "",
-                                                where(d), mark(d)[0]],
+                                                where(d), mark(d, ignore)[0]],
                             kind_style(d, mycall)))
     return out
 
@@ -289,6 +304,8 @@ class Ft8App(App[int]):
         Binding("q", "cq", show=False),
         Binding("h", "halt", show=False),
         Binding("a", "auto", show=False),
+        Binding("i", "ignore('call')", show=False),
+        Binding("I", "ignore('country')", show=False),
         Binding("t", "tone", show=False),
         Binding("f", "tx_freq", show=False),
         Binding("left_square_bracket", "move_tx(-1)", show=False),
@@ -411,14 +428,15 @@ class Ft8App(App[int]):
         at_end = not table.row_count or table.cursor_row >= table.row_count - 2
         row = table.cursor_row
         table.clear()
-        self.lines = rows(self.cycles, self.cq_only, self.mycall)
+        self.lines = rows(self.cycles, self.cq_only, self.mycall, self.state.get("ignore"))
         for _start, decode, cells, style in self.lines:
             stamp, snr, dt, freq, message, country, place, tag = cells
             table.add_row(Text(stamp, style=STYLE_HEADING if style == STYLE_HEADING else ""),
                           Text(snr, justify="right"), Text(dt, justify="right"),
                           Text(freq, justify="right"), Text(message, style=style),
                           Text(country), Text(place, style="dim"),
-                          Text(tag, style=mark(decode)[1] if decode else ""))
+                          Text(tag, style=mark(decode, self.state.get("ignore"))[1]
+                               if decode else ""))
         if table.row_count:
             table.move_cursor(row=table.row_count - 1 if at_end or not keep_end
                               else min(row, table.row_count - 1))
@@ -523,6 +541,32 @@ class Ft8App(App[int]):
 
     def action_halt(self) -> None:
         self.run_worker(self._call(_("Transmission halted"), "ft8.halt"), group="tx")
+
+    def action_ignore(self, what: str) -> None:
+        """The chosen station (I), or its country (Shift+I), into the ignore list or out of
+        it: the auto mode does not work it, nor answer it when it calls."""
+        chosen = self._chosen()
+        if chosen is None:
+            self._message("error", _("Choose a station's line first (↑↓)"))
+            return
+        self.run_worker(self._ignore(chosen[1], what), group="tx")
+
+    async def _ignore(self, decode: dict, what: str) -> None:
+        name = base(decode.get("sender") or "") if what == "call" else decode.get("country")
+        if not name:
+            self._message("error", _("No country known for that station"))
+            return
+        ignore = self.state.get("ignore") or {}
+        on = name not in ignore.get("calls" if what == "call" else "countries", ())
+        reply = await self.link.call("ft8.ignore", on=on, **{what: name})
+        if reply.get("error"):
+            self._message("error", reply["error"])
+            return
+        self.state["ignore"] = reply
+        shown = name if what == "call" else _(name)
+        self._message("info", (_("{name} ignored: the auto mode leaves it") if on
+                               else _("{name} no longer ignored")).format(name=shown))
+        self._fill(keep_end=True)
 
     def action_auto(self) -> None:
         on = not (self.state.get("auto") or {}).get("on")

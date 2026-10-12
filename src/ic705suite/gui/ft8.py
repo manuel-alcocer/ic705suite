@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QMenu,
     QProgressBar,
     QPushButton,
     QSlider,
@@ -39,6 +40,7 @@ from ic705suite.apps.ft8.app import (
     STYLE_CQ,
     STYLE_DOUBT,
     STYLE_HEADING,
+    STYLE_IGNORED,
     STYLE_ME,
     STYLE_NEW_BAND,
     STYLE_NEW_DXCC,
@@ -124,6 +126,8 @@ class Ft8Page(Page):
         self.table = self.frame.add(self._log_table(placed=True), 1)
         self.table.pass_letters = True                       # C, S are the page's
         self.table.cellDoubleClicked.connect(self._double_click)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._context_menu)
         self.qso_frame = Frame(_("QSO"))
         # How far the QSO under way has gone: its five messages, both ways.
         self.qso_bar = self.qso_frame.add(QProgressBar())
@@ -153,10 +157,6 @@ class Ft8Page(Page):
         # Beside the waterfall, in a tab: the map (gui.ft8map), as GridTracker's.
         self.map_frame = Frame(_("Map"))
         self.map = self.map_frame.add(MapView(), 1)
-        self.map.setToolTip(_("Green CQ · red calling you · magenta ring a new DXCC · hollow: "
-                              "placed by its country · squares: orange worked, green "
-                              "confirmed · wheel zooms, drag moves, click chooses, double "
-                              "click answers"))
         self.map.station_clicked.connect(self._choose)
         self.map.station_double_clicked.connect(
             lambda start, decode: self._choose(start, decode) and self.action_reply())
@@ -428,7 +428,7 @@ class Ft8Page(Page):
         bar = table.verticalScrollBar()
         at_end = bar.value() >= bar.maximum() - 4
         chosen = table.currentRow()
-        self.lines = rows(self.cycles, self.cq_only, self.mycall)
+        self.lines = rows(self.cycles, self.cq_only, self.mycall, self.state.get("ignore"))
         self._paint(table, self.lines)
         if self.lines and (at_end or not keep_end):
             table.scrollToBottom()
@@ -450,7 +450,8 @@ class Ft8Page(Page):
                 if column == 6:                              # how far: quiet
                     colour, strong = QColor(theme.DIM), False
                 elif column == 7 and decode is not None:     # the logbook's mark
-                    colour, strong = self._mark_colour(mark(decode)[1])
+                    colour, strong = self._mark_colour(
+                        mark(decode, self.state.get("ignore"))[1])
                 if colour is not None:
                     item.setForeground(QBrush(colour))
                 if bg is not None:
@@ -469,7 +470,8 @@ class Ft8Page(Page):
                 STYLE_NEW_BAND: (QColor(theme.MAGENTA), False),
                 STYLE_NEW_GRID: (QColor(theme.CYAN), True),
                 STYLE_B4: (QColor(theme.DIM), False),
-                STYLE_CONFIRMED: (QColor(theme.GREEN), False)}.get(style, (None, False))
+                STYLE_CONFIRMED: (QColor(theme.GREEN), False),
+                STYLE_IGNORED: (QColor(theme.DIM), False)}.get(style, (None, False))
 
     def _show_progress(self) -> None:
         status = qso_status(self.state.get("tx") or {}, self.completed)
@@ -623,6 +625,53 @@ class Ft8Page(Page):
 
     def action_halt(self) -> None:
         self.run_worker(self._call(_("Transmission halted"), "ft8.halt"), group="tx")
+
+    # The terminal's: the chosen station or its country into the ignore list, or out of it.
+    action_ignore = Ft8App.action_ignore
+    _ignore = Ft8App._ignore
+
+    def _context_menu(self, point) -> None:
+        """A right click on a station: ignore it or its country (or no longer), and the
+        list of what is ignored, each one to take out of it."""
+        row = self.table.rowAt(point.y())
+        if row >= 0:
+            self.table.selectRow(row)
+        chosen = self._chosen()
+        ignore = self.state.get("ignore") or {}
+        menu = QMenu(self)
+        if chosen is not None:
+            decode = chosen[1]
+            call = (decode.get("sender") or "").strip("<>")
+            country = decode.get("country") or ""
+            ignored_call = call.split("/")[0] in ignore.get("calls", ()) or \
+                call in ignore.get("calls", ())
+            menu.addAction((_("I  Stop ignoring {name}") if ignored_call else
+                            _("I  Ignore {name}")).format(name=call),
+                           lambda: self.action_ignore("call"))
+            if country:
+                menu.addAction((_("Shift+I  Stop ignoring {name}")
+                                if country in ignore.get("countries", ())
+                                else _("Shift+I  Ignore {name}")).format(name=_(country)),
+                               lambda: self.action_ignore("country"))
+        listed = [("call", c, c) for c in ignore.get("calls", ())] + \
+            [("country", c, _(c)) for c in ignore.get("countries", ())]
+        if listed:
+            menu.addSeparator()
+            ignored = menu.addMenu(_("Ignored ({count})").format(count=len(listed)))
+            for what, name, shown in listed:
+                ignored.addAction(_("Stop ignoring {name}").format(name=shown),
+                                  lambda w=what, n=name: self.run_worker(
+                                      self._unignore(w, n), group="tx"))
+        if not menu.isEmpty():
+            menu.popup(self.table.viewport().mapToGlobal(point))
+
+    async def _unignore(self, what: str, name: str) -> None:
+        reply = await self.link.call("ft8.ignore", on=False, **{what: name})
+        if not reply.get("error"):
+            self.state["ignore"] = reply
+            self._message("info", _("{name} no longer ignored").format(
+                name=name if what == "call" else _(name)))
+            self._fill(keep_end=True)
 
     def action_auto(self) -> None:
         on = not (self.state.get("auto") or {}).get("on")

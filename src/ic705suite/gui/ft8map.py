@@ -3,8 +3,13 @@ the day and night (the grey line), Maidenhead's fields and squares, the squares 
 confirmed (the logbook: worked.py), our station, and every station heard lately where it is
 (its grid, or its country's middle when no grid came: a hollow dot), coloured as the band
 activity (a CQ green, a call to us red, a new DXCC ringed magenta); the great circle to the
-station we work. The wheel zooms, a drag moves it, a click on a station chooses it in the
-list and a double click answers it.
+station we call, and from each station calling us, with arrows running the way the call
+goes. A key in the bottom right corner says what each mark is, and what is under the mouse
+(no tooltips: the help is in the documentation). The wheel zooms, a drag moves it, a click
+on a station chooses it in the list and a double click answers it.
+
+The still layers (land, night, grid, the squares worked) are drawn once into a picture and
+kept until the view changes, so the arrows move without redrawing the world each frame.
 """
 
 from __future__ import annotations
@@ -15,7 +20,7 @@ import time
 from dataclasses import dataclass
 from importlib import resources
 
-from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -24,16 +29,21 @@ from PySide6.QtGui import (
     QPainter,
     QPainterPath,
     QPen,
+    QPixmap,
     QPolygonF,
     QWheelEvent,
 )
-from PySide6.QtWidgets import QToolTip, QWidget
+from PySide6.QtWidgets import QWidget
 
 from ic705suite import geo
 from ic705suite.gui import theme
 from ic705suite.i18n import _
 
 HEARD_FOR = 180.0            # seconds a station heard stays on the map
+CALLING_FOR = 35.0           # seconds a call to us keeps its arrows (two cycles and a bit)
+ARROW_EVERY = 34.0           # pixels between arrows along a path
+ARROW_SPEED = 40.0           # pixels a second the arrows run
+FRAME_MS = 50                # the arrows' frames (20 a second), only while there are some
 OCEAN = QColor(18, 30, 46)
 LAND = QColor(46, 62, 52)
 COAST = QColor(86, 110, 92)
@@ -119,6 +129,12 @@ class MapView(QWidget):
         self.zoom = 1.0                          # 1: the whole world in the width
         self._drag: QPointF | None = None
         self._spots: list[tuple[QRectF, Heard]] = []
+        self._background: QPixmap | None = None   # the still layers, as last drawn
+        self._background_key: tuple = ()
+        self._under = ""                          # what is under the mouse, for the key
+        self._frames = QTimer(self)
+        self._frames.setInterval(FRAME_MS)
+        self._frames.timeout.connect(self.update)
 
     # ---- what it shows ------------------------------------------------------------------------
 
@@ -133,11 +149,13 @@ class MapView(QWidget):
 
     def set_worked(self, grids: dict[str, str]) -> None:
         self.grids = dict(grids)
+        self._background = None
         self.update()
 
     def set_them(self, call: str) -> None:
         if call != self.them:
             self.them = call
+            self._animate()
             self.update()
 
     def add_decodes(self, start: float, decodes: list[dict]) -> None:
@@ -154,7 +172,40 @@ class MapView(QWidget):
                                      start, now)
         for call in [c for c, h in self.heard.items() if now - h.seen > HEARD_FOR]:
             del self.heard[call]
+        self._animate()
         self.update()
+
+    # ---- the arrows ---------------------------------------------------------------------------
+
+    def paths(self, now: float | None = None) -> list[tuple[str, bool]]:
+        """(call, outward) of each path drawn: ours to the station we call (outward), and
+        each station that called us lately (towards us)."""
+        now = time.time() if now is None else now
+        out = [(self.them, True)] if self.them in self.heard and self.home else []
+        if self.home is None or not self.mycall:
+            return out
+        mine = self.mycall.split("/")[0]
+        for heard in self.heard.values():
+            to = (heard.decode.get("to") or "").split("/")[0]
+            if to == mine and now - heard.seen <= CALLING_FOR and heard.call != self.them:
+                out.append((heard.call, False))
+        return out
+
+    def _animate(self) -> None:
+        """Frames only while there are arrows to move and the map is shown."""
+        wanted = bool(self.paths()) and self.isVisible()
+        if wanted and not self._frames.isActive():
+            self._frames.start()
+        elif not wanted and self._frames.isActive():
+            self._frames.stop()
+
+    def showEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        super().showEvent(event)
+        self._animate()
+
+    def hideEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        super().hideEvent(event)
+        self._frames.stop()
 
     # ---- the projection: equirectangular, zoomed and moved --------------------------------------
 
@@ -185,8 +236,31 @@ class MapView(QWidget):
 
     def paintEvent(self, _event) -> None:  # noqa: N802 - Qt's name
         painter = QPainter(self)
+        painter.drawPixmap(0, 0, self._still())
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.fillRect(self.rect(), OCEAN)
+        now = time.time()
+        for call, outward in self.paths(now):
+            self._draw_path(painter, call, outward, now)
+        self._draw_home(painter)
+        self._draw_heard(painter)
+        self._draw_key(painter)
+        painter.end()
+        if not self.paths(now) and self._frames.isActive():
+            self._frames.stop()                  # the calls to us went by
+
+    def _still(self) -> QPixmap:
+        """The land, the squares worked, the night and the grid: drawn again only when the
+        view, the squares or the minute (the grey line) change."""
+        ratio = self.devicePixelRatioF()
+        key = (self.width(), self.height(), ratio, self.zoom, self.center,
+               int(time.time() // 60))
+        if self._background is not None and key == self._background_key:
+            return self._background
+        picture = QPixmap(round(self.width() * ratio), round(self.height() * ratio))
+        picture.setDevicePixelRatio(ratio)
+        painter = QPainter(picture)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.fillRect(QRectF(0, 0, self.width(), self.height()), OCEAN)
         for shift in (-360.0, 0.0, 360.0):
             painter.save()
             self._transform(painter, shift)
@@ -201,10 +275,9 @@ class MapView(QWidget):
             painter.drawPolygon(night_polygon())
             painter.restore()
         self._draw_grid(painter)
-        self._draw_path(painter)
-        self._draw_home(painter)
-        self._draw_heard(painter)
         painter.end()
+        self._background, self._background_key = picture, key
+        return picture
 
     def _draw_worked(self, painter: QPainter) -> None:
         for grid, state in self.grids.items():
@@ -273,23 +346,63 @@ class MapView(QWidget):
         painter.drawRect(QRectF(p.x() - 5, p.y() - 5, 10, 10))
         painter.drawText(p + QPointF(8, -6), self.home_label)
 
-    def _draw_path(self, painter: QPainter) -> None:
-        them = self.heard.get(self.them)
+    def _draw_path(self, painter: QPainter, call: str, outward: bool, now: float) -> None:
+        """The great circle between us and a station, and arrows running along it: from us
+        when we call it (outward), towards us when it calls us."""
+        them = self.heard.get(call)
         if self.home is None or them is None:
             return
         points = geo.great_circle(self.home, (them.lat, them.lon))
-        pen = QPen(QColor(theme.RED or "#ff5c5c"), 2, Qt.PenStyle.DashLine)
-        painter.setPen(pen)
-        path = QPainterPath()
+        if not outward:
+            points = points[::-1]                 # from them to us: the arrows' way
+        colour = QColor(theme.RED or "#ff5c5c")
+        pieces: list[list[QPointF]] = []
         previous = None
         for lat, lon in points:
             p = self._xy(lat, lon)
             if previous is None or abs(p.x() - previous.x()) > self.width() / 2:
-                path.moveTo(p)                    # across the map's edge: a new piece
+                pieces.append([p])                # across the map's edge: a new piece
             else:
-                path.lineTo(p)
+                pieces[-1].append(p)
             previous = p
-        painter.drawPath(path)
+        faint = QColor(colour)
+        faint.setAlpha(150)
+        painter.setPen(QPen(faint, 1.5, Qt.PenStyle.DashLine))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        for piece in pieces:
+            path = QPainterPath(piece[0])
+            for p in piece[1:]:
+                path.lineTo(p)
+            painter.drawPath(path)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(colour))
+        travelled = 0.0
+        phase = (now * ARROW_SPEED) % ARROW_EVERY
+        for piece in pieces:
+            for a, b in zip(piece, piece[1:], strict=False):
+                length = math.hypot(b.x() - a.x(), b.y() - a.y())
+                if length <= 0:
+                    continue
+                # Arrows at phase, phase + ARROW_EVERY... along the whole path.
+                first = math.ceil((travelled - phase) / ARROW_EVERY)
+                at = phase + first * ARROW_EVERY - travelled
+                while at <= length:
+                    f = at / length
+                    self._arrow(painter, QPointF(a.x() + (b.x() - a.x()) * f,
+                                                 a.y() + (b.y() - a.y()) * f),
+                                math.atan2(b.y() - a.y(), b.x() - a.x()))
+                    at += ARROW_EVERY
+                travelled += length
+
+    @staticmethod
+    def _arrow(painter: QPainter, at: QPointF, angle: float, size: float = 7.5) -> None:
+        cos, sin = math.cos(angle), math.sin(angle)
+
+        def point(x: float, y: float) -> QPointF:
+            return QPointF(at.x() + x * cos - y * sin, at.y() + x * sin + y * cos)
+
+        painter.drawPolygon(QPolygonF([point(size, 0), point(-size * 0.7, size * 0.6),
+                                       point(-size * 0.35, 0), point(-size * 0.7, -size * 0.6)]))
 
     def _draw_heard(self, painter: QPainter) -> None:
         now = time.time()
@@ -329,6 +442,56 @@ class MapView(QWidget):
                 painter.drawText(label, Qt.AlignmentFlag.AlignLeft, heard.call)
                 rect = rect.united(label)
             self._spots.append((rect, heard))
+
+    def _draw_key(self, painter: QPainter) -> None:
+        """What each mark is, in the bottom right corner, and what is under the mouse."""
+        font = QFont(painter.font())
+        font.setPointSizeF(8)
+        font.setBold(False)
+        painter.setFont(font)
+        metrics = painter.fontMetrics()
+        red, green = QColor(theme.RED or "#ff5c5c"), QColor(theme.GREEN or "#43d17a")
+        rows = [("dot", green, _("calling CQ")), ("dot", red, _("calling you")),
+                ("ring", QColor(theme.MAGENTA or "#e070ff"), _("new DXCC or band")),
+                ("hollow", QColor(235, 235, 235), _("placed by its country")),
+                ("square", WORKED, _("square worked")), ("square", CONFIRMED, _("confirmed")),
+                ("home", QColor(theme.YELLOW or "#ffc94d"), _("your station")),
+                ("arrow", red, _("the way a call goes"))]
+        line = metrics.height() + 2
+        width = max(metrics.horizontalAdvance(text) for _kind, _c, text in rows) + 30
+        under = self._under
+        if under:
+            width = max(width, metrics.horizontalAdvance(under) + 16)
+        height = line * (len(rows) + (1 if under else 0)) + 10
+        box = QRectF(self.width() - width - 8, self.height() - height - 8, width, height)
+        painter.setPen(QPen(QColor(255, 255, 255, 50), 1))
+        painter.setBrush(QBrush(QColor(10, 16, 26, 200)))
+        painter.drawRoundedRect(box, 5, 5)
+        y = box.top() + 5
+        for kind, colour, text in rows:
+            mark = QPointF(box.left() + 13, y + line / 2)
+            painter.setPen(QPen(colour, 1.5))
+            painter.setBrush(QBrush(colour) if kind in ("dot", "square", "home") else
+                             Qt.BrushStyle.NoBrush)
+            if kind in ("dot", "hollow"):
+                painter.drawEllipse(mark, 4, 4)
+            elif kind == "ring":
+                painter.setPen(QPen(colour, 2))
+                painter.drawEllipse(mark, 6, 6)
+            elif kind in ("square", "home"):
+                painter.drawRect(QRectF(mark.x() - 5, mark.y() - 4, 10, 8))
+            else:
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QBrush(colour))
+                self._arrow(painter, mark, 0.0)
+            painter.setPen(QColor(220, 225, 232))
+            painter.drawText(QRectF(box.left() + 26, y, width - 28, line),
+                             Qt.AlignmentFlag.AlignVCenter, text)
+            y += line
+        if under:
+            painter.setPen(QColor(255, 255, 255))
+            painter.drawText(QRectF(box.left() + 8, y, width - 12, line),
+                             Qt.AlignmentFlag.AlignVCenter, under)
 
     # ---- the mouse ------------------------------------------------------------------------------
 
@@ -373,20 +536,34 @@ class MapView(QWidget):
                            ((self.center[1] - delta.x() / s + 180) % 360) - 180)
             self.update()
             return
-        heard = self._heard_at(event.position())
+        self._under = self.under(event.position())
+        self.update()
+
+    def leaveEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        super().leaveEvent(event)
+        self._under = ""
+        self.update()
+
+    def under(self, point: QPointF) -> str:
+        """What is under the mouse, for the key's last line: a station heard, else the
+        locator there and how far and which way from us."""
+        heard = self._heard_at(point)
         if heard is None:
-            lat, lon = self._latlon(event.position())
+            lat, lon = self._latlon(point)
             text = geo.latlon_to_locator(lat, lon, 6)
             if self.home is not None:
                 text += f" · {round(geo.distance_km(self.home, (lat, lon)))} km " \
                         f"{round(geo.bearing_deg(self.home, (lat, lon)))}°"
-        else:
-            d = heard.decode
-            text = f"{d.get('message', '')}\n{_(d['country']) if d.get('country') else ''}"
-            if d.get("km") is not None:
-                text += f" · {'~' if heard.approx else ''}{d['km']} km {d.get('az')}°"
-            text += f" · {d.get('snr')} dB"
-        QToolTip.showText(event.globalPosition().toPoint(), text, self)
+            return text
+        d = heard.decode
+        parts = [heard.call]
+        if d.get("country"):
+            parts.append(_(d["country"]))
+        if d.get("km") is not None:
+            parts.append(f"{'~' if heard.approx else ''}{d['km']} km {d.get('az')}°")
+        if d.get("snr") is not None:
+            parts.append(f"{d['snr']} dB")
+        return " · ".join(parts)
 
     def reset_view(self) -> None:
         self.zoom = 1.0

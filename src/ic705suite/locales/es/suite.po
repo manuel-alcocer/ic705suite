@@ -1452,3 +1452,54 @@ msgstr "FT8: solo {watts} W de los {wanted} W ajustados, con el ALC actuando: la
 
 msgid "FT8: the radio is set to {wanted} W ({percent} %): , . or the radio raise it"
 msgstr "FT8: la emisora está ajustada a {wanted} W ({percent} %): súbela con , . o en la propia emisora"
+
+msgid "FT8 auto: {call} is working {other}; on to the next"
+msgstr "FT8 auto: {call} está con {other}; paso al siguiente"
+
+msgid "I  Ignore {name}"
+msgstr "I  Ignorar {name}"
+
+msgid "I  Stop ignoring {name}"
+msgstr "I  Dejar de ignorar {name}"
+
+msgid "Ignored ({count})"
+msgstr "Ignorados ({count})"
+
+msgid "No country known for that station"
+msgstr "No se sabe el país de esa estación"
+
+msgid "Shift+I  Ignore {name}"
+msgstr "Mayús+I  Ignorar {name}"
+
+msgid "Shift+I  Stop ignoring {name}"
+msgstr "Mayús+I  Dejar de ignorar {name}"
+
+msgid "Stop ignoring {name}"
+msgstr "Dejar de ignorar {name}"
+
+msgid "calling you"
+msgstr "te llama"
+
+msgid "confirmed"
+msgstr "confirmado"
+
+msgid "new DXCC or band"
+msgstr "DXCC o banda nuevos"
+
+msgid "placed by its country"
+msgstr "situado por su país"
+
+msgid "square worked"
+msgstr "cuadrado trabajado"
+
+msgid "the way a call goes"
+msgstr "sentido de la llamada"
+
+msgid "your station"
+msgstr "tu estación"
+
+msgid "{name} ignored: the auto mode leaves it"
+msgstr "{name} ignorado: el modo auto no lo trabajará"
+
+msgid "{name} no longer ignored"
+msgstr "{name} ya no se ignora"

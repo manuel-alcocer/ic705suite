@@ -155,6 +155,8 @@ class Ft8Service:
         self.tx_parity = 0
         self.tx_freq = config.ft8_tx_freq
         self.tx_level = clamp_level(config.ft8_level)
+        self.ignore_calls: set[str] = set()      # never worked by the auto mode
+        self.ignore_countries: set[str] = set()  # DXCC entities, as cty.dat names them
         self._load_settings()                     # as the operator left them last time
         self.last_sent: dict = {}                 # the last message's ALC and power peaks
         self.their_freq = 0                       # the other station's audio frequency
@@ -175,6 +177,7 @@ class Ft8Service:
         self._grids: dict[str, str] = {}         # call -> the grid it last sent
         self.logged: list[dict] = []
         self.auto = Auto()                       # the super-automatic mode (auto.py)
+        self._drop_them = False                  # the station called works another: next
 
     # ---- life ---------------------------------------------------------------------------------
 
@@ -403,6 +406,9 @@ class Ft8Service:
             self.last = {"start": start, "count": len(known), "seconds": took, "depth": depth}
         self.hub.emit({"type": "ft8.cycle", **cycle})
         self._hear(start, entries)
+        if self._drop_them:
+            self._drop_them = False
+            await self._stop_tx()                 # the next one comes from this cycle
         if kind != "early":
             await self._auto_turn(start)
         self._touch()
@@ -472,11 +478,46 @@ class Ft8Service:
                 # Where they are now, whatever they say (a CQ too): the narrow pass at
                 # second 13 looks there.
                 self.their_freq = entry["freq"]
+                if self._busy(entry):
+                    self._drop_them = True
+                    self.hub.info(N_("FT8 auto: {call} is working {other}; on to the next"),
+                                  call=self.qso.them, other=entry.get("to") or "?")
+                    self.auto.missed_one(self.qso.them, time.time())
+                    break
+            if self.auto.on and self.qso.step == "cq" and self.ignored(entry):
+                continue                          # not answered: a call or country ignored
             if self.qso.heard(entry):
                 self.cq_turns = 0
                 self._touch()
         if self.qso.step == "done":
             self._finished()
+
+    def _busy(self, entry: dict) -> bool:
+        """In the auto mode, the station we call (it was calling CQ) answers another: it
+        will not hear us now."""
+        to = entry.get("to") or ""
+        return self.auto.on and self.qso.step == "tx1" and entry.get("kind") == "call" \
+            and bool(to) and not to.startswith("<") and base(to) != base(self.qso.mycall)
+
+    def ignored(self, entry: dict) -> bool:
+        """A station, or its country, the operator does not want the auto mode to work."""
+        sender = base(entry.get("sender") or "")
+        return bool(sender) and (sender in self.ignore_calls
+                                 or (entry.get("country") or "") in self.ignore_countries)
+
+    def set_ignore(self, call: str = "", country: str = "", on: bool = True) -> dict:
+        for name, table in ((base(call), self.ignore_calls), (country, self.ignore_countries)):
+            if name:
+                if on:
+                    table.add(name)
+                else:
+                    table.discard(name)
+        self._save_settings()
+        self._touch()
+        return self.ignore_state()
+
+    def ignore_state(self) -> dict:
+        return {"calls": sorted(self.ignore_calls), "countries": sorted(self.ignore_countries)}
 
     def _late_end(self, start: float, entries: list[dict]) -> None:
         """Their RR73 (or RRR, 73) decoded just after we gave up on them (it comes in the
@@ -577,6 +618,8 @@ class Ft8Service:
             saved = json.loads(self.settings_path.read_text(encoding="utf-8"))
             self.tx_level = clamp_level(saved.get("level", self.tx_level))
             self.tx_freq = max(200, min(3000, int(saved.get("tx_freq", self.tx_freq))))
+            self.ignore_calls = {str(c).upper() for c in saved.get("ignore_calls", [])}
+            self.ignore_countries = {str(c) for c in saved.get("ignore_countries", [])}
         except (OSError, ValueError, TypeError, AttributeError):
             pass
 
@@ -584,7 +627,9 @@ class Ft8Service:
         try:
             self.settings_path.parent.mkdir(parents=True, exist_ok=True)
             self.settings_path.write_text(json.dumps(
-                {"level": self.tx_level, "tx_freq": self.tx_freq}), encoding="utf-8")
+                {"level": self.tx_level, "tx_freq": self.tx_freq,
+                 "ignore_calls": sorted(self.ignore_calls),
+                 "ignore_countries": sorted(self.ignore_countries)}), encoding="utf-8")
         except OSError as exc:
             log.warning("ft8: cannot save %s: %s", self.settings_path, exc)
 
@@ -679,8 +724,8 @@ class Ft8Service:
             return                          # the last one's RR73 may still come
         cycle = next((c for c in self.history if c["start"] == start), None)
         decodes = cycle["decodes"] if cycle is not None else []
-        pick = None if auto.wants_cq() else auto.pick(decodes, self.config.callsign,
-                                                      time.time())
+        pick = None if auto.wants_cq() else auto.pick(
+            [d for d in decodes if not self.ignored(d)], self.config.callsign, time.time())
         if pick is not None:
             auto.quiet = 0
             await self._auto_go(self.reply(pick, start, tries=TRIES_EACH),
@@ -988,7 +1033,7 @@ class Ft8Service:
                        "rx": self.their_freq if self.tx_on else 0,
                        "level": self.tx_level, "last": self.last_sent,
                        "tone": self.toning},
-                "auto": self.auto_state()}
+                "auto": self.auto_state(), "ignore": self.ignore_state()}
 
     async def call(self, method: str, params: dict) -> dict:
         try:
@@ -1010,6 +1055,10 @@ class Ft8Service:
                                                     float(params["start"]))}
             elif method == "halt":
                 await self.halt()
+            elif method == "ignore":
+                return self.set_ignore(str(params.get("call") or ""),
+                                       str(params.get("country") or ""),
+                                       bool(params.get("on", True)))
             elif method == "auto":
                 return await self.set_auto(bool(params.get("on", not self.auto.on)))
             elif method == "tone":
