@@ -24,8 +24,8 @@ from ic705suite.station.links import Link
 from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.widgets import clock_footer, css
 
-HINT = N_("Enter Answer · Q CQ · H Halt · F [ ] TX freq · - + TX level · , . Power · ←→ Band · "
-          "C CQ only · S Stop/Start · Esc Back")
+HINT = N_("Enter Answer · Q CQ · H Halt · T Tone · F [ ] TX freq · - + TX level · , . Power · "
+          "←→ Band · C CQ only · S Stop/Start · Esc Back")
 SHORT_HINT = N_("Enter Answer · Q CQ · H Halt · ←→ Band · Esc Back")
 FT8_BANDS = list(DIALS)
 FREQ_STEP = 25                 # Hz: [ ] move the transmit frequency
@@ -67,7 +67,9 @@ def merge(cycles: list[dict], event: dict) -> None:
     gets the new lines."""
     known = next((c for c in cycles if c["start"] == event["start"]), None)
     if known is not None:
-        known["decodes"] = known["decodes"] + event["decodes"]
+        seen = {(d.get("kind") == "tx", d["message"]) for d in known["decodes"]}
+        known["decodes"] = known["decodes"] + [
+            d for d in event["decodes"] if (d.get("kind") == "tx", d["message"]) not in seen]
         if event.get("dial"):
             known["dial"] = event["dial"]
     else:
@@ -88,10 +90,12 @@ def rows(cycles: list[dict], cq_only: bool, mycall: str) -> list[tuple]:
     """(cycle start, decode or None, cells, style) for each line of the list."""
     out = []
     for cycle in cycles:
-        out.append((cycle["start"], None, ["────────", "", "", "", heading(cycle)],
-                    STYLE_HEADING))
         shown = [d for d in cycle["decodes"] if not cq_only or d.get("kind") in ("cq", "tx")
                  or kind_style(d, mycall) == STYLE_ME]
+        if not shown:
+            continue                     # a quiet cycle: no heading over nothing
+        out.append((cycle["start"], None, ["────────", "", "", "", heading(cycle)],
+                    STYLE_HEADING))
         for d in sorted(shown, key=lambda d: (d.get("kind") != "tx", d["freq"])):
             stamp = f"{d['time'][:2]}:{d['time'][2:4]}:{d['time'][4:]}"
             if d.get("kind") == "tx":
@@ -193,6 +197,7 @@ class Ft8App(App[int]):
         Binding("enter", "reply", show=False, priority=True),
         Binding("q", "cq", show=False),
         Binding("h", "halt", show=False),
+        Binding("t", "tone", show=False),
         Binding("f", "tx_freq", show=False),
         Binding("left_square_bracket", "move_tx(-1)", show=False),
         Binding("right_square_bracket", "move_tx(1)", show=False),
@@ -252,7 +257,8 @@ class Ft8App(App[int]):
             self._message("error", _("cannot connect: {error}").format(error=exc))
             return
         self.mycall = ((self.link.welcome or {}).get("callsign") or "").upper()
-        self.cycles = (await self.link.call("ft8.history")).get("cycles", [])
+        for cycle in (await self.link.call("ft8.history")).get("cycles", []):
+            merge(self.cycles, cycle)       # what the core kept (after a reconnection: more)
         self._fill()
         state = await self.link.call("ft8.state")
         if not state.get("on"):
@@ -290,6 +296,8 @@ class Ft8App(App[int]):
             self.run_worker(self._logbook(event["qso"]))
         elif kind == "ft8.tx":
             self._add(sent_line(event))
+        elif kind == "reconnected":          # the core is back (perhaps restarted): again
+            self.run_worker(self._start(), group="start", exclusive=True)
         elif kind in ("info", "error"):
             self._message(kind, render(event))
 
@@ -408,6 +416,15 @@ class Ft8App(App[int]):
             return
         self.run_worker(self._call(_("Transmitting on {freq} Hz"), "ft8.txfreq",
                                    freq=chosen[1]["freq"]), group="tx")
+
+    def action_tone(self) -> None:
+        if (self.state.get("tx") or {}).get("tone"):
+            self.run_worker(self._call(_("Tone stopped"), "ft8.tone", on=False), group="tx")
+        else:
+            self.run_worker(self._call(_("Tone on {freq} Hz for 10 s: watch the ALC (T or H "
+                                         "stops it)").replace("{freq}", str(
+                                             (self.state.get("tx") or {}).get("freq", ""))),
+                                       "ft8.tone", on=True), group="tx")
 
     def action_move_tx(self, step: int) -> None:
         freq = int((self.state.get("tx") or {}).get("freq") or 1500) + step * FREQ_STEP

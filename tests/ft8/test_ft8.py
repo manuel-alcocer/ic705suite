@@ -598,3 +598,104 @@ def test_timers_waking_early_send_once_per_turn(tmp_path, monkeypatch):
             await link.close()
 
     asyncio.run(scenario())
+
+
+def test_a_waterfall_row():
+    """A tone shows in its 5 Hz column, well over the noise; the rest stays near the floor."""
+    from ic705suite.apps.ft8 import waterfall
+
+    for rate in (8000, 12000, 48000):
+        t = np.arange(rate) / rate
+        noise = np.random.default_rng(1).standard_normal(rate) * 0.01
+        levels = np.frombuffer(waterfall.row((0.3 * np.sin(2 * np.pi * 1503 * t) + noise)
+                                             .astype(np.float32), rate), np.uint8)
+        assert len(levels) == waterfall.columns() == 640
+        assert int(levels.argmax()) * waterfall.STEP == 1500
+        assert waterfall.db_over_floor(int(levels.max())) > 30
+        assert abs(waterfall.db_over_floor(int(np.median(levels)))) < 1
+        assert waterfall.decode(waterfall.encode(levels.tobytes())) == levels.tobytes()
+
+
+def test_the_waterfall_only_while_watched(tmp_path, monkeypatch):
+    fake_jt9(monkeypatch)
+
+    async def scenario():
+        link = await sim_link(tmp_path)
+        rows: list[dict] = []
+        link.attach(lambda e: e.get("type") == "ft8.wf" and rows.append(e))
+        try:
+            await link.call("ft8.start")
+            await asyncio.sleep(0.8)
+            assert not rows                                  # nobody asked
+            reply = await link.call("ft8.waterfall", seconds=1)
+            assert reply == {"low": 0, "high": 3200, "step": 5}
+            await until(lambda: len(rows) >= 2)
+            assert len(service_module.waterfall.decode(rows[-1]["levels"])) == 640
+            await asyncio.sleep(1.3)
+            count = len(rows)
+            await asyncio.sleep(0.6)
+            assert len(rows) == count                        # no longer asked: no rows
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_quiet_cycles_take_no_room():
+    from ic705suite.apps.ft8.app import rows
+
+    cycles = [{"start": 0, "dial": 14_074_000, "decodes": []},
+              {"start": 15, "dial": 14_074_000, "decodes": [
+                  {"time": "000015", "snr": -9, "dt": 0.1, "freq": 900, "message": "G4XYZ F5ABC JN12",
+                   "kind": "call", "sender": "F5ABC", "to": "G4XYZ"}]}]
+    assert [start for start, _d, _c, _s in rows(cycles, False, "EA7KLX")] == [15, 15]
+    assert rows(cycles, True, "EA7KLX") == []              # only CQs: nothing to show
+
+
+def test_the_tune_tone(tmp_path, monkeypatch):
+    """A steady tone on our frequency with the level set: the ALC shows it (too strong at
+    full scale), T or H stops it, and it is refused where a message would be."""
+    fake_jt9(monkeypatch)
+    monkeypatch.setattr(service_module.encode, "find_ft8code", lambda configured="": "ft8code")
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=False, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        sent: list[dict] = []
+        link.attach(lambda e: e.get("type") == "ft8.sent" and sent.append(e))
+        sim = link.core.station.transport
+        try:
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            assert "transmission is off" in (await link.call("ft8.tone"))["error"]
+            link.core.config.tx_enabled = True
+            link.core.station.rig.tx_enabled = True
+
+            await link.call("ft8.level", level=1.0)
+            assert (await link.call("ft8.tone", seconds=1.5)) == {"ok": True}
+            await until(lambda: sim.ptt)
+            assert (await link.call("ft8.state"))["tx"]["tone"]
+            assert (await link.call("ft8.cq"))["msgid"] == "The tone is on: T stops it"
+            await link.call("ft8.halt")
+            await until(lambda: not sim.ptt and not link.core.ft8.toning)
+
+            before = sim.tx_audio_bytes
+            await link.call("ft8.tone", seconds=1.2)                # runs to its end
+            await until(lambda: sent and not link.core.ft8.toning, 5)
+            assert not sim.ptt and sim.tx_audio_bytes - before >= 1.0 * sim.sample_rate * 2
+            assert sent[-1]["message"] == "tone" and sent[-1]["alc"] > 0.3
+
+            await link.call("ft8.level", level=0.3)
+            await link.call("ft8.tone", seconds=1.2)
+            await until(lambda: len(sent) >= 2 and not link.core.ft8.toning, 5)
+            assert sent[-1]["alc"] == 0 and sent[-1]["level"] == 0.3
+            await link.call("ft8.tone", seconds=60)                  # never over 15 s
+            await until(lambda: sim.ptt)
+            assert (await link.call("ft8.tone", on=False)) == {"ok": True}
+            await until(lambda: not sim.ptt)
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())

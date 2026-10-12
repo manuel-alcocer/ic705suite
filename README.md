@@ -311,13 +311,22 @@ own link, keying it by CI-V, only with `tx_enabled` and the radio in a data mode
 MOD input set to WLAN). What we send shows in yellow. `[station] locator` is the grid sent
 (asked by `--configure`).
 
+In the graphical client the **waterfall** sits above the lists, as WSJT-X's Wide Graph:
+0-3200 Hz, a row every quarter of a second, a dashed line and the time at each cycle, our
+transmit frequency in red and the station we work in green. The call of each station
+decoded is written on its trace: a click on it chooses that station in the list, a double
+click answers it, and a click anywhere else puts our transmit frequency there. Gain and Zero
+set its colours. The core computes it only while a screen shows it.
+
 Beside the band's activity (under it in the terminal), the **QSO** area shows the
 conversation alone: what we send, what is sent to us and what the station we work says.
 Under them, what we transmit with: the audio frequency (**[ ]** move it 25 Hz, or type it),
 the audio level (**- +**, `[ft8] level`, 50 % by default), the radio's power (**, .** a watt
 down or up) and its **ALC**, live while sending and the last message's peak afterwards. FT8
 wants the ALC at 0: if it rises, lower the level (the suite says so after the message);
-the watts come from the power, not from the audio.
+the watts come from the power, not from the audio. **T** (the Tone button) sends a steady
+tone on the transmit frequency and level for 10 seconds, as WSJT-X's Tune, to set the level
+with the ALC moving and nobody to answer (T or H stops it sooner; never over 15 s).
 
 Each QSO completed (reports both ways) is added to `ft8/ft8_log.adi` in the core's data
 folder (`~/.local/share/ic705suite` on Linux), as WSJT-X keeps `wsjtx_log.adi`: call, grid,
@@ -350,7 +359,10 @@ the suite in a `python3 -m venv --system-site-packages` environment. That core c
 radio too (`connection = "lan"`): a Raspberry Pi 4 runs it all with room to spare. Then, on
 the computer, `[rig] connection = "server"` with `[client] connect` and `token` makes
 `ic705suite` (and `--gui`) always use that core, with no `--connect` to type; `--sim` still
-opens the simulator here.
+opens the simulator here. The status line then shows both machines by name: this one's
+CPU, RAM and CPU temperature, and the core's (temperatures from Linux's sensors). If the
+core goes away (restarted, the network down) the radio shows as disconnected, the screens
+keep working (Esc leaves), and the client connects again by itself when the core is back.
 
 ## Development
 

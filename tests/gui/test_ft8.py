@@ -167,3 +167,141 @@ def test_what_we_transmit_with(tmp_path, run, monkeypatch):
             win.close()
 
     run(scenario())
+
+
+def test_the_waterfall(tmp_path, run, monkeypatch):
+    """Rows come while the page is open; a click sets the TX frequency, a click on a call
+    chooses that station and a double click answers it."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+
+    fake_jt9(monkeypatch)
+
+    async def scenario():
+        from ic705suite.gui.app import MainWindow
+
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        win = MainWindow(link, config, start_app="ft8")
+        win.resize(1300, 860)
+        win.show()
+        page = win.page
+        view = page.waterfall
+        try:
+            await until(lambda: view.total >= 6)                     # rows, asked by the page
+            await until(lambda: page.table.rowCount() >= 4)
+            x = round(view._x(2200))
+            QTest.mouseClick(view, Qt.MouseButton.LeftButton, pos=QPoint(x, 23))   # a gap
+            await until(lambda: abs(link.core.ft8.tx_freq - 2200) <= 3)     # a pixel's Hz
+            clicked = link.core.ft8.tx_freq
+            await until(lambda: view.tx_freq == clicked)
+
+            # A call on the waterfall: its line chosen in the list.
+            start, decode = next((s, d) for s, d, _c, _st in page.lines
+                                 if d and d.get("message") == "CQ EA1ABC IN73")
+            view.labels.clear()
+            view.times.clear()
+            view.times.append((view.total - 30, start + 7))       # 30 rows down
+            view.add_labels(start, [decode])
+            view.repaint()
+            rect, label = view._label_rects[0]
+            assert label.text == "EA1ABC"
+            QTest.mouseClick(view, Qt.MouseButton.LeftButton, pos=rect.center())
+            row = page.table.currentRow()
+            assert page.lines[row][1]["message"] == "CQ EA1ABC IN73"
+            assert link.core.ft8.tx_freq == clicked                  # not moved by it
+            QTest.mouseDClick(view, Qt.MouseButton.LeftButton, pos=rect.center())
+            await until(lambda: link.core.ft8.tx_on and link.core.ft8.qso.them == "EA1ABC")
+            await link.call("ft8.halt")
+        finally:
+            await link.close()
+            win.close()
+
+    run(scenario())
+
+
+def test_the_core_lost_and_back(tmp_path, run, monkeypatch):
+    """FT8 on another machine's core: the core goes away (restarted) and comes back. The
+    window shows the radio disconnected, starts again by itself, and Esc always leaves."""
+    import asyncio
+
+    from ic705suite.rig.icom.sim import SimTransport
+    from ic705suite.station.core import Core
+    from ic705suite.station.links import RemoteLink
+    from ic705suite.station.server import CoreServer
+    from tests.cw.test_client_server import start_server
+
+    fake_jt9(monkeypatch)
+
+    async def scenario():
+        from ic705suite.gui.app import MainWindow
+
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX",
+                        database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        core, stop, task, port = await start_server(config, SimTransport(stations=[], seed=5))
+        link = RemoteLink(f"127.0.0.1:{port}", "secret")
+        link.RETRY = 0.3
+        win = MainWindow(link, config, start_app="ft8")
+        win.resize(1200, 800)
+        win.show()
+        page = win.page
+        try:
+            await until(lambda: page.state.get("on") and page.table.rowCount() >= 2)
+            stop.set()
+            await task
+            await core.stop()
+            await until(lambda: page.status.rig.get("connected") is False)
+            assert "connection to the server lost" in page.message.text()
+
+            core = Core(SimTransport(stations=[], seed=6), config)
+            await core.start()
+            stop = asyncio.Event()
+            task = asyncio.create_task(CoreServer(core, "127.0.0.1", port, "secret").run(stop))
+            await until(lambda: core.ft8.on)                   # started again by the page
+            await until(lambda: page.status.rig.get("connected"))
+
+            stop.set()                                          # gone again: Esc still leaves
+            await task
+            await core.stop()
+            await until(lambda: not link.connected)
+            await key(Qt.Key.Key_Escape)
+            await until(lambda: win.finished.done(), 5)
+        finally:
+            await link.close()
+            stop.set()
+            win.close()
+
+    run(scenario())
+
+
+def test_the_tone_button(tmp_path, run, monkeypatch):
+    fake_jt9(monkeypatch)
+
+    async def scenario():
+        from ic705suite.gui.app import MainWindow
+
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", tx_enabled=True,
+                        database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        win = MainWindow(link, config, start_app="ft8")
+        win.resize(1200, 800)
+        win.show()
+        win.activateWindow()
+        page = win.page
+        sim = None
+        try:
+            await until(lambda: page.state.get("on"))
+            sim = link.core.station.transport
+            await link.call("ft8.band", band="20m")
+            page.tone_button.click()                                  # the mouse
+            await until(lambda: sim.ptt and page.tone_button.text().endswith("Stop tone"))
+            await key(Qt.Key.Key_T)                                   # T again: off
+            await until(lambda: not sim.ptt and page.tone_button.text().endswith("Tone"))
+        finally:
+            if sim is not None:
+                assert not sim.ptt
+            await link.close()
+            win.close()
+
+    run(scenario())

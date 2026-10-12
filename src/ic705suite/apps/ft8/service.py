@@ -11,9 +11,13 @@ Events (server -> client):
   ft8.sent   {start, message, alc, watts}  how it went out: the highest ALC (0 none, 1 the
              top of the radio's ALC zone) and RF power the radio showed while sending
   ft8.qso    {qso: {ADIF fields}, path}  a QSO completed, added to ft8_log.adi
+  ft8.wf     {time, low, step, levels}  a waterfall row (apps.ft8.waterfall), four a second
+             while a screen asks for them (ft8.waterfall)
   info       a QSO completed, given up, or a transmission refused (and why)
 Calls ("ft8.*"): state, start, stop, history {cycles}, band {band}, cq {freq}, reply
-  {decode, start}, halt, txfreq {freq}, level {level} (the transmit audio, 0.05-1 of full
+  {decode, start}, halt, tone {on, seconds} (a steady tone on our frequency, for the ALC,
+  at most TONE_LONGEST s; halt stops it too), txfreq {freq}, waterfall {seconds} (rows for
+  that long: asked again to keep them), level {level} (the transmit audio, 0.05-1 of full
   scale: lower it when the ALC moves), log (the QSOs completed and ft8_log.adi)
 Decoding ([ft8] depth 0, the default): as WSJT-X, the deepest pass that is done in about
 3 s first, then a deeper one if it fits before the next cycle, from what each depth took
@@ -40,7 +44,7 @@ from pathlib import Path
 
 import numpy as np
 
-from ic705suite.apps.ft8 import adif, encode, jt9
+from ic705suite.apps.ft8 import adif, encode, jt9, waterfall
 from ic705suite.apps.ft8.messages import parse
 from ic705suite.apps.ft8.sequence import Qso
 from ic705suite.i18n import N_
@@ -68,6 +72,8 @@ LEVEL_RANGE = (0.05, 1.0)  # the transmit audio, of full scale ([ft8] level; the
 ALC_HIGH = 0.3             # an ALC peak over this (of the ALC zone): the audio is too strong
 LONGEST_KEY = 16.0         # the PTT watchdog while a message goes out
 CQ_TURNS = 20              # CQs with nobody answering (5 minutes): stop
+TONE_SECONDS = 10.0        # the tune tone, unless asked otherwise
+TONE_LONGEST = 15.0        # and never longer
 DATA1_MOD = b"\x1a\x05\x01\x19"
 MOD_WLAN = 0x03
 
@@ -116,6 +122,9 @@ class Ft8Service:
         self.program: str | None = None
         self.coder: str | None = None
         self._chunks: list[np.ndarray] = []
+        self._wf_until = 0.0                      # rows sent until then (monotonic)
+        self._wf_audio: deque[np.ndarray] = deque()
+        self._wf_task: asyncio.Task | None = None
         self._start: float | None = None       # the cycle being heard (None: a partial one)
         self._task: asyncio.Task | None = None
         self._work: Path | None = None
@@ -136,6 +145,7 @@ class Ft8Service:
         self.cq_turns = 0
         self._sending: asyncio.Task | None = None
         self._mod_set = False
+        self._tone: asyncio.Task | None = None
         self.qso_began: float | None = None      # our first message to the other station
         self.logged: list[dict] = []
 
@@ -157,6 +167,7 @@ class Ft8Service:
         self.station.add_audio_listener(self._audio)
         self.on = True
         self._task = asyncio.create_task(self._run())
+        self._wf_task = asyncio.create_task(self._waterfall())
         self._touch()
 
     async def stop(self) -> None:
@@ -165,11 +176,12 @@ class Ft8Service:
             return
         self.on = False
         self.station.remove_audio_listener(self._audio)
-        if self._task is not None:
-            self._task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._task
-            self._task = None
+        for task in (self._task, self._wf_task):
+            if task is not None:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+        self._task = self._wf_task = None
         for task in list(self._pending):
             task.cancel()
         if self._work is not None:
@@ -195,6 +207,24 @@ class Ft8Service:
     def _audio(self, samples: np.ndarray) -> None:
         if self._start is not None:
             self._chunks.append(samples.copy())
+        if time.monotonic() < self._wf_until:
+            self._wf_audio.append(samples.copy())
+
+    async def _waterfall(self) -> None:
+        """A spectrum row every quarter of a second, while a screen watches."""
+        while True:
+            await asyncio.sleep(waterfall.INTERVAL)
+            if time.monotonic() >= self._wf_until or not self._wf_audio:
+                self._wf_audio.clear()
+                continue
+            rate = self.station.transport.sample_rate
+            keep = waterfall.window_size(rate)
+            samples = np.concatenate(self._wf_audio)[-keep:]
+            self._wf_audio.clear()
+            self._wf_audio.append(samples)                 # the next row overlaps it
+            self.hub.emit({"type": "ft8.wf", "time": time.time(), "low": waterfall.LOW,
+                           "step": waterfall.STEP,
+                           "levels": waterfall.encode(waterfall.row(samples, rate))})
 
     async def _run(self) -> None:
         last = 0.0
@@ -377,7 +407,8 @@ class Ft8Service:
         return message
 
     async def halt(self) -> None:
-        """Stop transmitting now (and the QSO)."""
+        """Stop transmitting now (and the QSO, or the tone)."""
+        await self._stop_tone()
         self.tx_on = False
         self.qso.stop()
         sending, self._sending = self._sending, None
@@ -394,6 +425,8 @@ class Ft8Service:
             raise Ft8Error(N_("FT8 is stopped: S starts it"))
         if not self.config.tx_enabled:
             raise Ft8Error(N_("Transmission is off ([rig] tx_enabled, --tx)"))
+        if self.toning:
+            raise Ft8Error(N_("The tone is on: T stops it"))
         if not self.config.callsign:
             raise Ft8Error(N_("No callsign: [station] callsign"))
         if self.coder is None:
@@ -512,6 +545,74 @@ class Ft8Service:
         if qso.step == "done":
             self._finished()
 
+    # ---- the tune tone -------------------------------------------------------------------------
+
+    @property
+    def toning(self) -> bool:
+        return self._tone is not None and not self._tone.done()
+
+    async def tone(self, on: bool, seconds: float = TONE_SECONDS) -> None:
+        """A steady tone on our transmit frequency and level, as WSJT-X's Tune: to set the
+        level with the ALC moving, with nobody to answer."""
+        if not on:
+            await self._stop_tone()
+            return
+        if self.toning:
+            return
+        if self.tx_on or self.transmitting:
+            raise Ft8Error(N_("Transmitting a message: H halts it first"))
+        problem = await self._cannot_key()
+        if problem is not None:
+            msgid, args = problem
+            raise Ft8Error(msgid, **args)
+        self._tone = asyncio.create_task(self._send_tone(min(TONE_LONGEST, float(seconds))))
+        self._touch()
+
+    async def _stop_tone(self) -> None:
+        tone, self._tone = self._tone, None
+        if tone is not None and not tone.done():
+            tone.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await tone
+        self._touch()
+
+    async def _send_tone(self, seconds: float) -> None:
+        rate = self.station.transport.sample_rate
+        piece = int(rate * PIECE)
+        step = 2 * np.pi * self.tx_freq / rate
+        meters = self.station.rig.state.meters
+        alc = watts = 0.0
+        began = time.time()
+        try:
+            self.transmitting = True
+            await self.station.rig.ptt(True, longest=seconds + 2)
+            for meter in ("alc", "po"):
+                meters.pop(meter, None)
+            self._touch()
+            phase, index = 0.0, 0
+            while time.time() - began < seconds:
+                await asyncio.sleep(max(0.0, began + index * PIECE - LEAD - time.time()))
+                angles = phase + step * np.arange(piece)
+                phase = float(angles[-1] + step) % (2 * np.pi)
+                sound = np.sin(angles) * self.tx_level
+                self.station.transport.send_audio(
+                    (np.clip(sound, -1, 1) * 32767).astype("<i2").tobytes())
+                if index % 25 == 0:
+                    alc = max(alc, float(meters.get("alc") or 0))
+                    watts = max(watts, float(meters.get("po") or 0))
+                index += 1
+            await asyncio.sleep(TAIL)
+        except (RigError, TransportError) as exc:
+            self.hub.error(N_("FT8 transmission failed: {error}"), error=str(exc))
+        finally:
+            if self.transmitting:
+                await self._unkey()
+            alc = max(alc, float(meters.get("alc") or 0))
+            watts = max(watts, float(meters.get("po") or 0))
+            if time.time() - began > 1:
+                self._sent(began, N_("tone"), alc, watts)
+            self._touch()
+
     def _sent(self, start: float, message: str, alc: float, watts: float) -> None:
         self.last_sent = {"start": start, "message": message, "alc": round(alc, 2),
                           "watts": round(watts, 1), "level": self.tx_level}
@@ -579,7 +680,9 @@ class Ft8Service:
                        "message": qso.message if self.tx_on else "", "step": qso.step,
                        "them": qso.them, "freq": self.tx_freq, "parity": self.tx_parity,
                        "tries": qso.tries, "mycall": qso.mycall, "grid": qso.mygrid,
-                       "level": self.tx_level, "last": self.last_sent}}
+                       "rx": self.their_freq if self.tx_on else 0,
+                       "level": self.tx_level, "last": self.last_sent,
+                       "tone": self.toning}}
 
     async def call(self, method: str, params: dict) -> dict:
         try:
@@ -601,6 +704,9 @@ class Ft8Service:
                                                     float(params["start"]))}
             elif method == "halt":
                 await self.halt()
+            elif method == "tone":
+                await self.tone(bool(params.get("on", True)),
+                                float(params.get("seconds", TONE_SECONDS)))
             elif method == "log":
                 try:
                     text = self.log_path.read_text(encoding="utf-8")
@@ -611,6 +717,9 @@ class Ft8Service:
                 self.tx_freq = max(200, min(3000, int(params["freq"])))
                 self._touch()
                 return {"freq": self.tx_freq}
+            elif method == "waterfall":
+                self._wf_until = time.monotonic() + min(60.0, float(params.get("seconds", 15)))
+                return {"low": waterfall.LOW, "high": waterfall.HIGH, "step": waterfall.STEP}
             elif method == "level":
                 self.tx_level = clamp_level(params["level"])
                 self._touch()

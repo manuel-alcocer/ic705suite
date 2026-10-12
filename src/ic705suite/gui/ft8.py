@@ -1,7 +1,9 @@
 """FT8 in the graphical client: the terminal's screen (apps.ft8.app) with the same keys, and
 the mouse: a double click answers a station, buttons call CQ and halt, the band from a list,
-Stop/Start, the CQ-only box; beside the band's activity, the QSO; under them, what we
-transmit with: the audio frequency, the audio level, the radio's power, and the ALC."""
+Stop/Start, the CQ-only box; above them the waterfall (gui.waterfall: a click there puts
+our transmit frequency, a call on it chooses that station), beside the band's activity the
+QSO, and under them what we transmit with: the audio frequency, the audio level, the
+radio's power, and the ALC."""
 
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
+    QSlider,
     QSpinBox,
     QSplitter,
     QTableWidgetItem,
@@ -44,8 +47,10 @@ from ic705suite.apps.ft8.app import (
     sent_line,
     watts,
 )
+from ic705suite.apps.ft8.waterfall import decode as waterfall_levels
 from ic705suite.gui import theme
 from ic705suite.gui.page import Page
+from ic705suite.gui.waterfall import WaterfallView
 from ic705suite.gui.widgets import Footer, Frame, StatusLine, Table, span
 from ic705suite.i18n import _, render
 from ic705suite.rig import bands
@@ -91,11 +96,14 @@ class Ft8Page(Page):
         for key, label, action in (("Enter", _("Answer"), self.action_reply),
                                    ("Q", "CQ", self.action_cq),
                                    ("H", _("Halt"), self.action_halt),
+                                   ("T", _("Tone"), self.action_tone),
                                    ("F", _("TX freq"), self.action_tx_freq)):
             button = QPushButton(f"{key}  {label}")
             button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             button.clicked.connect(lambda _c=False, a=action: a())
             controls.addWidget(button)
+            if key == "T":
+                self.tone_button = button
         self.frame.body.addLayout(controls)
         self.table = self.frame.add(self._log_table(), 1)
         self.table.pass_letters = True                       # C, S are the page's
@@ -111,6 +119,20 @@ class Ft8Page(Page):
         self.splitter.setStretchFactor(1, 2)
         self.splitter.setChildrenCollapsible(False)
         self.splitter.setSizes([600, 400])
+        self.wf_frame = Frame(_("Waterfall"))
+        self.wf_frame.body.addLayout(self._wf_controls())
+        self.waterfall = self.wf_frame.add(WaterfallView(), 1)
+        self.waterfall.freq_clicked.connect(lambda hz: self.run_worker(self._call(
+            _("Transmitting on {freq} Hz"), "ft8.txfreq", freq=hz), group="tx"))
+        self.waterfall.station_clicked.connect(self._choose)
+        self.waterfall.station_double_clicked.connect(
+            lambda start, decode: self._choose(start, decode) and self.action_reply())
+        self.panes = QSplitter(Qt.Orientation.Vertical)
+        self.panes.addWidget(self.wf_frame)
+        self.panes.addWidget(self.splitter)
+        self.panes.setChildrenCollapsible(False)
+        self.panes.setSizes([260, 440])
+        self._watch_turn = 0
         self.tx_frame = Frame(_("Transmit"))
         self.tx_frame.body.addLayout(self._tx_controls())
         self.message = QLabel()
@@ -121,7 +143,7 @@ class Ft8Page(Page):
         layout.addWidget(self.status)
         body = QVBoxLayout()
         body.setContentsMargins(8, 4, 8, 4)
-        body.addWidget(self.splitter, 1)
+        body.addWidget(self.panes, 1)
         body.addWidget(self.tx_frame)
         body.addWidget(self.message)
         layout.addLayout(body, 1)
@@ -204,6 +226,38 @@ class Ft8Page(Page):
         self._shown: dict[str, float] = {}
         return row
 
+    def _wf_controls(self) -> QHBoxLayout:
+        """Gain and zero of the waterfall's colours, as WSJT-X's sliders."""
+        row = QHBoxLayout()
+        row.addWidget(QLabel(_("Click: TX frequency · a call: that station (double: answer)")))
+        row.addStretch(1)
+        for label, low, high, value, tip, apply in (
+                (_("Gain"), 3, 30, 10, _("Contrast: how many dB go from black to red"),
+                 lambda v: self.waterfall.set_colours(gain=v / 10)),
+                (_("Zero"), -10, 20, 0, _("dB over the noise that stays black"),
+                 lambda v: self.waterfall.set_colours(zero=float(v)))):
+            row.addWidget(QLabel(label))
+            slider = QSlider(Qt.Orientation.Horizontal)
+            slider.setRange(low, high)
+            slider.setValue(value)
+            slider.setFixedWidth(110)
+            slider.setToolTip(tip)
+            slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            slider.valueChanged.connect(apply)
+            row.addWidget(slider)
+        return row
+
+    def _choose(self, start: float, decode: dict) -> bool:
+        """The line of a station clicked on the waterfall, chosen in the list."""
+        for row, (line_start, line, _cells, _style) in enumerate(self.lines):
+            if line is not None and line_start == start and \
+                    line.get("message") == decode.get("message"):
+                self.table.selectRow(row)
+                self.table.scrollToItem(self.table.item(row, 0))
+                self.table.setFocus()
+                return True
+        return False
+
     def _changed(self, name: str, value: float, send) -> None:
         """A box changed by the operator (not by an update from the core)."""
         if self._shown.get(name) != value:
@@ -236,7 +290,8 @@ class Ft8Page(Page):
             self._message("error", _("cannot connect: {error}").format(error=exc))
             return
         self.mycall = ((self.link.welcome or {}).get("callsign") or "").upper()
-        self.cycles = (await self.link.call("ft8.history")).get("cycles", [])
+        for cycle in (await self.link.call("ft8.history")).get("cycles", []):
+            merge(self.cycles, cycle)       # what the core kept (after a reconnection: more)
         self._fill()
         state = await self.link.call("ft8.state")
         self.state = state
@@ -271,7 +326,13 @@ class Ft8Page(Page):
             self._tick()
         elif kind == "ft8.sent":
             self._show_tx()
+        elif kind == "reconnected":          # the core is back (perhaps restarted): again
+            self.run_worker(self._start(), group="start", exclusive=True)
+        elif kind == "ft8.wf":
+            self.waterfall.add_row(waterfall_levels(event["levels"]), event["time"],
+                                   event.get("low", 0), event.get("step", 5))
         elif kind == "ft8.cycle":
+            self.waterfall.add_labels(event["start"], event["decodes"])
             merge(self.cycles, event)
             self._fill(keep_end=True)
             self._message("info", "")
@@ -379,6 +440,17 @@ class Ft8Page(Page):
             self.band_box.setCurrentText(band)
         self.footer.counters = [(_("Decoded"), sum(len(c["decodes"]) for c in self.cycles[-1:]))]
         self._show_tx()
+        tx = self.state.get("tx") or {}
+        toning = bool(tx.get("tone"))
+        self.tone_button.setText(f"T  {_('Stop tone') if toning else _('Tone')}")
+        self.tone_button.setStyleSheet(f"background: {theme.RED}; color: #ffffff;"
+                                       if toning else "")
+        self.waterfall.set_markers(int(tx.get("freq") or 1500), int(tx.get("rx") or 0))
+        self._watch_turn += 1
+        if on and self._watch_turn % 5 == 1 and self.timer.isActive():
+            # The core sends the waterfall only while someone asks for it.
+            self.run_worker(self.link.call("ft8.waterfall", seconds=15), group="watch",
+                            exclusive=True)
 
     def _message(self, kind: str, text: str) -> None:
         self.message.setText(span(text, theme.RED if kind == "error" else theme.CYAN,
@@ -446,6 +518,15 @@ class Ft8Page(Page):
             return
         self.run_worker(self._call(_("Transmitting on {freq} Hz"), "ft8.txfreq",
                                    freq=chosen[1]["freq"]), group="tx")
+
+    def action_tone(self) -> None:
+        if (self.state.get("tx") or {}).get("tone"):
+            self.run_worker(self._call(_("Tone stopped"), "ft8.tone", on=False), group="tx")
+        else:
+            self.run_worker(self._call(_("Tone on {freq} Hz for 10 s: watch the ALC (T or H "
+                                         "stops it)").replace("{freq}", str(
+                                             (self.state.get("tx") or {}).get("freq", ""))),
+                                       "ft8.tone", on=True), group="tx")
 
     def action_move_tx(self, step: int) -> None:
         freq = int((self.state.get("tx") or {}).get("freq") or 1500) + step * FREQ_STEP
