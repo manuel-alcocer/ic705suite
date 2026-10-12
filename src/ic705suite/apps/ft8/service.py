@@ -88,6 +88,12 @@ def clamp_level(level: float) -> float:
     return round(max(LEVEL_RANGE[0], min(LEVEL_RANGE[1], float(level))), 2)
 
 
+async def sleep_until(moment: float) -> None:
+    """Until the clock reads `moment` (asyncio's timers may wake a few ms early)."""
+    while (wait := moment - time.time()) > 0:
+        await asyncio.sleep(max(wait, 0.001))
+
+
 def cycle_start(now: float) -> float:
     return math.floor(now / CYCLE) * CYCLE
 
@@ -191,15 +197,18 @@ class Ft8Service:
             self._chunks.append(samples.copy())
 
     async def _run(self) -> None:
+        last = 0.0
         while True:
             now = time.time()
-            boundary = cycle_start(now) + CYCLE
+            # Never the same boundary twice (a timer may wake a little early: Windows).
+            boundary = max(cycle_start(now) + CYCLE, last + CYCLE)
+            last = boundary
             early_at = boundary - CYCLE + EARLY
             if self._listening_for_them() and now < early_at:
-                await asyncio.sleep(max(0.0, early_at - time.time()))
+                await sleep_until(early_at)
                 if self._start is not None and self._listening_for_them():
                     self._background(self._early(self._start, list(self._chunks)))
-            await asyncio.sleep(max(0.0, boundary - time.time()))
+            await sleep_until(boundary)
             heard, start = self._chunks, self._start
             self._chunks, self._start = [], boundary
             if start is not None and heard:

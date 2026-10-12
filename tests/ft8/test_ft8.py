@@ -559,3 +559,42 @@ def test_the_qso_lines():
     assert power_step(rig, 20.0, 1) == 30 and power_step(rig, 5.0, -1) == 0
     pieces = dict(tx_pieces({"tx": {"freq": 1500, "level": 0.45}}, rig))
     assert pieces["TX"] == "1500 Hz" and pieces["PWR"] == "2.0 W" and pieces["ALC"] == "0.50"
+
+
+def test_timers_waking_early_send_once_per_turn(tmp_path, monkeypatch):
+    """Windows' timers may wake a few ms early: each cycle is still taken once (it was taken
+    again, decoding and transmitting twice in a turn)."""
+    air = short_turns(monkeypatch)
+    real_sleep = asyncio.sleep
+
+    async def early(delay, *args, **kwargs):
+        return await real_sleep(max(0.0, delay - 0.03), *args, **kwargs)
+
+    class EarlyAsyncio:                         # the service's asyncio, its timers early
+        sleep = staticmethod(early)
+
+        def __getattr__(self, name):
+            return getattr(asyncio, name)
+
+    monkeypatch.setattr(service_module, "asyncio", EarlyAsyncio())
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        starts: list[float] = []
+        link.attach(lambda e: e.get("type") == "ft8.tx" and starts.append(e["start"]))
+        try:
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            await link.call("ft8.cq")
+            await until(lambda: len(starts) >= 3)
+            await link.call("ft8.halt")
+            assert len(set(starts)) == len(starts)
+            assert all(b - a == 2 for a, b in zip(starts, starts[1:], strict=False))  # turns
+            assert len(air["sent"]) == len(starts)
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())

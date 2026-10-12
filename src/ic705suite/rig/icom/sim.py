@@ -210,6 +210,8 @@ class SimTransport(Transport):
         if body[:2] == b"\x1c\x00":
             if len(data) == 1:
                 return body + bytes([int(self.ptt)])
+            if data[1] == 1 and not self.ptt:
+                self.tx_peak = 0.0               # each transmission drives its own ALC
             self.ptt = data[1] == 1
             return ok
         if body[:2] == b"\x15\x12":   # SWR meter: a parabola around the resonance
