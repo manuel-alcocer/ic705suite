@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v0.16.0 (2026-10-12)
+
+### Bug Fixes
+
+- **link**: The client survives the core going away, and connects again
+  ([`bdb6f99`](https://github.com/manuel-alcocer/ic705suite/commit/bdb6f9980ca85b2f6e1455a6360180517fcaec1f))
+
+### Features
+
+- **ft8**: Waterfall with the calls on their traces, a tune tone, quiet cycles hidden
+  ([`4923e0f`](https://github.com/manuel-alcocer/ic705suite/commit/4923e0f97d0d67246afc5a7f4b834f64b6bec622))
+
+- **ui**: CPU temperature, and the core's machine's load beside this one's
+  ([`f06d211`](https://github.com/manuel-alcocer/ic705suite/commit/f06d2119abcadccb14833e1400bdd597afb463de))
+
+### Testing
+
+- **ft8**: The waterfall's double click answers with ft8code faked, as CI has no WSJT-X
+  ([`41bdf98`](https://github.com/manuel-alcocer/ic705suite/commit/41bdf98a9f9d39cc5b67feefda1c684acb524de5))
+
+
 ## v0.15.0 (2026-10-12)
 
 ### Bug Fixes
