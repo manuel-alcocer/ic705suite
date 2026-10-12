@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.20.0 (2026-10-12)
+
+### Features
+
+- **ft8**: Arrows on the map, its key, a busy station left, and stations ignored
+  ([`cf922c5`](https://github.com/manuel-alcocer/ic705suite/commit/cf922c5922a6bda47656059989feefb1ed8dbf82))
+
+
 ## v0.19.0 (2026-10-12)
 
 ### Features
