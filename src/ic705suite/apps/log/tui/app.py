@@ -155,6 +155,9 @@ COMMAND_USAGE: dict[str, str] = {
 #: How many previously typed lines the up/down keys can recall.
 LINE_HISTORY_LIMIT = 100
 
+LOG_WATCH_SECONDS = 5.0      # how often a shared log is looked at for changes
+
+
 class HamrlogApp(App[None]):
     """The logbook application."""
 
@@ -193,6 +196,7 @@ class HamrlogApp(App[None]):
             for slot in range(10)
         ),
         Binding("ctrl+d", "delete_qso", N_("Delete QSO"), priority=True),
+        Binding("ctrl+r", "refresh_log", N_("Refresh the log"), priority=True, show=False),
         Binding("ctrl+a", "mark_all", N_("Select all"), priority=True, show=False),
         Binding("escape", "back_to_entry", N_("Back to typing"), show=False),
         Binding("ctrl+q", "quit", N_("Quit"), priority=True),
@@ -264,6 +268,8 @@ class HamrlogApp(App[None]):
         if self.state.operator_id is None:
             self.call_after_refresh(self._first_run_wizard)
 
+        self._log_version = QsoService.version()        # as loaded: changes from here
+        self.set_interval(LOG_WATCH_SECONDS, self._watch_log)
     def _load_initial_state(self) -> None:
         """Restore the previous session, then activate the default profile."""
         self.state = SettingsService.load_state()
@@ -419,6 +425,24 @@ class HamrlogApp(App[None]):
         panel = self.query_one(HistoryPanel)
         panel.set_order(self.state.history_order)
         panel.load(QsoService.recent())
+
+    def action_refresh_log(self) -> None:
+        """Ctrl+R: the log as it is now in the database (another client, the core's FT8)."""
+        self._log_version = None
+        self._watch_log()
+
+    def _watch_log(self) -> None:
+        """Every few seconds: the list again when the log changed elsewhere (a shared
+        database: the core logs FT8, another client logs too). With no version noted
+        (Ctrl+R), it is reloaded anyway."""
+        try:
+            version = QsoService.version()
+        except Exception:  # noqa: BLE001 - the database away for a moment: next time
+            return
+        if version != getattr(self, "_log_version", None):
+            self._reload_history()
+            self._refresh_stats()
+        self._log_version = version
 
     def _persist_state(self) -> None:
         try:

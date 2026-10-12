@@ -1240,3 +1240,24 @@ async def test_open_panel_follows_the_main_window(operator):
         await pilot.pause()
         frame = app.query_one("#log-frame").region
         assert app.screen.query_one(".modal").region == frame
+
+
+async def test_a_shared_log_shows_what_others_log(operator, station):
+    """The log in a database shared with others (the core logs FT8, another client logs):
+    their QSOs appear by themselves within seconds, and at once with Ctrl+R."""
+    app = HamrlogApp()
+    async with app.run_test(size=(120, 30)) as pilot:
+        await type_line(pilot, app, "ea4abc,juan,59,57")
+        panel = app.query_one(HistoryPanel)
+        assert panel.qso_count == 1
+        state = app.state
+        QsoService.log({"call": "F5RRS", "mode": "FT8", "band": "20m"}, state)   # elsewhere
+        app._watch_log()                                   # what the timer does
+        await pilot.pause()
+        assert panel.qso_count == 2
+        QsoService.log({"call": "MW3FLI", "mode": "FT8", "band": "20m"}, state)
+        await pilot.press("ctrl+r")
+        await pilot.pause()
+        assert panel.qso_count == 3
+        app._watch_log()                                   # nothing new: no reload
+        assert panel.qso_count == 3

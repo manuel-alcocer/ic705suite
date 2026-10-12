@@ -1000,6 +1000,9 @@ class LogPage(Page):
         self.history.load(QsoService.recent())
         self._refresh_status()
         self._refresh_stats()
+        self._log_version = QsoService.version()     # as loaded: changes from here
+        self.log_watch = QTimer(self, interval=5000, timeout=self._watch_log)
+        self.log_watch.start()
         self.statusline.demo = self.demo
         self.statusline.refresh()
         self.main_frame.border_title = log_("Log")

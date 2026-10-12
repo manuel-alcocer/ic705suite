@@ -111,7 +111,9 @@ def test_the_service_in_the_core(tmp_path, monkeypatch):
         def error(self, msgid, **args):
             events.append(("error", msgid.format(**args)))
 
-    monkeypatch.setattr(lotw, "report", lambda *a, **k: "<eoh>\n")
+    asked: list = []
+    monkeypatch.setattr(lotw, "report", lambda user, pw, since, call="": asked.append(since)
+                        or "<eoh>\n")
     config = Config(callsign="EA7KLX", logbook_database="x", lotw_location="Bellavista",
                     lotw_tqsl=tqsl, lotw_username="ea7klx", lotw_password="pw")
     service = lotw.LotwService(config, Hub())
@@ -121,5 +123,9 @@ def test_the_service_in_the_core(tmp_path, monkeypatch):
         assert result["uploaded"] == 1 and result["confirm_ok"]          # the HF one
         assert ("info", "LoTW: 1 QSOs signed and uploaded") in events
         assert asyncio.run(service.sync())["uploaded"] == 0         # nothing new
+        # The first time every confirmation (LoTW, with no date, gives only new ones),
+        # then from a day before the last time.
+        assert asked[0] == lotw.FIRST_DAY
+        assert asked[1] == dt.date.today() - dt.timedelta(days=1)
     finally:
         session.dispose()

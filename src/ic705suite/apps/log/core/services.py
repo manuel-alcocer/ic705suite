@@ -1754,6 +1754,15 @@ class QsoService:
         return row
 
     @staticmethod
+    def version() -> tuple:
+        """What changes when the log does (a QSO added, edited or deleted, by this program
+        or another sharing the database): cheap enough to ask every few seconds."""
+        with session_scope() as session:
+            return tuple(session.execute(
+                select(func.count(Qso.id), func.max(Qso.id), func.max(Qso.updated_at))
+            ).one())
+
+    @staticmethod
     def recent(limit: int = 200, operator_id: int | None = None) -> list[QsoRow]:
         """Most recent contacts, newest last so the panel reads top to bottom."""
         with session_scope() as session:

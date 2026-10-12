@@ -1222,3 +1222,6 @@ msgstr "log"
 
 msgid "Duplicates: day (same UTC day), log (ever, as in a contest) or off."
 msgstr "Duplicados: día (el mismo día UTC), log (siempre, como en un concurso) o no."
+
+msgid "Refresh the log"
+msgstr "Refrescar el log"

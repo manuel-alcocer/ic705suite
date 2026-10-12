@@ -38,6 +38,7 @@ TQSL_ERRORS = {1: "cancelled", 2: "rejected by LoTW", 3: "unexpected answer from
                11: "cannot connect to LoTW"}
 # The bands sent unless [lotw] bands says otherwise: HF (160 to 10 m).
 HF_BANDS = ("160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m")
+FIRST_DAY = dt.date(1945, 1, 1)               # "since" for every confirmation there is
 SENT, SENT_DATE = "LOTW_QSL_SENT", "LOTW_QSLSDATE"
 RCVD, RCVD_DATE = "LOTW_QSL_RCVD", "LOTW_QSLRDATE"
 
@@ -271,7 +272,9 @@ class LotwService:
         try:
             return dt.date.fromisoformat(self._state_path().read_text().strip())
         except (OSError, ValueError):
-            return None                            # the first time: every confirmation
+            # The first time, every confirmation: with no date LoTW gives only those new
+            # since the account's last report, whoever asked for it.
+            return FIRST_DAY
 
     def _save_since(self) -> None:
         path = self._state_path()
