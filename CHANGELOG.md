@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.16.1 (2026-10-12)
+
+### Bug Fixes
+
+- **swr**: The phone page at the core's address, and saved positions with their curve
+  ([`3bdb3c7`](https://github.com/manuel-alcocer/ic705suite/commit/3bdb3c76f78793dc0eedb04a7734c78dbec73419))
+
+
 ## v0.16.0 (2026-10-12)
 
 ### Bug Fixes
