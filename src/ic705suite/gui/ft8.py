@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from ic705suite.apps.ft8.app import (
+    ALC_GOOD,
     ALC_HOT,
     FREQ_STEP,
     FT8_BANDS,
@@ -192,7 +193,7 @@ class Ft8Page(Page):
             "freq", v, lambda: self.run_worker(self._call(
                 _("Transmitting on {freq} Hz"), "ft8.txfreq", freq=v), group="tx")))
         self.level_spin = spin(QSpinBox(), _("Level"), _(
-            "Transmit audio: lower it until the ALC stays at 0 (- +)"))
+            "Transmit audio: the ALC within its zone, under 0.5 best (- +)"))
         self.level_spin.setRange(5, 100)
         self.level_spin.setSingleStep(5)
         self.level_spin.setSuffix(" %")
@@ -215,8 +216,9 @@ class Ft8Page(Page):
         self.alc_bar.setTextVisible(False)
         self.alc_bar.setFixedWidth(140)
         self.alc_bar.setMaximumHeight(14)
-        self.alc_bar.setToolTip(_("The radio's ALC while sending: it must stay at 0 (if it "
-                                  "rises, lower the level)"))
+        self.alc_bar.setToolTip(_("The radio's ALC while sending, 1.0 the end of its zone: "
+                                  "green up to 0.5, yellow up to 1.0; past it, lower the "
+                                  "level"))
         row.addWidget(self.alc_bar)
         self.alc_label = QLabel()
         self.alc_label.setTextFormat(Qt.TextFormat.RichText)
@@ -408,8 +410,8 @@ class Ft8Page(Page):
         else:
             alc, note = 0.0, ""
         hot = alc > ALC_HOT
-        colour = theme.RED if hot else theme.YELLOW if alc > 0.05 else theme.GREEN
-        self.alc_bar.setValue(min(100, round(alc * 100)))
+        colour = theme.RED if hot else theme.YELLOW if alc > ALC_GOOD else theme.GREEN
+        self.alc_bar.setValue(min(100, round(alc / (ALC_HOT * 1.25) * 100)))   # 1.0 at 80 %
         self.alc_bar.setStyleSheet(
             f"QProgressBar {{ background: {theme.RAISED}; border: 1px solid {theme.BORDER}; "
             f"border-radius: 3px; }} QProgressBar::chunk {{ background: {colour}; }}")

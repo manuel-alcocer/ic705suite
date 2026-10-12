@@ -779,3 +779,79 @@ def test_into_the_logbook_with_the_ft8_setup(tmp_path):
     assert row.equipment_name == "TM-241E casa"                    # the logbook's own
     assert SettingsService.load_state().equipment_id == fm.id     # not changed by FT8
     assert hf.id != portable.id
+
+
+def test_no_audio_no_waterfall_rows(tmp_path, monkeypatch):
+    """With the audio stopped the waterfall stands still (it repeated its last row, which
+    hid that nothing was coming)."""
+    fake_jt9(monkeypatch)
+
+    async def scenario():
+        link = await sim_link(tmp_path)
+        rows: list[dict] = []
+        link.attach(lambda e: e.get("type") == "ft8.wf" and rows.append(e))
+        sim = link.core.station.transport
+        try:
+            await link.call("ft8.start")
+            await link.call("ft8.waterfall", seconds=10)
+            await until(lambda: len(rows) >= 2)
+            emit, sim._emit_audio = sim._emit_audio, lambda samples: None
+            await asyncio.sleep(0.4)
+            count = len(rows)
+            await asyncio.sleep(1.0)
+            assert len(rows) == count
+            sim._emit_audio = emit
+            await until(lambda: len(rows) > count)
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_the_transmit_level_and_frequency_are_kept(tmp_path):
+    """The level found for the ALC, and the transmit frequency, come back after a restart
+    of the core (over [ft8] level and tx_freq)."""
+    async def scenario(level=None, freq=None) -> tuple[float, int]:
+        link = await sim_link(tmp_path)
+        try:
+            if level is not None:
+                await link.call("ft8.level", level=level)
+            if freq is not None:
+                await link.call("ft8.txfreq", freq=freq)
+            tx = (await link.call("ft8.state"))["tx"]
+            return tx["level"], tx["freq"]
+        finally:
+            await link.close()
+
+    assert asyncio.run(scenario()) == (0.5, 1500)                 # the first time: config
+    assert asyncio.run(scenario(level=0.08, freq=1720)) == (0.08, 1720)
+    assert asyncio.run(scenario()) == (0.08, 1720)                # kept
+    assert (service_module.data_dir() / "ft8" / "settings.json").exists()
+
+
+def test_the_alc_as_icom_wants_it(tmp_path):
+    """Within its zone the ALC is right (Icom, data modes): no word; past it, lower the level;
+    still at 0 with the radio short of its power, the level can go up."""
+    async def scenario():
+        link = await sim_link(tmp_path)
+        texts: list[str] = []
+        link.attach(lambda e: e.get("type") == "info" and texts.append(e["text"]))
+        ft8 = link.core.ft8
+        try:
+            link.core.station.rig.state.power = 100                      # 10 W set
+            await asyncio.sleep(0.1)
+            texts.clear()
+            ft8._sent(0, "CQ EA7KLX IM77", 0.6, 9.5)                    # within: fine
+            ft8._sent(15, "CQ EA7KLX IM77", 0.2, 9.8)
+            assert texts == []
+            ft8._sent(30, "CQ EA7KLX IM77", 1.4, 10.0)                  # past the zone
+            assert "past its zone (1.40)" in texts[-1]
+            ft8._sent(45, "CQ EA7KLX IM77", 0.0, 2.9)                   # short of power
+            assert "2.9 W of the 10 W set" in texts[-1] and "can go up" in texts[-1]
+            count = len(texts)
+            ft8._sent(60, "CQ EA7KLX IM77", 0.0, 9.0)                   # near enough
+            assert len(texts) == count
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())

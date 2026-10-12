@@ -1222,8 +1222,6 @@ msgstr "FT8: no se puede escribir {path}: {error}"
 msgid "Audio frequency of what we send (F takes the chosen line's; [ ] move it)"
 msgstr "Frecuencia de audio de lo que transmitimos (F toma la de la línea elegida; [ ] la mueven)"
 
-msgid "FT8: the ALC rose to {alc} while sending: lower the TX level (now {level} %) until it stays at 0"
-msgstr "FT8: el ALC subió a {alc} al transmitir: baja el nivel de TX (ahora {level} %) hasta que se quede en 0"
 
 msgid "Level"
 msgstr "Nivel"
@@ -1237,14 +1235,10 @@ msgstr "QSO"
 msgid "TX level {percent} %"
 msgstr "Nivel de TX {percent} %"
 
-msgid "The radio's ALC while sending: it must stay at 0 (if it rises, lower the level)"
-msgstr "El ALC de la radio al transmitir: debe quedarse en 0 (si sube, baja el nivel)"
 
 msgid "The radio's RF power (, .)"
 msgstr "La potencia de RF de la radio (, .)"
 
-msgid "Transmit audio: lower it until the ALC stays at 0 (- +)"
-msgstr "Audio de transmisión: bájalo hasta que el ALC se quede en 0 (- +)"
 
 msgid "last"
 msgstr "último"
@@ -1299,3 +1293,15 @@ msgstr "Curva"
 
 msgid "the sweep of {time}, before it was saved"
 msgstr "la del barrido de las {time}, antes de guardarla"
+
+msgid "FT8: the ALC went past its zone ({alc}) while sending: lower the TX level (now {level} %) until it stays within it"
+msgstr "FT8: el ALC se salió de su zona ({alc}) al transmitir: baja el nivel de TX (ahora {level} %) hasta que se quede dentro"
+
+msgid "FT8: {watts} W of the {wanted} W set, with the ALC still: the TX level can go up (now {level} %) while the ALC stays within its zone"
+msgstr "FT8: {watts} W de los {wanted} W ajustados, con el ALC quieto: puedes subir el nivel de TX (ahora {level} %) mientras el ALC siga dentro de su zona"
+
+msgid "The radio's ALC while sending, 1.0 the end of its zone: green up to 0.5, yellow up to 1.0; past it, lower the level"
+msgstr "El ALC de la radio al transmitir; 1.0 es el final de su zona: verde hasta 0.5, amarillo hasta 1.0; si pasa de ahí, baja el nivel"
+
+msgid "Transmit audio: the ALC within its zone, under 0.5 best (- +)"
+msgstr "Audio de transmisión: el ALC dentro de su zona, mejor por debajo de 0.5 (- +)"

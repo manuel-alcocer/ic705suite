@@ -322,9 +322,11 @@ Beside the band's activity (under it in the terminal), the **QSO** area shows th
 conversation alone: what we send, what is sent to us and what the station we work says.
 Under them, what we transmit with: the audio frequency (**[ ]** move it 25 Hz, or type it),
 the audio level (**- +**, `[ft8] level`, 50 % by default), the radio's power (**, .** a watt
-down or up) and its **ALC**, live while sending and the last message's peak afterwards. FT8
-wants the ALC at 0: if it rises, lower the level (the suite says so after the message);
-the watts come from the power, not from the audio. **T** (the Tone button) sends a steady
+down or up) and its **ALC**, live while sending and the last message's peak afterwards. As
+Icom asks for data modes, the ALC goes within its zone (1.0 here is its end): green up to
+0.5, yellow up to 1.0, red past it, and the suite says to lower the level. With the ALC
+still at 0 the radio may give less than the power set: the suite says so, and the level can
+go up. The watts come from the power; the audio only has to be enough. **T** (the Tone button) sends a steady
 tone on the transmit frequency and level for 10 seconds, as WSJT-X's Tune, to set the level
 with the ALC moving and nobody to answer (T or H stops it sooner; never over 15 s).
 

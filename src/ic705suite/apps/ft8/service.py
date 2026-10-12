@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 import math
 import shutil
@@ -69,7 +70,12 @@ PIECE = 0.02               # seconds of audio per piece sent
 TAIL = 0.3                 # after the last piece, before unkeying
 LEVEL_RANGE = (0.05, 1.0)  # the transmit audio, of full scale ([ft8] level; the radio's
                            # LAN MOD level scales it again)
-ALC_HIGH = 0.3             # an ALC peak over this (of the ALC zone): the audio is too strong
+# The ALC meter as the radio's (1 = the top of its ALC zone). Icom wants it within the zone
+# in data modes: there the radio gives the power set. Past it the audio is too strong; at 0
+# the radio may give less than set (not enough audio).
+ALC_HIGH = 1.0             # over this: past the zone, lower the level
+ALC_IDLE = 0.05            # under this the ALC does not move at all
+SHORT_OF_POWER = 0.8       # of the power set: less, with the ALC still, says raise the level
 LONGEST_KEY = 16.0         # the PTT watchdog while a message goes out
 CQ_TURNS = 20              # CQs with nobody answering (5 minutes): stop
 TONE_SECONDS = 10.0        # the tune tone, unless asked otherwise
@@ -124,6 +130,7 @@ class Ft8Service:
         self._chunks: list[np.ndarray] = []
         self._wf_until = 0.0                      # rows sent until then (monotonic)
         self._wf_audio: deque[np.ndarray] = deque()
+        self._wf_fresh = False                    # audio came since the last row
         self._wf_task: asyncio.Task | None = None
         self._start: float | None = None       # the cycle being heard (None: a partial one)
         self._task: asyncio.Task | None = None
@@ -139,6 +146,7 @@ class Ft8Service:
         self.tx_parity = 0
         self.tx_freq = config.ft8_tx_freq
         self.tx_level = clamp_level(config.ft8_level)
+        self._load_settings()                     # as the operator left them last time
         self.last_sent: dict = {}                 # the last message's ALC and power peaks
         self.their_freq = 0                       # the other station's audio frequency
         self.transmitting = False
@@ -210,14 +218,17 @@ class Ft8Service:
             self._chunks.append(samples.copy())
         if time.monotonic() < self._wf_until:
             self._wf_audio.append(samples.copy())
+            self._wf_fresh = True
 
     async def _waterfall(self) -> None:
         """A spectrum row every quarter of a second, while a screen watches."""
         while True:
             await asyncio.sleep(waterfall.INTERVAL)
-            if time.monotonic() >= self._wf_until or not self._wf_audio:
-                self._wf_audio.clear()
-                continue
+            if time.monotonic() >= self._wf_until or not self._wf_fresh:
+                if time.monotonic() >= self._wf_until:
+                    self._wf_audio.clear()
+                continue                                   # no new audio: no new row
+            self._wf_fresh = False
             rate = self.station.transport.sample_rate
             keep = waterfall.window_size(rate)
             samples = np.concatenate(self._wf_audio)[-keep:]
@@ -386,6 +397,7 @@ class Ft8Service:
         self._check_tx()
         if freq:
             self.tx_freq = int(freq)
+            self._save_settings()
         message = self.qso.call_cq()
         self.their_freq, self.cq_turns, self.qso_began = 0, 0, None
         self.qso_watts = 0.0
@@ -440,6 +452,28 @@ class Ft8Service:
     @property
     def log_path(self) -> Path:
         return data_dir() / "ft8" / "ft8_log.adi"
+
+    @property
+    def settings_path(self) -> Path:
+        return data_dir() / "ft8" / "settings.json"
+
+    def _load_settings(self) -> None:
+        """The transmit level and frequency set last time (the level that keeps the ALC at
+        0 is found once): over [ft8] level and tx_freq, which are the first ones."""
+        try:
+            saved = json.loads(self.settings_path.read_text(encoding="utf-8"))
+            self.tx_level = clamp_level(saved.get("level", self.tx_level))
+            self.tx_freq = max(200, min(3000, int(saved.get("tx_freq", self.tx_freq))))
+        except (OSError, ValueError, TypeError, AttributeError):
+            pass
+
+    def _save_settings(self) -> None:
+        try:
+            self.settings_path.parent.mkdir(parents=True, exist_ok=True)
+            self.settings_path.write_text(json.dumps(
+                {"level": self.tx_level, "tx_freq": self.tx_freq}), encoding="utf-8")
+        except OSError as exc:
+            log.warning("ft8: cannot save %s: %s", self.settings_path, exc)
 
     def _finished(self) -> None:
         them = self.qso.them
@@ -625,9 +659,17 @@ class Ft8Service:
                           "watts": round(watts, 1), "level": self.tx_level}
         self.hub.emit({"type": "ft8.sent", **self.last_sent})
         if alc > ALC_HIGH:
-            self.hub.info(N_("FT8: the ALC rose to {alc} while sending: lower the TX level "
-                             "(now {level} %) until it stays at 0"),
+            self.hub.info(N_("FT8: the ALC went past its zone ({alc}) while sending: lower the "
+                             "TX level (now {level} %) until it stays within it"),
                           alc=f"{alc:.2f}", level=round(self.tx_level * 100))
+            return
+        power = self.station.rig.state.power
+        wanted = power * self.station.model.max_power_w / 100 if power else 0
+        if alc < ALC_IDLE and watts and wanted and watts < SHORT_OF_POWER * wanted:
+            self.hub.info(N_("FT8: {watts} W of the {wanted} W set, with the ALC still: the TX "
+                             "level can go up (now {level} %) while the ALC stays within its "
+                             "zone"), watts=f"{watts:.1f}", wanted=f"{wanted:g}",
+                          level=round(self.tx_level * 100))
 
     async def _unkey(self) -> None:
         with contextlib.suppress(RigError, TransportError):
@@ -722,6 +764,7 @@ class Ft8Service:
                 return {"qsos": self.logged, "path": str(self.log_path), "adif": text}
             elif method == "txfreq":
                 self.tx_freq = max(200, min(3000, int(params["freq"])))
+                self._save_settings()
                 self._touch()
                 return {"freq": self.tx_freq}
             elif method == "waterfall":
@@ -729,6 +772,7 @@ class Ft8Service:
                 return {"low": waterfall.LOW, "high": waterfall.HIGH, "step": waterfall.STEP}
             elif method == "level":
                 self.tx_level = clamp_level(params["level"])
+                self._save_settings()
                 self._touch()
                 return {"level": self.tx_level, "percent": round(self.tx_level * 100)}
             else:

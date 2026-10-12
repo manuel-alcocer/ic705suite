@@ -30,7 +30,8 @@ SHORT_HINT = N_("Enter Answer · Q CQ · H Halt · ←→ Band · Esc Back")
 FT8_BANDS = list(DIALS)
 FREQ_STEP = 25                 # Hz: [ ] move the transmit frequency
 LEVEL_STEP = 0.05              # - + change the transmit audio
-ALC_HOT = 0.3                  # the ALC over this: drawn red (the audio is too strong)
+ALC_GOOD = 0.5                 # the ALC up to this: green (well within its zone)
+ALC_HOT = 1.0                  # over this, past the radio's ALC zone: red, lower the level
 
 # How each kind of line is drawn (Rich styles; the graphical client maps them too).
 STYLE_CQ = "bold green"
