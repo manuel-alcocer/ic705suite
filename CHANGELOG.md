@@ -2,6 +2,54 @@
 
 <!-- version list -->
 
+## v0.18.0 (2026-10-12)
+
+### Bug Fixes
+
+- **ft8**: The waterfall comes back when watched again while transmitting
+  ([`5abd6ab`](https://github.com/manuel-alcocer/ic705suite/commit/5abd6ab2f87df4503099253591ee4de809811bdf))
+
+- **gui**: A long FT8 list no longer takes the client's CPU for a minute
+  ([`d189842`](https://github.com/manuel-alcocer/ic705suite/commit/d18984239e0ba7d7e167464295d44c65383727c2))
+
+- **lotw**: Only HF goes to LoTW unless [lotw] bands says otherwise
+  ([`500e74b`](https://github.com/manuel-alcocer/ic705suite/commit/500e74b7961206576d53d2a2298aa41d622e7eb3))
+
+### Features
+
+- **ft8**: A country column, and a super-automatic mode
+  ([`69f47a8`](https://github.com/manuel-alcocer/ic705suite/commit/69f47a8aeb38d0ec957116280038abff3f9d0cef))
+
+- **ft8**: How far the QSO has gone, and a late RR73 still logs it
+  ([`87200ac`](https://github.com/manuel-alcocer/ic705suite/commit/87200ac423bddca509327d83ba798d6fe4ee311c))
+
+- **ft8**: Where each station is, what was worked before, and a map
+  ([`8a28e37`](https://github.com/manuel-alcocer/ic705suite/commit/8a28e37c27f501e31b0e435d323b8b3143d5edc2))
+
+- **log**: A shared log refreshes by itself, and Ctrl+R refreshes it
+  ([`73fd3fd`](https://github.com/manuel-alcocer/ic705suite/commit/73fd3fde44abf1bbb7b8286886164e32385eab60))
+
+- **logbook**: One logbook for every client, on the core's machine
+  ([`9c9c8b2`](https://github.com/manuel-alcocer/ic705suite/commit/9c9c8b2e9ff13e3700fb22627f05b431e24a4b33))
+
+- **lotw**: The core signs and uploads the logbook's QSOs to LoTW, and brings back confirmations
+  ([`30af1fc`](https://github.com/manuel-alcocer/ic705suite/commit/30af1fc174651a464c335cea6c756f322702c676))
+
+- **qrz**: [qrz] api_key, and --qrz-status to check it against QRZ.com's logbook
+  ([`78dbdc3`](https://github.com/manuel-alcocer/ic705suite/commit/78dbdc309e296f047b41a5cfe566b12a46bccf58))
+
+### Testing
+
+- LoTW's fake TQSL runs on Windows, and the late RR73 test no longer races
+  ([`b56a79f`](https://github.com/manuel-alcocer/ic705suite/commit/b56a79f35091329ed921dba5515bc9080dbf2c7a))
+
+- Two Windows races, the audio heard again and the panel editing first
+  ([`4efdb92`](https://github.com/manuel-alcocer/ic705suite/commit/4efdb92202b0ea56ead9741724de6f6117149369))
+
+- **ft8**: The late RR73 comes once the tries ran out, whatever the timers
+  ([`fb9aa62`](https://github.com/manuel-alcocer/ic705suite/commit/fb9aa62b08f8bae1515471ee80d59cb4a33e054e))
+
+
 ## v0.17.0 (2026-10-12)
 
 ### Bug Fixes
