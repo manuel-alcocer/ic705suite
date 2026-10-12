@@ -106,3 +106,27 @@ def test_the_key_says_what_is_under_the_mouse(qapp):
     assert view.under(spot) == "MW3FLI · Wales · 1814 km 6° · -10 dB"
     elsewhere = view.under(view._xy(37.31, -5.96))
     assert elsewhere.startswith("IM77AH · 0 km ")                 # our own square
+
+
+def test_the_lines_go_when_the_qso_is_completed(qapp):
+    view = ft8map.MapView()
+    view.resize(900, 450)
+    view.mycall = "EA7KLX"
+    view.set_home(37.31, -5.96, "IM77AH")
+    view.add_decodes(1000.0, [decode("DL1ABC", 51.0, 10.0, kind="call", to="EA7KLX",
+                                     report="R-07")])
+    view.set_them("DL1ABC")
+    assert view.paths() == [("DL1ABC", True)]
+    view.add_decodes(1030.0, [decode("DL1ABC", 51.0, 10.0, kind="call", to="EA7KLX",
+                                     end="RR73")])
+    view.set_them("")                                   # our QSO over
+    assert view.paths() == []                           # their RR73: no arrows to us
+    view.add_decodes(1045.0, [decode("G4XYZ", 52.0, -1.0, kind="call", to="EA7KLX",
+                                     report="-05")])
+    view.set_them("G4XYZ")
+    view.qso_done("G4XYZ")
+    assert view.paths() == []                           # completed: its lines go at once
+    time.sleep(0.01)
+    view.add_decodes(1060.0, [decode("G4XYZ", 52.0, -1.0, kind="call", to="EA7KLX",
+                                     grid="IO91")])
+    assert view.paths() == [("G4XYZ", False)]           # calling again: shown again

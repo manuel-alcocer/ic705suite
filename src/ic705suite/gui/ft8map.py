@@ -132,6 +132,7 @@ class MapView(QWidget):
         self._background: QPixmap | None = None   # the still layers, as last drawn
         self._background_key: tuple = ()
         self._under = ""                          # what is under the mouse, for the key
+        self._done: dict[str, float] = {}         # call -> when its QSO was completed
         self._frames = QTimer(self)
         self._frames.setInterval(FRAME_MS)
         self._frames.timeout.connect(self.update)
@@ -177,19 +178,36 @@ class MapView(QWidget):
 
     # ---- the arrows ---------------------------------------------------------------------------
 
+    def qso_done(self, call: str) -> None:
+        """A QSO completed: its lines go (until that station calls again)."""
+        call = call.strip("<>")
+        self._done[call] = time.time()
+        if call == self.them:
+            self.them = ""
+        self._animate()
+        self.update()
+
     def paths(self, now: float | None = None) -> list[tuple[str, bool]]:
         """(call, outward) of each path drawn: ours to the station we call (outward), and
-        each station that called us lately (towards us)."""
+        each station that called us lately (towards us); not the last words of a QSO (RR73,
+        RRR, 73), nor a station whose QSO was just completed."""
         now = time.time() if now is None else now
-        out = [(self.them, True)] if self.them in self.heard and self.home else []
+        out = [(self.them, True)] if self.them in self.heard and self.home \
+            and not self._ended(self.heard[self.them]) else []
         if self.home is None or not self.mycall:
             return out
         mine = self.mycall.split("/")[0]
         for heard in self.heard.values():
-            to = (heard.decode.get("to") or "").split("/")[0]
-            if to == mine and now - heard.seen <= CALLING_FOR and heard.call != self.them:
+            d = heard.decode
+            to = (d.get("to") or "").split("/")[0]
+            if to == mine and now - heard.seen <= CALLING_FOR and heard.call != self.them \
+                    and not d.get("end") and not self._ended(heard):
                 out.append((heard.call, False))
         return out
+
+    def _ended(self, heard: Heard) -> bool:
+        done = self._done.get(heard.call)
+        return done is not None and heard.seen <= done
 
     def _animate(self) -> None:
         """Frames only while there are arrows to move and the map is shown."""

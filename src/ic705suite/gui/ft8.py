@@ -401,6 +401,7 @@ class Ft8Page(Page):
             self._message("info", "")
         elif kind == "ft8.qso":
             self.completed = event["qso"].get("CALL", "")
+            self.map.qso_done(self.completed)        # its lines go
             self._show_progress()
             self.run_worker(self._read_worked(), group="worked", exclusive=True)
             if not event.get("logbook"):         # the core's shared logbook has it
