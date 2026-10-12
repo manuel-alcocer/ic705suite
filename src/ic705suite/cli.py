@@ -81,6 +81,8 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
                         "defaults), save them and exit")
     p.add_argument("--show-config", action="store_true",
                    help="show the main settings (password hidden) and exit")
+    p.add_argument("--copy-logbook", nargs=2, metavar=("FROM", "TO"),
+                   help="copy a logbook whole into another, empty database (database URLs)")
     p.add_argument("--qrz-status", action="store_true",
                    help="check the QRZ.com logbook key ([qrz] api_key) and show the logbook")
     p.add_argument("--update-scp", action="store_true",
@@ -238,6 +240,22 @@ def update_scp(path: Path) -> int:
     return 0
 
 
+def copy_logbook(source: str, target: str) -> int:
+    from ic705suite.logbook_copy import CopyError
+    from ic705suite.logbook_copy import copy_logbook as copy
+
+    try:
+        copied = copy(source, target)
+    except (CopyError, Exception) as exc:  # noqa: BLE001 - a database's own errors too
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for table, rows in copied.items():
+        if rows:
+            print(f"{table}: {rows}")
+    print(f"logbook copied: {copied.get('qsos', 0)} QSOs")
+    return 0
+
+
 def qrz_status(config) -> int:
     from ic705suite import qrz
 
@@ -283,6 +301,8 @@ def main(argv: list[str] | None = None) -> int:
         return update_scp(config.scp_path)
     if args.qrz_status:
         return qrz_status(config)
+    if args.copy_logbook:
+        return copy_logbook(*args.copy_logbook)
     apply_overrides(args, config)
     if config.connection == "server" and args.connect is None and not args.serve \
             and not args.wav:
@@ -322,6 +342,12 @@ def main(argv: list[str] | None = None) -> int:
                     return 1
             if link is not None and args.record is not None:
                 link.core.station.record_to(str(args.record))
+        if app == "log" and isinstance(link, RemoteLink):
+            from ic705suite.shared_logbook import ask_core
+
+            if not ask_core(link.uri, args.token or config.client_token):
+                print("note: the core's logbook is not available; this machine's own one",
+                      file=sys.stderr)
         if args.gui:
             if args.theme:
                 config.theme = args.theme

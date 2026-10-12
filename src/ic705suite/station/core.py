@@ -52,6 +52,7 @@ from ic705suite.i18n import N_
 from ic705suite.rig import open_rig
 from ic705suite.rig.base import RigError
 from ic705suite.rig.transport import Transport, TransportError
+from ic705suite.shared_logbook import core_url, for_clients, use
 from ic705suite.station.station import Station
 
 log = logging.getLogger(__name__)
@@ -177,6 +178,9 @@ class Core:
         from ic705suite.apps.swr.service import SwrService
 
         self.config = config
+        self.logbook = core_url(config)        # the shared logbook, opened here
+        if self.logbook:
+            use(self.logbook)
         self.hub = EventHub()
         self.station = Station(open_rig(config, transport), config, self.hub)
         self.session = Session(self.station, config, self.hub)
@@ -197,7 +201,8 @@ class Core:
                         **self.station.describe()},
                 "apps": catalog(model), "tx_enabled": self.config.tx_enabled,
                 "callsign": self.config.callsign, "macros": dict(self.config.macros),
-                "swr_port": self.swr.port, "swr_url": self.swr.url}
+                "swr_port": self.swr.port, "swr_url": self.swr.url,
+                "logbook": for_clients(self.config)}
 
     def subscribe(self, callback: Subscriber, replay: bool = True) -> Callable[[], None]:
         """Register a client; it first gets welcome, the text backlog and the current state."""

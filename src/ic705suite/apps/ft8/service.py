@@ -532,7 +532,29 @@ class Ft8Service:
             self.hub.error(N_("FT8: cannot write {path}: {error}"), path=str(self.log_path),
                            error=str(exc))
         self.logged.append(fields)
-        self.hub.emit({"type": "ft8.qso", "qso": fields, "path": str(self.log_path)})
+        # With the shared logbook ([logbook]) the core logs it, once for every client.
+        here = bool(self.config.logbook_database)
+        self.hub.emit({"type": "ft8.qso", "qso": fields, "path": str(self.log_path),
+                       "logbook": here})
+        if here:
+            self._background(self._into_logbook(fields))
+
+    async def _into_logbook(self, fields: dict) -> None:
+        from ic705suite.apps.ft8.logbook import log_qso
+
+        try:
+            row, why = await asyncio.to_thread(log_qso, fields, self.config.ft8_setup,
+                                               self.station.model.name)
+        except Exception as exc:  # noqa: BLE001 - said, and the ADIF has it anyway
+            row, why = None, str(exc)
+        if row is not None:
+            self.hub.info(N_("{call} logged in the logbook (FT8 {band}, sent {sent}, "
+                             "received {rcvd})"), call=fields["CALL"],
+                          band=fields.get("BAND", ""), sent=fields.get("RST_SENT", ""),
+                          rcvd=fields.get("RST_RCVD", ""))
+        elif why != "already logged":
+            self.hub.error(N_("Not in the logbook: {error} (it is in ft8_log.adi)"),
+                           error=why)
 
     # ---- sending ------------------------------------------------------------------------------
 

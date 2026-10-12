@@ -14,6 +14,7 @@ import json
 import logging
 from collections import deque
 from collections.abc import Callable
+from urllib.parse import urlparse
 
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosed, InvalidURI
@@ -21,6 +22,7 @@ from websockets.exceptions import ConnectionClosed, InvalidURI
 from ic705suite.config import Config
 from ic705suite.i18n import N_
 from ic705suite.rig.transport import Transport, TransportError
+from ic705suite.shared_logbook import client_url, use
 from ic705suite.station.core import BACKLOG, DEFAULT_PORT, PROTOCOL_VERSION, Core
 from ic705suite.ui.sysload import set_core
 
@@ -202,6 +204,9 @@ class RemoteLink(Link):
         if first.get("type") != "welcome":
             await self._ws.close()
             raise LinkError(first.get("text", "connection refused by the server"))
+        if first.get("logbook"):
+            # The core's logbook, at the address the core was reached at: every client the same.
+            use(client_url(first["logbook"], urlparse(self.uri).hostname or "localhost"))
         self._dispatch(first)
         self._reader = asyncio.create_task(self._read())
 

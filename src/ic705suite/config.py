@@ -153,6 +153,13 @@ max_power = 30
 # ic705suite --qrz-status checks it. Keep this file to yourself.
 # api_key = ""
 
+[logbook]
+# On the machine of the core (ic705suite --serve): the logbook (hamrlog's database) every
+# client shares, in PostgreSQL; the clients get it from the core, nothing to set there.
+# ic705suite --copy-logbook FROM TO moves an existing one into it.
+# database = "postgresql+psycopg://ic705suite@localhost/hamrlog"
+# password_file = "~/.config/ic705suite/logbook-db-password"
+
 [ui]
 # Interface language: "en" or "es" (default: the system language; IC705SUITE_LANG overrides)
 # language = "es"
@@ -235,6 +242,9 @@ class Config:
     ft8_setup: str = ""              # the logbook's setup FT8 QSOs go with ("": by radio)
     # [qrz]
     qrz_api_key: str = ""            # QRZ.com's logbook access key (never shown)
+    # [logbook] (on the core: the logbook every client shares; see shared_logbook)
+    logbook_database: str = ""
+    logbook_password_file: str = ""
     packet_core: str = ""            # "host:port" of the core packet runs on ("" = this one)
     packet_core_token: str = ""
     packet_bbs_call: str = ""        # "" = the station callsign -1
@@ -319,6 +329,10 @@ def load_config(path: Path | None = None) -> Config:
         cfg.ft8_level = float(ft8.get("level", cfg.ft8_level))
         cfg.ft8_setup = str(ft8.get("setup", cfg.ft8_setup))
         cfg.qrz_api_key = str(data.get("qrz", {}).get("api_key", cfg.qrz_api_key)).strip()
+        logbook = data.get("logbook", {})
+        cfg.logbook_database = str(logbook.get("database", cfg.logbook_database)).strip()
+        cfg.logbook_password_file = str(logbook.get("password_file",
+                                                    cfg.logbook_password_file)).strip()
         server, client = data.get("server", {}), data.get("client", {})
         cfg.listen = str(server.get("listen", cfg.listen))
         cfg.server_token = str(server.get("token", cfg.server_token))

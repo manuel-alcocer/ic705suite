@@ -352,7 +352,8 @@ class Ft8App(App[int]):
         elif kind == "ft8.qso":
             self.completed = event["qso"].get("CALL", "")
             self._show_progress()
-            self.run_worker(self._logbook(event["qso"]))
+            if not event.get("logbook"):         # the core's shared logbook has it
+                self.run_worker(self._logbook(event["qso"]))
         elif kind == "ft8.tx":
             self._add(sent_line(event))
         elif kind == "reconnected":          # the core is back (perhaps restarted): again

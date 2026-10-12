@@ -366,6 +366,14 @@ CPU, RAM and CPU temperature, and the core's (temperatures from Linux's sensors)
 core goes away (restarted, the network down) the radio shows as disconnected, the screens
 keep working (Esc leaves), and the client connects again by itself when the core is back.
 
+**One logbook for every client.** With a `[logbook]` section on the core's machine (a
+PostgreSQL database there: `apt install postgresql python3-psycopg`), the core opens that
+logbook and tells each client how to reach it when it connects: the logbook (F6, or
+`ic705suite log` on its own) is then the same from any client, and FT8 logs each QSO from
+the core, once. `ic705suite --copy-logbook FROM TO` moves an existing logbook (the SQLite
+file of a computer, say) into it, ids and all, into an empty database only. The clients
+need the `postgres` extra (psycopg); nothing to set on them.
+
 ## Development
 
 ```sh

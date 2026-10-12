@@ -351,7 +351,8 @@ class Ft8Page(Page):
         elif kind == "ft8.qso":
             self.completed = event["qso"].get("CALL", "")
             self._show_progress()
-            self.run_worker(self._logbook(event["qso"]))
+            if not event.get("logbook"):         # the core's shared logbook has it
+                self.run_worker(self._logbook(event["qso"]))
         elif kind == "ft8.tx":
             merge(self.cycles, sent_line(event))
             self._fill(keep_end=True)
