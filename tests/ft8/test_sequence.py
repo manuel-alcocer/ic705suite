@@ -78,3 +78,19 @@ def test_skipped_steps():
     cq.call_cq()
     assert heard(cq, "EA7KLX DL1ABC R-09")
     assert cq.message == "DL1ABC EA7KLX RR73" and cq.got_report == "-09"
+
+
+def test_heard_while_our_message_goes_out():
+    """Their RR73 decoded while our R-report is still going out (a slow decoder): that
+    message is not taken for the 73, which goes in the next turn."""
+    qso = Qso("EA7KLX", "IM77")
+    qso.answer(parse_decode("CQ DL1ABC JO62", -14))
+    qso.sent()
+    heard(qso, "EA7KLX DL1ABC -07", snr=-12)
+    going = qso.message                                   # DL1ABC EA7KLX R-12, keyed
+    assert heard(qso, "EA7KLX DL1ABC RR73")               # decoded meanwhile
+    qso.sent(going)
+    assert qso.step == "tx5" and qso.message == "DL1ABC EA7KLX 73" and qso.tries == 0
+    qso.sent("DL1ABC EA7KLX 73")
+    assert qso.step == "done" and qso.complete
+    assert qso.log == ["DL1ABC EA7KLX IM77", "DL1ABC EA7KLX R-12", "DL1ABC EA7KLX 73"]

@@ -104,9 +104,15 @@ class Qso:
             return True
         return False
 
-    def sent(self) -> None:
-        """Our message went out: count the tries; Tx4 and Tx5 end the QSO once sent."""
-        self.log.append(self.message)
+    def sent(self, message: str | None = None) -> None:
+        """Our message went out: count the tries; Tx4 and Tx5 end the QSO once sent.
+
+        `message` is the one sent: when what the other station said was decoded while it
+        went out, the QSO has moved on, and the new message is still to be sent."""
+        message = self.message if message is None else message
+        self.log.append(message)
+        if message != self.message:
+            return
         self.tries += 1
         if self.step == "tx5" or (self.step == "tx4" and self.tries >= 2):
             self.step = "done"

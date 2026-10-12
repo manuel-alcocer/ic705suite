@@ -507,7 +507,7 @@ class Ft8Service:
             if self.transmitting:
                 await self._unkey()
         self._sent(start, message, alc, watts)
-        qso.sent()
+        qso.sent(message)
         self._touch()
         if qso.step == "done":
             self._finished()
