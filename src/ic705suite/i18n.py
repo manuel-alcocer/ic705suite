@@ -88,8 +88,11 @@ def render(event: dict) -> str:
     msgid = event.get("msgid")
     if not msgid:
         return str(event.get("text", ""))
+    args = dict(event.get("args", {}))
+    if isinstance(args.get("country"), str):          # a DXCC entity: its name translated
+        args["country"] = _(args["country"])
     try:
-        return _(msgid).format(**event.get("args", {}))
+        return _(msgid).format(**args)
     except (KeyError, IndexError, ValueError):
         return str(event.get("text", msgid))
 

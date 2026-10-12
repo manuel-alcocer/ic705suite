@@ -5,6 +5,7 @@ GridTracker and JTAlert do: a new entity, a new grid, a station worked before.
 
     status(call, band, grid) -> {"b4": worked on this band, "b4_any": on any,
                                  "dxcc": new | new_band | worked | confirmed,
+                                 "dxcc_count": QSOs with its entity,
                                  "grid_state": new | new_band | worked | confirmed}
 """
 
@@ -25,6 +26,7 @@ CONFIRMED = "LOTW_QSL_RCVD"
 class Seen:
     bands: set[str] = field(default_factory=set)
     confirmed: set[str] = field(default_factory=set)      # bands confirmed on
+    count: int = 0                                        # QSOs
 
     def state(self, band: str) -> str:
         """new (never), new_band (not on this band), confirmed (on some band), worked."""
@@ -61,6 +63,7 @@ class WorkedIndex:
                 continue
             seen = table[key]
             seen.bands.add(band)
+            seen.count += 1
             if confirmed:
                 seen.confirmed.add(band)
         self.count += 1
@@ -70,7 +73,8 @@ class WorkedIndex:
         mine = self.calls.get(_base(call))
         entity = entity_name(call)
         out = {"b4": bool(mine and band in mine.bands), "b4_any": bool(mine and mine.bands),
-               "dxcc": self.entities.get(entity, Seen()).state(band) if entity else ""}
+               "dxcc": self.entities.get(entity, Seen()).state(band) if entity else "",
+               "dxcc_count": self.entities[entity].count if entity in self.entities else 0}
         if grid and geo.is_locator(grid):
             out["grid_state"] = self.grids.get(grid[:4].upper(), Seen()).state(band)
         return out

@@ -59,11 +59,15 @@ def test_the_worked_index(cty):
     index.add("MW3FLI", "20m", "IO83", "Wales", confirmed=True)
     index.add("F5RRS", "20m", "JN36", "France", confirmed=False)
     assert index.status("MW3FLI", "20m", "IO83") == {
-        "b4": True, "b4_any": True, "dxcc": "confirmed", "grid_state": "confirmed"}
+        "b4": True, "b4_any": True, "dxcc": "confirmed", "dxcc_count": 1,
+        "grid_state": "confirmed"}
     assert index.status("MW3FLI", "40m")["dxcc"] == "new_band"
     other = index.status("F6ABC", "20m", "JN18")
     assert other["dxcc"] == "worked" and not other["b4"] and other["grid_state"] == "new"
     assert index.status("LW2EDM", "20m")["dxcc"] == "new"
-    assert index.summary() == {"grids": {"IO83": "confirmed", "JN36": "worked"},
+    index.add("F5ABC", "40m", "JN12", "France", confirmed=False)
+    assert index.status("F6ABC", "20m")["dxcc_count"] == 2           # QSOs with France
+    assert index.summary() == {"grids": {"IO83": "confirmed", "JN36": "worked",
+                                         "JN12": "worked"},
                                "entities": {"Wales": "confirmed", "France": "worked"},
-                               "qsos": 2}
+                               "qsos": 3}

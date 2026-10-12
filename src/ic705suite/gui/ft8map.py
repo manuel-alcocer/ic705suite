@@ -31,6 +31,7 @@ from PySide6.QtWidgets import QToolTip, QWidget
 
 from ic705suite import geo
 from ic705suite.gui import theme
+from ic705suite.i18n import _
 
 HEARD_FOR = 180.0            # seconds a station heard stays on the map
 OCEAN = QColor(18, 30, 46)
@@ -381,7 +382,7 @@ class MapView(QWidget):
                         f"{round(geo.bearing_deg(self.home, (lat, lon)))}°"
         else:
             d = heard.decode
-            text = f"{d.get('message', '')}\n{d.get('country', '')}"
+            text = f"{d.get('message', '')}\n{_(d['country']) if d.get('country') else ''}"
             if d.get("km") is not None:
                 text += f" · {'~' if heard.approx else ''}{d['km']} km {d.get('az')}°"
             text += f" · {d.get('snr')} dB"

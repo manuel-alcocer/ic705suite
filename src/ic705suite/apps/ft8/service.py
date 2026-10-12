@@ -51,8 +51,9 @@ import numpy as np
 
 from ic705suite import geo
 from ic705suite.apps.ft8 import adif, encode, jt9, waterfall
+from ic705suite.apps.ft8.auto import CQS, STATIONS, TRIES_EACH, Auto
 from ic705suite.apps.ft8.messages import base, parse
-from ic705suite.apps.ft8.sequence import Qso
+from ic705suite.apps.ft8.sequence import TRIES, Qso
 from ic705suite.i18n import N_
 from ic705suite.paths import data_dir
 from ic705suite.rig import bands
@@ -169,6 +170,7 @@ class Ft8Service:
         self._worked_task: asyncio.Task | None = None
         self._grids: dict[str, str] = {}         # call -> the grid it last sent
         self.logged: list[dict] = []
+        self.auto = Auto()                       # the super-automatic mode (auto.py)
 
     # ---- life ---------------------------------------------------------------------------------
 
@@ -384,6 +386,8 @@ class Ft8Service:
             self.last = {"start": start, "count": len(known), "seconds": took, "depth": depth}
         self.hub.emit({"type": "ft8.cycle", **cycle})
         self._hear(start, entries)
+        if kind != "early":
+            await self._auto_turn(start)
         self._touch()
         return entries
 
@@ -490,12 +494,14 @@ class Ft8Service:
         self._touch()
         return message
 
-    async def reply(self, decode: dict, start: float) -> str:
-        """Answer a station heard in the cycle that began at `start`."""
+    async def reply(self, decode: dict, start: float, tries: int = TRIES) -> str:
+        """Answer a station heard in the cycle that began at `start` (called `tries` times
+        while it does not answer)."""
         self._check_tx()
         if not decode.get("sender") or decode.get("kind") not in ("cq", "call"):
             raise Ft8Error(N_("Nobody to answer in that message"))
         message = self.qso.answer(decode)
+        self.qso.first_tries = tries
         self.their_freq = int(decode.get("freq") or 0)
         self.qso_began = None
         self.qso_watts, self._late_until = 0.0, 0.0
@@ -505,7 +511,14 @@ class Ft8Service:
         return message
 
     async def halt(self) -> None:
-        """Stop transmitting now (and the QSO, or the tone)."""
+        """Stop transmitting now (and the QSO, or the tone, and the super-automatic mode)."""
+        if self.auto.on:
+            self.auto.stop()
+            self.hub.info(N_("FT8: super-automatic mode off"))
+        await self._stop_tx()
+
+    async def _stop_tx(self) -> None:
+        """Stop transmitting now; the super-automatic mode goes on."""
         await self._stop_tone()
         self.tx_on = False
         self.qso.stop()
@@ -560,6 +573,11 @@ class Ft8Service:
 
     def _finished(self) -> None:
         them = self.qso.them
+        if self.auto.on:
+            if self.qso.complete:
+                self.auto.worked_one()
+            elif them:
+                self.auto.missed_one(them, time.time())
         if self.qso.complete:
             self._log()
             self.hub.info(N_("FT8 QSO with {call} complete (reports {sent} and {got})"),
@@ -614,12 +632,83 @@ class Ft8Service:
             self.hub.error(N_("Not in the logbook: {error} (it is in ft8_log.adi)"),
                            error=why)
 
+    # ---- the super-automatic mode ---------------------------------------------------------------
+
+    async def set_auto(self, on: bool) -> dict:
+        """Turn the super-automatic mode on (it begins with the next cycle heard) or off
+        (a QSO under way ends as usual; calling CQ, or a station not answering yet, stops)."""
+        if on:
+            self._check_tx()
+            self.auto.start()
+            self.hub.info(N_("FT8: super-automatic mode on (H or A stops it)"))
+        elif self.auto.on:
+            self.auto.stop()
+            self.hub.info(N_("FT8: super-automatic mode off"))
+            if self.tx_on and self.qso.step in ("cq", "tx1"):
+                await self._stop_tx()
+        self._touch()
+        return self.auto_state()
+
+    def auto_state(self) -> dict:
+        return {"on": self.auto.on, "phase": self.auto.phase, "missed": self.auto.missed,
+                "stations": STATIONS, "cqs": CQS}
+
+    async def _auto_turn(self, start: float) -> None:
+        """A cycle decoded: with nothing under way, the next station, or CQ."""
+        auto = self.auto
+        if not auto.on or self.tx_on or self.transmitting or self.toning:
+            return
+        if self._late_until and start <= self._late_until:
+            return                          # the last one's RR73 may still come
+        cycle = next((c for c in self.history if c["start"] == start), None)
+        decodes = cycle["decodes"] if cycle is not None else []
+        pick = None if auto.wants_cq() else auto.pick(decodes, self.config.callsign,
+                                                      time.time())
+        if pick is not None:
+            auto.quiet = 0
+            await self._auto_go(self.reply(pick, start, tries=TRIES_EACH),
+                                *self._auto_why(pick))
+            return
+        auto.quiet += 1
+        if auto.wants_cq():
+            auto.phase, auto.missed, auto.quiet = "cq", 0, 0
+            await self._auto_go(self.call_cq(), N_("FT8 auto: calling CQ ({count} times)"),
+                                {"count": CQS})
+
+    async def _auto_go(self, step, msgid: str, args: dict) -> None:
+        try:
+            await step
+        except Ft8Error as exc:
+            self.auto.stop()
+            self.hub.error(N_("FT8: super-automatic mode off: {error}"), error=str(exc))
+            return
+        self.hub.info(msgid, **args)
+
+    @staticmethod
+    def _auto_why(d: dict) -> tuple[str, dict]:
+        """What is said of the station chosen, and why it was."""
+        args = {"call": d["sender"], "country": d.get("country") or "?",
+                "count": d.get("dxcc_count", 0)}
+        if d.get("kind") == "call":
+            return N_("FT8 auto: answering {call}, who calls us"), args
+        if d.get("dxcc") == "new":
+            return N_("FT8 auto: calling {call}, a new DXCC ({country})"), args
+        if d.get("dxcc") == "new_band":
+            return N_("FT8 auto: calling {call}, {country} new on this band"), args
+        return N_("FT8 auto: calling {call} ({country}, {count} QSOs)"), args
+
     # ---- sending ------------------------------------------------------------------------------
 
     async def _transmit(self, start: float) -> None:
         qso = self.qso
         if qso.step == "cq":
             self.cq_turns += 1
+            if self.auto.on and self.cq_turns > CQS:
+                self.hub.info(N_("FT8 auto: nobody answered {count} CQs; answering again"),
+                              count=CQS)
+                self.auto.cq_done()
+                await self._stop_tx()
+                return
             if self.cq_turns > CQ_TURNS:
                 self.hub.info(N_("FT8: nobody answered {count} CQs; calling stopped"),
                               count=CQ_TURNS)
@@ -628,7 +717,9 @@ class Ft8Service:
         if qso.gave_up:
             self.hub.info(N_("FT8: no answer from {call}; stopped"), call=qso.them or "?")
             began = self.qso_began
-            await self.halt()
+            if self.auto.on:
+                self.auto.missed_one(qso.them, time.time())
+            await self._stop_tx()
             self.qso_began = began               # for a late end (_late_end)
             self._late_until = start + CYCLE     # their turns before and after ours
             return
@@ -843,7 +934,8 @@ class Ft8Service:
                        "tries": qso.tries, "mycall": qso.mycall, "grid": qso.mygrid,
                        "rx": self.their_freq if self.tx_on else 0,
                        "level": self.tx_level, "last": self.last_sent,
-                       "tone": self.toning}}
+                       "tone": self.toning},
+                "auto": self.auto_state()}
 
     async def call(self, method: str, params: dict) -> dict:
         try:
@@ -865,6 +957,8 @@ class Ft8Service:
                                                     float(params["start"]))}
             elif method == "halt":
                 await self.halt()
+            elif method == "auto":
+                return await self.set_auto(bool(params.get("on", not self.auto.on)))
             elif method == "tone":
                 await self.tone(bool(params.get("on", True)),
                                 float(params.get("seconds", TONE_SECONDS)))

@@ -105,6 +105,7 @@ class Ft8Page(Page):
         controls.addStretch(1)
         for key, label, action in (("Enter", _("Answer"), self.action_reply),
                                    ("Q", "CQ", self.action_cq),
+                                   ("A", _("Auto"), self.action_auto),
                                    ("H", _("Halt"), self.action_halt),
                                    ("T", _("Tone"), self.action_tone),
                                    ("F", _("TX freq"), self.action_tx_freq)):
@@ -114,6 +115,11 @@ class Ft8Page(Page):
             controls.addWidget(button)
             if key == "T":
                 self.tone_button = button
+            if key == "A":
+                self.auto_button = button
+                button.setToolTip(_("Super-automatic: answers new countries first, then "
+                                    "the least worked, then ours; three calls each; after "
+                                    "six stations without a QSO, six CQs"))
         self.frame.body.addLayout(controls)
         self.table = self.frame.add(self._log_table(placed=True), 1)
         self.table.pass_letters = True                       # C, S are the page's
@@ -188,7 +194,7 @@ class Ft8Page(Page):
         """A list of decodes; `placed`: with where the sender is and its mark (rows())."""
         labels = [_("UTC"), "dB", "DT", _("Freq"), _("Message")]
         if placed:
-            labels += [_("Where"), ""]
+            labels += [_("Country"), _("Distance"), ""]
         table = Table(0, len(labels))
         table.setHorizontalHeaderLabels(labels)
         table.right_align(1, 2, 3)
@@ -437,9 +443,9 @@ class Ft8Page(Page):
             for column, text in enumerate(cells):
                 item = QTableWidgetItem(text)
                 colour, strong = fg, bold
-                if column == 5:                              # where: quiet
+                if column == 6:                              # how far: quiet
                     colour, strong = QColor(theme.DIM), False
-                elif column == 6 and decode is not None:     # the logbook's mark
+                elif column == 7 and decode is not None:     # the logbook's mark
                     colour, strong = self._mark_colour(mark(decode)[1])
                 if colour is not None:
                     item.setForeground(QBrush(colour))
@@ -449,7 +455,7 @@ class Ft8Page(Page):
                     font = QFont(table.font())
                     font.setBold(True)
                     item.setFont(font)
-                if column == 5 and decode is not None and decode.get("approx"):
+                if column == 6 and decode is not None and decode.get("approx"):
                     item.setToolTip(_("From the country's middle: no grid heard from it yet"))
                 table.setItem(row, column, item)
 
@@ -539,6 +545,10 @@ class Ft8Page(Page):
         self.tone_button.setText(f"T  {_('Stop tone') if toning else _('Tone')}")
         self.tone_button.setStyleSheet(f"background: {theme.RED}; color: #ffffff;"
                                        if toning else "")
+        auto = bool((self.state.get("auto") or {}).get("on"))
+        self.auto_button.setText(f"A  {_('Auto on') if auto else _('Auto')}")
+        self.auto_button.setStyleSheet(f"background: {theme.MAGENTA}; color: #ffffff;"
+                                       if auto else "")
         self.waterfall.set_markers(int(tx.get("freq") or 1500), int(tx.get("rx") or 0))
         self.map.set_them((tx.get("them") or "") if tx.get("on") else "")
         self._watch_turn += 1
@@ -609,6 +619,13 @@ class Ft8Page(Page):
 
     def action_halt(self) -> None:
         self.run_worker(self._call(_("Transmission halted"), "ft8.halt"), group="tx")
+
+    def action_auto(self) -> None:
+        on = not (self.state.get("auto") or {}).get("on")
+        self.run_worker(self._call(_("Super-automatic mode on: it answers and calls CQ by "
+                                     "itself (A or H stops it)") if on else
+                                   _("Super-automatic mode off"), "ft8.auto", on=on),
+                        group="tx")
 
     def action_tx_freq(self) -> None:
         chosen = self._chosen()

@@ -342,8 +342,9 @@ def test_the_map_in_the_page(tmp_path, run, monkeypatch):
             assert page.panes.sizes()[0] > before                # the map gets room
             row = next(i for i, (_s, d, _c, _st) in enumerate(page.lines)
                        if d and d.get("sender") == "EA1ABC")
-            assert page.table.item(row, 5).text().startswith("Spain ")
-            assert page.table.item(row, 6).text() == ""          # no logbook here: no mark
+            assert page.table.item(row, 5).text() == "Spain"      # English: no locale here
+            assert page.table.item(row, 6).text().endswith(" km 6°")
+            assert page.table.item(row, 7).text() == ""          # no logbook here: no mark
         finally:
             await link.close()
             win.close()

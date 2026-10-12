@@ -329,6 +329,14 @@ squares, the squares worked (orange) and confirmed (green), our station and the 
 circle to the station we work; the wheel zooms, a drag moves it, a click on a station
 chooses it and a double click answers it.
 
+**A** (the Auto button) turns on the super-automatic mode: the core works the band by
+itself. It answers a station calling us first, then the CQs of entities never worked, new
+on this band, the least worked, and our own country last (the loudest among equals), three
+calls each; never a station worked on this band, a CQ meant for others (CQ NA, CQ DX from
+our continent) nor one called in the last 15 minutes. After six stations without a QSO, or
+with nobody to call, it calls CQ six times, then answers again, until **A** or **H** stops
+it (a transmission error stops it too).
+
 Beside the band's activity (under it in the terminal), the **QSO** area shows the
 conversation alone: what we send, what is sent to us and what the station we work says.
 Under them, what we transmit with: the audio frequency (**[ ]** move it 25 Hz, or type it),

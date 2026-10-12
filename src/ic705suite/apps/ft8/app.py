@@ -3,7 +3,9 @@
 The core decodes (apps.ft8.service); this screen starts it when it opens, shows what each
 cycle brings (a CQ in green, what is sent to us in red, what we send in yellow) and stops
 it when it closes. Under it, the QSO: what we send, what is sent to us and what the station
-we work says. Enter answers the chosen station, Q calls CQ, H halts, F puts our transmit
+we work says. Enter answers the chosen station, Q calls CQ, A turns the super-automatic
+mode on and off (the core answers and calls by itself: apps.ft8.auto), H halts, F puts our
+transmit
 frequency on the chosen line's ([ ] move it), - + the transmit audio (the ALC must stay
 at 0), , . the radio's power.
 """
@@ -94,13 +96,10 @@ def sent_line(event: dict) -> dict:
 
 
 def where(d: dict) -> str:
-    """Country, distance and bearing: "Wales 1814 km 6°" (~ from the country's middle)."""
-    parts = []
-    if d.get("country"):
-        parts.append(d["country"])
-    if d.get("km") is not None:
-        parts.append(f"{'~' if d.get('approx') else ''}{d['km']} km {d.get('az', 0)}°")
-    return " ".join(parts)
+    """Distance and bearing: "1814 km 6°" (~ from the country's middle)."""
+    if d.get("km") is None:
+        return ""
+    return f"{'~' if d.get('approx') else ''}{d['km']} km {d.get('az', 0)}°"
 
 
 def mark(d: dict) -> tuple[str, str]:
@@ -120,24 +119,26 @@ def mark(d: dict) -> tuple[str, str]:
 
 def rows(cycles: list[dict], cq_only: bool, mycall: str) -> list[tuple]:
     """(cycle start, decode or None, cells, style) for each line of the list: time, dB, DT,
-    audio frequency, message, where the sender is, and its mark (mark())."""
+    audio frequency, message, the sender's country, how far and where (where()), and its
+    mark (mark())."""
     out = []
     for cycle in cycles:
         shown = [d for d in cycle["decodes"] if not cq_only or d.get("kind") in ("cq", "tx")
                  or kind_style(d, mycall) == STYLE_ME]
         if not shown:
             continue                     # a quiet cycle: no heading over nothing
-        out.append((cycle["start"], None, ["────────", "", "", "", heading(cycle), "", ""],
+        out.append((cycle["start"], None, ["────────", "", "", "", heading(cycle), "", "", ""],
                     STYLE_HEADING))
         for d in sorted(shown, key=lambda d: (d.get("kind") != "tx", d["freq"])):
             stamp = f"{d['time'][:2]}:{d['time'][2:4]}:{d['time'][4:]}"
             if d.get("kind") == "tx":
                 out.append((cycle["start"], d, [stamp, "TX", "", str(d["freq"]),
-                                                d["message"], "", ""], STYLE_TX))
+                                                d["message"], "", "", ""], STYLE_TX))
             else:
                 out.append((cycle["start"], d, [stamp, str(d["snr"]), f"{d['dt']:.1f}",
-                                                str(d["freq"]), d["message"], where(d),
-                                                mark(d)[0]],
+                                                str(d["freq"]), d["message"],
+                                                _(d["country"]) if d.get("country") else "",
+                                                where(d), mark(d)[0]],
                             kind_style(d, mycall)))
     return out
 
@@ -261,6 +262,11 @@ def extra(state: dict, now: float | None = None) -> list[tuple[str, str]]:
     if state.get("dial") and not state.get("ft8_dial"):
         pieces.append(("", _("not on an FT8 frequency (←→)")))
     pieces.append((_("CYCLE"), f"{int(now % CYCLE):02d}/{CYCLE} s"))
+    auto = state.get("auto") or {}
+    if auto.get("on"):
+        pieces.append(("AUTO", _("calling CQ") if auto.get("phase") == "cq" else
+                       _("answering ({missed}/{stations} without a QSO)").format(
+                           missed=auto.get("missed", 0), stations=auto.get("stations", 6))))
     sending = tx_piece(state)
     if sending:
         pieces.append(sending)
@@ -282,6 +288,7 @@ class Ft8App(App[int]):
         Binding("enter", "reply", show=False, priority=True),
         Binding("q", "cq", show=False),
         Binding("h", "halt", show=False),
+        Binding("a", "auto", show=False),
         Binding("t", "tone", show=False),
         Binding("f", "tx_freq", show=False),
         Binding("left_square_bracket", "move_tx(-1)", show=False),
@@ -324,7 +331,8 @@ class Ft8App(App[int]):
         table = self.query_one("#activity", DataTable)
         table.border_title = _("Band activity")
         table.add_columns(_("UTC"), Text("dB", justify="right"), Text("DT", justify="right"),
-                          Text(_("Freq"), justify="right"), _("Message"), _("Where"), "")
+                          Text(_("Freq"), justify="right"), _("Message"), _("Country"),
+                          Text(_("Distance"), justify="left"), "")
         table.styles.height = "1fr"
         qso = self.query_one("#qso", DataTable)
         qso.border_title = _("QSO")
@@ -405,11 +413,11 @@ class Ft8App(App[int]):
         table.clear()
         self.lines = rows(self.cycles, self.cq_only, self.mycall)
         for _start, decode, cells, style in self.lines:
-            stamp, snr, dt, freq, message, place, tag = cells
+            stamp, snr, dt, freq, message, country, place, tag = cells
             table.add_row(Text(stamp, style=STYLE_HEADING if style == STYLE_HEADING else ""),
                           Text(snr, justify="right"), Text(dt, justify="right"),
                           Text(freq, justify="right"), Text(message, style=style),
-                          Text(place, style="dim"),
+                          Text(country), Text(place, style="dim"),
                           Text(tag, style=mark(decode)[1] if decode else ""))
         if table.row_count:
             table.move_cursor(row=table.row_count - 1 if at_end or not keep_end
@@ -515,6 +523,13 @@ class Ft8App(App[int]):
 
     def action_halt(self) -> None:
         self.run_worker(self._call(_("Transmission halted"), "ft8.halt"), group="tx")
+
+    def action_auto(self) -> None:
+        on = not (self.state.get("auto") or {}).get("on")
+        self.run_worker(self._call(_("Super-automatic mode on: it answers and calls CQ by "
+                                     "itself (A or H stops it)") if on else
+                                   _("Super-automatic mode off"), "ft8.auto", on=on),
+                        group="tx")
 
     def action_tx_freq(self) -> None:
         chosen = self._chosen()

@@ -66,10 +66,11 @@ def test_heard_against_the_logbook(tmp_path, monkeypatch):
                                 geo.locator_to_latlon("IN73"))))
             assert ea1["dxcc"] == "new" and ea1["grid_state"] == "new"
             assert mark(ea1)[0] == "NEW DXCC" and mark(got["DL1ABC"])[0] == "B4"
-            assert where(ea1).startswith("Spain ") and where(got["DL1ABC"]).count("~") == 1
+            assert where(ea1).endswith("°") and where(got["DL1ABC"]).startswith("~")
             line = next(cells for _s, d, cells, _st in rows(cycles, False, "EA7KLX")
                         if d and d.get("sender") == "EA1ABC")
-            assert line[4] == "CQ EA1ABC IN73" and line[6] == "NEW DXCC"
+            assert line[4] == "CQ EA1ABC IN73" and line[5] == "Spain"
+            assert line[7] == "NEW DXCC"
             summary = await link.call("ft8.worked")
             assert summary["grids"] == {"JO62": "worked"} and summary["locator"] == "IM77AH"
             assert summary["lat"] == geo.locator_to_latlon("IM77AH")[0] and summary["logbook"]

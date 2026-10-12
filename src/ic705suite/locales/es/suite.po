@@ -1392,3 +1392,57 @@ msgstr "CUAD. NUEVA"
 
 msgid "Where"
 msgstr "Dónde"
+
+msgid "Country"
+msgstr "País"
+
+msgid "Distance"
+msgstr "Distancia"
+
+msgid "Auto"
+msgstr "Auto"
+
+msgid "Auto on"
+msgstr "Auto activo"
+
+msgid "FT8 auto: answering {call}, who calls us"
+msgstr "FT8 auto: respondiendo a {call}, que nos llama"
+
+msgid "FT8 auto: calling CQ ({count} times)"
+msgstr "FT8 auto: llamando CQ ({count} veces)"
+
+msgid "FT8 auto: calling {call} ({country}, {count} QSOs)"
+msgstr "FT8 auto: llamando a {call} ({country}, {count} QSO)"
+
+msgid "FT8 auto: calling {call}, a new DXCC ({country})"
+msgstr "FT8 auto: llamando a {call}, DXCC nuevo ({country})"
+
+msgid "FT8 auto: calling {call}, {country} new on this band"
+msgstr "FT8 auto: llamando a {call}, {country} nuevo en esta banda"
+
+msgid "FT8 auto: nobody answered {count} CQs; answering again"
+msgstr "FT8 auto: nadie respondió a {count} CQ; vuelvo a responder"
+
+msgid "FT8: super-automatic mode off"
+msgstr "FT8: modo superautomático desactivado"
+
+msgid "FT8: super-automatic mode off: {error}"
+msgstr "FT8: modo superautomático desactivado: {error}"
+
+msgid "FT8: super-automatic mode on (H or A stops it)"
+msgstr "FT8: modo superautomático activado (H o A lo para)"
+
+msgid "Super-automatic mode off"
+msgstr "Modo superautomático desactivado"
+
+msgid "Super-automatic mode on: it answers and calls CQ by itself (A or H stops it)"
+msgstr "Modo superautomático activado: responde y llama CQ por sí solo (A o H lo para)"
+
+msgid "Super-automatic: answers new countries first, then the least worked, then ours; three calls each; after six stations without a QSO, six CQs"
+msgstr "Superautomático: responde primero a países nuevos, luego a los menos trabajados y por último al nuestro; tres llamadas a cada uno; tras seis estaciones sin QSO, seis CQ"
+
+msgid "answering ({missed}/{stations} without a QSO)"
+msgstr "respondiendo ({missed}/{stations} sin QSO)"
+
+msgid "calling CQ"
+msgstr "llamando CQ"

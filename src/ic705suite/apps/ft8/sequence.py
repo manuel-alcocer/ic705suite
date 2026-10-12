@@ -41,6 +41,7 @@ class Qso:
     step: str = "idle"             # cq, tx1..tx5, done, idle
     message: str = ""              # what goes next
     tries: int = 0
+    first_tries: int = TRIES       # the first call (Tx1) without an answer: stop
     log: list[str] = field(default_factory=list)   # what was sent, in order
 
     # ---- starting ---------------------------------------------------------------------------
@@ -125,7 +126,8 @@ class Qso:
 
     @property
     def gave_up(self) -> bool:
-        return self.step not in ("cq", "done", "idle") and self.tries >= TRIES
+        limit = self.first_tries if self.step == "tx1" else TRIES
+        return self.step not in ("cq", "done", "idle") and self.tries >= limit
 
     def stop(self) -> None:
         self.step, self.message = "idle", ""
