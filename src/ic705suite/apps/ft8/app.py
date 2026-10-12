@@ -127,6 +127,57 @@ def conversation(cycles: list[dict], mycall: str, them: str) -> list[tuple]:
     return out
 
 
+# A QSO is five messages, both ways: answering a CQ, our grid, their report, our R-report,
+# their RR73, our 73; calling CQ, our CQ, their grid, our report, their R-report, our RR73.
+# Each step (sequence.Qso) is how many have gone by when we start sending its message.
+QSO_MESSAGES = 5
+STEP_DONE = {"cq": 0, "tx1": 0, "tx2": 2, "tx3": 2, "tx4": 4, "tx5": 4, "done": 5}
+PHASES = {
+    ("cq", 0): N_("Calling CQ"),
+    ("cq", 1): N_("CQ sent: waiting for an answer"),
+    ("tx1", 0): N_("Answering with our grid"),
+    ("tx1", 1): N_("Grid sent: waiting for their report"),
+    ("tx2", 2): N_("They answered: sending their report"),
+    ("tx2", 3): N_("Report sent: waiting for their R-report"),
+    ("tx3", 2): N_("Report received: sending ours (R)"),
+    ("tx3", 3): N_("R-report sent: waiting for their RR73"),
+    ("tx4", 4): N_("Reports exchanged: sending RR73"),
+    ("tx4", 5): N_("RR73 sent: the QSO counts"),
+    ("tx5", 4): N_("RR73 received: sending 73"),
+    ("tx5", 5): N_("73 sent: the QSO counts"),
+    ("done", 5): N_("QSO complete"),
+}
+
+
+def qso_progress(tx: dict) -> tuple[int, int, str] | None:
+    """(messages gone by, of how many, what is going on) of the QSO under way; None with no
+    QSO (or CQ) going."""
+    step = tx.get("step") or "idle"
+    if step not in STEP_DONE or (not tx.get("on") and step != "done"):
+        return None
+    done = STEP_DONE[step] + (1 if step != "done" and tx.get("tries") else 0)
+    done = min(done, QSO_MESSAGES)
+    return done, QSO_MESSAGES, _(PHASES.get((step, done), ""))
+
+
+def qso_status(tx: dict, completed: str = "") -> tuple[int, int, str] | None:
+    """What the QSO area shows of the QSO: under way (qso_progress, with whom), or the last
+    one completed (`completed`: its call) until another starts."""
+    going = qso_progress(tx)
+    if going is not None:
+        done, total, text = going
+        them = tx.get("them") or ""
+        return done, total, f"{them} · {text}" if them else text
+    if completed:
+        return QSO_MESSAGES, QSO_MESSAGES, _("QSO with {call} complete").format(call=completed)
+    return None
+
+
+def progress_bar(done: int, total: int, cells: int = 10) -> str:
+    full = round(done / total * cells) if total else 0
+    return "█" * full + "░" * (cells - full)
+
+
 def power_percent(rig: dict) -> float | None:
     power = (rig.get("controls") or {}).get("power")
     return power if power is not None else rig.get("power")
@@ -226,6 +277,7 @@ class Ft8App(App[int]):
         self.cq_only = False
         self.started_here = False
         self.mycall = ""
+        self.completed = ""                  # the call of the last QSO completed
 
     def compose(self) -> ComposeResult:
         yield RigStatusLine(self.link.description, id="statusline")
@@ -288,13 +340,18 @@ class Ft8App(App[int]):
         elif kind == "ft8":
             them = (self.state.get("tx") or {}).get("them")
             self.state = event
+            if (event.get("tx") or {}).get("on"):
+                self.completed = ""          # a new QSO (or CQ) under way
             if (event.get("tx") or {}).get("them") != them:
                 self._fill_qso()
+            self._show_progress()
             self._tick()
         elif kind == "ft8.cycle":
             self._add(event)
             self._message("info", "")
         elif kind == "ft8.qso":
+            self.completed = event["qso"].get("CALL", "")
+            self._show_progress()
             self.run_worker(self._logbook(event["qso"]))
         elif kind == "ft8.tx":
             self._add(sent_line(event))
@@ -322,6 +379,16 @@ class Ft8App(App[int]):
             table.move_cursor(row=table.row_count - 1 if at_end or not keep_end
                               else min(row, table.row_count - 1))
         self._fill_qso()
+
+    def _show_progress(self) -> None:
+        """Under the QSO area: how far the QSO has gone, five messages in all."""
+        status = qso_status(self.state.get("tx") or {}, self.completed)
+        table = self.query_one("#qso", DataTable)
+        if status is None:
+            table.border_subtitle = ""
+            return
+        done, total, text = status
+        table.border_subtitle = f"{progress_bar(done, total)} {done * 100 // total}% · {text}"
 
     def _fill_qso(self) -> None:
         table = self.query_one("#qso", DataTable)

@@ -94,3 +94,40 @@ def test_heard_while_our_message_goes_out():
     qso.sent("DL1ABC EA7KLX 73")
     assert qso.step == "done" and qso.complete
     assert qso.log == ["DL1ABC EA7KLX IM77", "DL1ABC EA7KLX R-12", "DL1ABC EA7KLX 73"]
+
+
+def test_how_far_the_qso_has_gone():
+    """Five messages both ways: the QSO area's bar counts those gone by."""
+    from ic705suite.apps.ft8.app import progress_bar, qso_progress, qso_status
+
+    qso = Qso("EA7KLX", "IM77")
+
+    def now() -> tuple[int, int, str] | None:
+        return qso_progress({"on": True, "step": qso.step, "tries": qso.tries})
+
+    qso.answer(parse_decode("CQ DL1ABC JO62", -14))
+    assert now()[:2] == (0, 5)
+    qso.sent()
+    assert now()[0] == 1 and "waiting for their report" in now()[2]
+    heard(qso, "EA7KLX DL1ABC -07", snr=-12)
+    assert now()[0] == 2
+    qso.sent()
+    assert now()[0] == 3 and "RR73" in now()[2]
+    heard(qso, "EA7KLX DL1ABC RR73")
+    assert now()[0] == 4
+    qso.sent()
+    assert qso.step == "done"
+    assert qso_progress({"on": False, "step": "idle"}) is None
+    assert qso_status({"on": False, "step": "idle"}, "DL1ABC") == \
+        (5, 5, "QSO with DL1ABC complete")
+    assert qso_status({"on": True, "step": "tx3", "tries": 1, "them": "DL1ABC"})[2] \
+        .startswith("DL1ABC · ")
+    assert progress_bar(3, 5) == "██████░░░░"
+
+    cq = Qso("EA7KLX", "IM77")
+    cq.call_cq()
+    assert qso_progress({"on": True, "step": cq.step, "tries": 0})[0] == 0
+    cq.sent()
+    assert qso_progress({"on": True, "step": cq.step, "tries": cq.tries})[0] == 1
+    heard(cq, "EA7KLX DL1ABC JO62")
+    assert qso_progress({"on": True, "step": cq.step, "tries": cq.tries})[0] == 2

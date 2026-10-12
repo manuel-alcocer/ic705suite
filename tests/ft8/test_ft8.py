@@ -434,9 +434,14 @@ def test_a_qso_from_the_terminal(tmp_path, monkeypatch):
             await until(lambda: not (app.state.get("tx") or {}).get("on"))
             assert any(style == STYLE_TX and cells[4] == "DL1ABC EA7KLX 73"
                        for _s, _d, cells, style in app.lines)
+            qso_area = app.query_one("#qso", DataTable)
+            await until(lambda: "100% · QSO with DL1ABC complete" in str(
+                qso_area.border_subtitle))
             await pilot.press("q")                              # and now our own CQ
             await until(lambda: (app.state.get("tx") or {}).get("message") ==
                         "CQ EA7KLX IM77")
+            await until(lambda: "% · CQ" in str(qso_area.border_subtitle)
+                        or "% · Calling CQ" in str(qso_area.border_subtitle))
             await pilot.press("h")
             await until(lambda: not (app.state.get("tx") or {}).get("on"))
             await pilot.press("escape")
@@ -726,6 +731,11 @@ def test_the_power_logged_is_the_one_measured(tmp_path, monkeypatch):
             ft8._sent(30, "tone", 0.0, 9.8)                            # not the QSO's
             ft8._log()
             assert ft8.logged[-1]["TX_PWR"] == "5.6"
+            assert ft8.logged[-1]["MY_GRIDSQUARE"] == "IM77"
+            link.core.config.locator = "im77ah"          # six characters: the ADIF has them
+            ft8._log()
+            assert ft8.logged[-1]["MY_GRIDSQUARE"] == "IM77AH"
+            assert ft8.qso.call_cq() == "CQ EA7KLX IM77"   # the message, four (as FT8 has)
             ft8.qso_watts = 0.0                                         # nothing measured
             ft8._log()
             assert ft8.logged[-1]["TX_PWR"] == "10"
@@ -851,6 +861,66 @@ def test_the_alc_as_icom_wants_it(tmp_path):
             count = len(texts)
             ft8._sent(60, "CQ EA7KLX IM77", 0.0, 9.0)                   # near enough
             assert len(texts) == count
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_their_rr73_just_after_the_last_try(tmp_path, monkeypatch):
+    """As with MW3FLI: they send our report, go back to a CQ VK on another frequency while
+    our R-report repeats, and their RR73 comes in the cycle after our sixth try, seen only
+    by the full pass once our turn has begun. Their frequency is followed (the narrow pass
+    looks there), and the QSO is logged."""
+    air = short_turns(monkeypatch)
+    monkeypatch.setattr(service_module, "data_dir", lambda: tmp_path)
+    air.update(freq=1200, r_sent=0)
+
+    def audio(program, message, frequency, rate=12_000):
+        air["sent"].append(message)
+        if message == "DL1ABC EA7KLX IM77":
+            air["says"] = "EA7KLX DL1ABC -07"
+        elif message == "DL1ABC EA7KLX R-11":
+            air["r_sent"] += 1
+            air["says"], air["freq"] = ("EA7KLX DL1ABC RR73" if air["r_sent"] >= 6
+                                        else "CQ VK DL1ABC JO62"), 1600
+        return np.zeros(int(rate * 0.2), np.float32)
+
+    def decode(program, wav, depth=3, timeout=30.0, band=None):
+        stamp = wav.stem.split("_")[1]
+        if band is not None and (not band[0] <= air["freq"] <= band[1]
+                                 or "RR73" in air["says"]):
+            return []                # the narrow pass looks elsewhere, or misses the RR73
+        return jt9.parse(f"{stamp} -11  0.1 {air['freq']} ~  {air['says']}")
+
+    monkeypatch.setattr(service_module.encode, "audio", audio)
+    monkeypatch.setattr(service_module.jt9, "decode", decode)
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        events: list[dict] = []
+        link.attach(lambda e: e.get("type") in ("info", "ft8.qso", "ft8.cycle")
+                    and events.append(e))
+        try:
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            await until(lambda: any(e.get("type") == "ft8.cycle" and e["decodes"]
+                                    for e in events))
+            cycle = next(e for e in events if e.get("type") == "ft8.cycle" and e["decodes"])
+            await link.call("ft8.reply", decode=cycle["decodes"][0], start=cycle["start"])
+            await until(lambda: air["r_sent"] >= 2)
+            await until(lambda: link.core.ft8.their_freq == 1600)       # followed
+            await until(lambda: any(e.get("type") == "ft8.qso" for e in events), 20)
+            texts = [e.get("text", "") for e in events]
+            assert any("no answer from DL1ABC" in t for t in texts)
+            assert any("came just after the last try" in t for t in texts)
+            qso = next(e for e in events if e.get("type") == "ft8.qso")["qso"]
+            assert (qso["CALL"], qso["RST_SENT"], qso["RST_RCVD"]) == ("DL1ABC", "-11", "-07")
+            assert air["sent"].count("DL1ABC EA7KLX R-11") == 6
+            assert not link.core.ft8.tx_on and not link.core.station.transport.ptt
         finally:
             await link.close()
 

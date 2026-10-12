@@ -46,7 +46,7 @@ from pathlib import Path
 import numpy as np
 
 from ic705suite.apps.ft8 import adif, encode, jt9, waterfall
-from ic705suite.apps.ft8.messages import parse
+from ic705suite.apps.ft8.messages import base, parse
 from ic705suite.apps.ft8.sequence import Qso
 from ic705suite.i18n import N_
 from ic705suite.paths import data_dir
@@ -156,6 +156,8 @@ class Ft8Service:
         self._tone: asyncio.Task | None = None
         self.qso_began: float | None = None      # our first message to the other station
         self.qso_watts = 0.0                     # the RF power the radio gave in this QSO
+        self._late_until = 0.0                   # a give-up whose answer may still come
+        self._short_said: float | None = None    # the level "short of power" was said for
         self.logged: list[dict] = []
 
     # ---- life ---------------------------------------------------------------------------------
@@ -382,16 +384,40 @@ class Ft8Service:
 
     def _hear(self, start: float, entries: list[dict]) -> None:
         """Decodes of the other station's turn move the QSO on."""
-        if not self.tx_on or parity(start) == self.tx_parity:
+        if not self.tx_on:
+            self._late_end(start, entries)
+            return
+        if parity(start) == self.tx_parity:
             return
         for entry in entries:
+            if self.qso.them and base(entry.get("sender") or "") == base(self.qso.them):
+                # Where they are now, whatever they say (a CQ too): the narrow pass at
+                # second 13 looks there.
+                self.their_freq = entry["freq"]
             if self.qso.heard(entry):
-                if self.qso.them and entry.get("sender") == self.qso.them:
-                    self.their_freq = entry["freq"]
                 self.cq_turns = 0
                 self._touch()
         if self.qso.step == "done":
             self._finished()
+
+    def _late_end(self, start: float, entries: list[dict]) -> None:
+        """Their RR73 (or RRR, 73) decoded just after we gave up on them (it comes in the
+        cycle after our last try, sometimes after our turn began): the reports went both
+        ways, so the QSO counts and is logged."""
+        qso = self.qso
+        if not self._late_until or start > self._late_until or not qso.them:
+            return
+        for entry in entries:
+            if base(entry.get("sender") or "") == base(qso.them) and qso._for_me(entry) \
+                    and entry.get("end") in ("RRR", "RR73", "73") and qso.complete:
+                self._late_until = 0.0
+                self._log()
+                self.hub.info(N_("FT8 QSO with {call} complete (reports {sent} and {got}): "
+                                 "their {end} came just after the last try"),
+                              call=qso.them, sent=qso.sent_report, got=qso.got_report,
+                              end=entry["end"])
+                self._touch()
+                return
 
     async def call_cq(self, freq: int | None = None) -> str:
         self._check_tx()
@@ -400,7 +426,7 @@ class Ft8Service:
             self._save_settings()
         message = self.qso.call_cq()
         self.their_freq, self.cq_turns, self.qso_began = 0, 0, None
-        self.qso_watts = 0.0
+        self.qso_watts, self._late_until = 0.0, 0.0
         # The next cycle is ours.
         self.tx_parity = parity(cycle_start(time.time()) + CYCLE)
         self.tx_on = True
@@ -415,7 +441,7 @@ class Ft8Service:
         message = self.qso.answer(decode)
         self.their_freq = int(decode.get("freq") or 0)
         self.qso_began = None
-        self.qso_watts = 0.0
+        self.qso_watts, self._late_until = 0.0, 0.0
         self.tx_parity = 1 - parity(start)
         self.tx_on = True
         self._touch()
@@ -497,7 +523,8 @@ class Ft8Service:
         fields = adif.record(call=qso.them, grid=qso.their_grid, sent=qso.sent_report,
                              received=qso.got_report, began=self.qso_began or time.time(),
                              ended=time.time(), dial=rig.state.frequency or 0,
-                             audio=self.tx_freq, mycall=qso.mycall, mygrid=qso.mygrid,
+                             audio=self.tx_freq, mycall=qso.mycall,
+                             mygrid=self.config.locator.upper() or qso.mygrid,  # all of it
                              power_w=watts)
         try:
             adif.append(self.log_path, fields)
@@ -520,7 +547,10 @@ class Ft8Service:
                 return
         if qso.gave_up:
             self.hub.info(N_("FT8: no answer from {call}; stopped"), call=qso.them or "?")
+            began = self.qso_began
             await self.halt()
+            self.qso_began = began               # for a late end (_late_end)
+            self._late_until = start + CYCLE     # their turns before and after ours
             return
         message = qso.message
         if not message:
@@ -665,7 +695,9 @@ class Ft8Service:
             return
         power = self.station.rig.state.power
         wanted = power * self.station.model.max_power_w / 100 if power else 0
-        if alc < ALC_IDLE and watts and wanted and watts < SHORT_OF_POWER * wanted:
+        if alc < ALC_IDLE and watts and wanted and watts < SHORT_OF_POWER * wanted \
+                and self._short_said != self.tx_level:
+            self._short_said = self.tx_level     # once for each level
             self.hub.info(N_("FT8: {watts} W of the {wanted} W set, with the ALC still: the TX "
                              "level can go up (now {level} %) while the ALC stays within its "
                              "zone"), watts=f"{watts:.1f}", wanted=f"{wanted:g}",

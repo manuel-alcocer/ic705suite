@@ -97,6 +97,8 @@ def test_a_qso_from_the_window(tmp_path, run, monkeypatch):
             qso = [page.qso_table.item(r, 4).text() for r in range(page.qso_table.rowCount())]
             assert {"DL1ABC EA7KLX IM77", "EA7KLX DL1ABC -07", "DL1ABC EA7KLX 73"} <= set(qso)
             assert all("DL1ABC" in line for line in qso)
+            await until(lambda: page.qso_bar.value() == 100)          # the bar: complete
+            assert "QSO with DL1ABC complete" in page.qso_bar.format()
         finally:
             await link.close()
             win.close()

@@ -1305,3 +1305,54 @@ msgstr "El ALC de la radio al transmitir; 1.0 es el final de su zona: verde hast
 
 msgid "Transmit audio: the ALC within its zone, under 0.5 best (- +)"
 msgstr "Audio de transmisión: el ALC dentro de su zona, mejor por debajo de 0.5 (- +)"
+
+msgid "73 sent: the QSO counts"
+msgstr "73 enviado: el QSO vale"
+
+msgid "Answering with our grid"
+msgstr "Respondiendo con nuestra cuadrícula"
+
+msgid "CQ sent: waiting for an answer"
+msgstr "CQ enviado: esperando respuesta"
+
+msgid "Calling CQ"
+msgstr "Llamando CQ"
+
+msgid "FT8 QSO with {call} complete (reports {sent} and {got}): their {end} came just after the last try"
+msgstr "QSO FT8 con {call} completo (reportes {sent} y {got}): su {end} llegó justo después del último intento"
+
+msgid "Grid sent: waiting for their report"
+msgstr "Cuadrícula enviada: esperando su reporte"
+
+msgid "No QSO under way"
+msgstr "Ningún QSO en curso"
+
+msgid "QSO complete"
+msgstr "QSO completo"
+
+msgid "QSO with {call} complete"
+msgstr "QSO con {call} completo"
+
+msgid "R-report sent: waiting for their RR73"
+msgstr "R-reporte enviado: esperando su RR73"
+
+msgid "RR73 received: sending 73"
+msgstr "RR73 recibido: enviando 73"
+
+msgid "RR73 sent: the QSO counts"
+msgstr "RR73 enviado: el QSO vale"
+
+msgid "Report received: sending ours (R)"
+msgstr "Reporte recibido: enviando el nuestro (R)"
+
+msgid "Report sent: waiting for their R-report"
+msgstr "Reporte enviado: esperando su R-reporte"
+
+msgid "Reports exchanged: sending RR73"
+msgstr "Reportes intercambiados: enviando RR73"
+
+msgid "The QSO's five messages: those gone by of all"
+msgstr "Los cinco mensajes del QSO: cuántos van del total"
+
+msgid "They answered: sending their report"
+msgstr "Han contestado: enviando su reporte"

@@ -44,6 +44,7 @@ from ic705suite.apps.ft8.app import (
     merge,
     power_percent,
     power_step,
+    qso_status,
     rows,
     sent_line,
     watts,
@@ -110,6 +111,13 @@ class Ft8Page(Page):
         self.table.pass_letters = True                       # C, S are the page's
         self.table.cellDoubleClicked.connect(self._double_click)
         self.qso_frame = Frame(_("QSO"))
+        # How far the QSO under way has gone: its five messages, both ways.
+        self.qso_bar = self.qso_frame.add(QProgressBar())
+        self.qso_bar.setRange(0, 100)
+        self.qso_bar.setTextVisible(True)
+        self.qso_bar.setMinimumHeight(22)
+        self.qso_bar.setToolTip(_("The QSO's five messages: those gone by of all"))
+        self.completed = ""                     # the call of the last QSO completed
         self.qso_table = self.qso_frame.add(self._log_table(), 1)
         self.qso_table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.qso_table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
@@ -323,6 +331,8 @@ class Ft8Page(Page):
         elif kind == "ft8":
             them = (self.state.get("tx") or {}).get("them")
             self.state = event
+            if (event.get("tx") or {}).get("on"):
+                self.completed = ""                     # a new QSO (or CQ) under way
             if (event.get("tx") or {}).get("them") != them:
                 self._fill_qso()
             self._tick()
@@ -339,6 +349,8 @@ class Ft8Page(Page):
             self._fill(keep_end=True)
             self._message("info", "")
         elif kind == "ft8.qso":
+            self.completed = event["qso"].get("CALL", "")
+            self._show_progress()
             self.run_worker(self._logbook(event["qso"]))
         elif kind == "ft8.tx":
             merge(self.cycles, sent_line(event))
@@ -386,6 +398,23 @@ class Ft8Page(Page):
                     font.setBold(True)
                     item.setFont(font)
                 table.setItem(row, column, item)
+
+    def _show_progress(self) -> None:
+        status = qso_status(self.state.get("tx") or {}, self.completed)
+        if status is None:
+            self.qso_bar.setValue(0)
+            self.qso_bar.setFormat(_("No QSO under way"))
+            self.qso_bar.setStyleSheet("")
+            return
+        done, total, text = status
+        percent = done * 100 // total
+        self.qso_bar.setValue(percent)
+        self.qso_bar.setFormat(f"{percent}% · {text}")
+        colour = theme.GREEN if done == total else theme.CYAN
+        self.qso_bar.setStyleSheet(
+            f"QProgressBar {{ background: {theme.RAISED}; border: 1px solid {theme.BORDER}; "
+            f"border-radius: 3px; text-align: center; color: {theme.TEXT}; }} "
+            f"QProgressBar::chunk {{ background: {colour}; }}")
 
     def _fill_qso(self) -> None:
         them = (self.state.get("tx") or {}).get("them") or ""
@@ -442,6 +471,7 @@ class Ft8Page(Page):
             self.band_box.setCurrentText(band)
         self.footer.counters = [(_("Decoded"), sum(len(c["decodes"]) for c in self.cycles[-1:]))]
         self._show_tx()
+        self._show_progress()
         tx = self.state.get("tx") or {}
         toning = bool(tx.get("tone"))
         self.tone_button.setText(f"T  {_('Stop tone') if toning else _('Tone')}")
