@@ -11,11 +11,15 @@ Events (server -> client):
   ft8.sent   {start, message, alc, watts}  how it went out: the highest ALC (0 none, 1 the
              top of the radio's ALC zone) and RF power the radio showed while sending
   ft8.qso    {qso: {ADIF fields}, path}  a QSO completed, added to ft8_log.adi
+  (each decode also has, where known: country, continent, lat, lon, approx (from the
+  country, not a grid), km and az from our locator; with the shared logbook b4, b4_any,
+  dxcc and grid_state: new, new_band, worked or confirmed, see worked.py)
   ft8.wf     {time, low, step, levels}  a waterfall row (apps.ft8.waterfall), four a second
              while a screen asks for them (ft8.waterfall)
   info       a QSO completed, given up, or a transmission refused (and why)
 Calls ("ft8.*"): state, start, stop, history {cycles}, band {band}, cq {freq}, reply
-  {decode, start}, halt, tone {on, seconds} (a steady tone on our frequency, for the ALC,
+  {decode, start}, worked (the grids and entities worked and confirmed, and our place),
+  halt, tone {on, seconds} (a steady tone on our frequency, for the ALC,
   at most TONE_LONGEST s; halt stops it too), txfreq {freq}, waterfall {seconds} (rows for
   that long: asked again to keep them), level {level} (the transmit audio, 0.05-1 of full
   scale: lower it when the ALC moves), log (the QSOs completed and ft8_log.adi)
@@ -45,6 +49,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ic705suite import geo
 from ic705suite.apps.ft8 import adif, encode, jt9, waterfall
 from ic705suite.apps.ft8.messages import base, parse
 from ic705suite.apps.ft8.sequence import Qso
@@ -78,6 +83,7 @@ ALC_IDLE = 0.05            # under this the ALC does not move at all
 SHORT_OF_POWER = 0.8       # of the power set: less, with the ALC still, says raise the level
 LONGEST_KEY = 16.0         # the PTT watchdog while a message goes out
 CQ_TURNS = 20              # CQs with nobody answering (5 minutes): stop
+WORKED_EVERY = 60.0        # seconds between readings of the worked index (the logbook)
 TONE_SECONDS = 10.0        # the tune tone, unless asked otherwise
 TONE_LONGEST = 15.0        # and never longer
 DATA1_MOD = b"\x1a\x05\x01\x19"
@@ -158,6 +164,10 @@ class Ft8Service:
         self.qso_watts = 0.0                     # the RF power the radio gave in this QSO
         self._late_until = 0.0                   # a give-up whose answer may still come
         self._short_said: float | None = None    # the level "short of power" was said for
+        # Who is where, and what has been worked (the shared logbook: worked.py).
+        self.worked = None
+        self._worked_task: asyncio.Task | None = None
+        self._grids: dict[str, str] = {}         # call -> the grid it last sent
         self.logged: list[dict] = []
 
     # ---- life ---------------------------------------------------------------------------------
@@ -179,6 +189,8 @@ class Ft8Service:
         self.on = True
         self._task = asyncio.create_task(self._run())
         self._wf_task = asyncio.create_task(self._waterfall())
+        if self.config.logbook_database and self._worked_task is None:
+            self._worked_task = asyncio.create_task(self._keep_worked())
         self._touch()
 
     async def stop(self) -> None:
@@ -187,12 +199,12 @@ class Ft8Service:
             return
         self.on = False
         self.station.remove_audio_listener(self._audio)
-        for task in (self._task, self._wf_task):
+        for task in (self._task, self._wf_task, self._worked_task):
             if task is not None:
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
-        self._task = self._wf_task = None
+        self._task = self._wf_task = self._worked_task = None
         for task in list(self._pending):
             task.cancel()
         if self._work is not None:
@@ -375,10 +387,55 @@ class Ft8Service:
         self._touch()
         return entries
 
-    @staticmethod
-    def _entry(decode: jt9.Decode) -> dict:
+    def _entry(self, decode: jt9.Decode) -> dict:
         message = parse(decode.message)
-        return {**asdict(decode), **asdict(message)}
+        entry = {**asdict(decode), **asdict(message)}
+        self._place(entry)
+        return entry
+
+    def _place(self, entry: dict) -> None:
+        """Where the sender is (its grid, the one it sent last, or its country's middle),
+        how far and which way from us, and what the logbook says of it."""
+        sender = (entry.get("sender") or "").strip("<>")
+        if not sender or sender == "...":
+            return
+        grid = entry.get("grid") or ""
+        if grid and geo.is_locator(grid):
+            self._grids[sender] = grid
+            if len(self._grids) > 20000:
+                self._grids.pop(next(iter(self._grids)))
+        else:
+            grid = self._grids.get(sender, "")
+        entity = geo.entity_for(sender)
+        if entity is not None:
+            entry["country"], entry["continent"] = entity.name, entity.continent
+        where = geo.locator_to_latlon(grid) if grid else None
+        if where is None and entity is not None:
+            where, entry["approx"] = (entity.lat, entity.lon), True
+        if where is not None:
+            entry["lat"], entry["lon"] = round(where[0], 3), round(where[1], 3)
+            mine = geo.locator_to_latlon(self.config.locator)
+            if mine is not None:
+                entry["km"] = round(geo.distance_km(mine, where))
+                entry["az"] = round(geo.bearing_deg(mine, where))
+        if self.worked is not None:
+            dial = self.station.rig.state.frequency
+            band = bands.band_for(dial) if dial else None
+            entry.update(self.worked.status(sender, band.name if band else "", grid))
+
+    async def _keep_worked(self) -> None:
+        """The worked index, read from the logbook every minute (other clients log too)."""
+        while True:
+            await self._read_worked()
+            await asyncio.sleep(WORKED_EVERY)
+
+    async def _read_worked(self) -> None:
+        from ic705suite.worked import from_logbook
+
+        try:
+            self.worked = await asyncio.to_thread(from_logbook, self.config.callsign)
+        except Exception as exc:  # noqa: BLE001 - the marks wait for the next time
+            log.warning("ft8: the worked index: %s", exc)
 
     # ---- the QSO ------------------------------------------------------------------------------
 
@@ -548,6 +605,7 @@ class Ft8Service:
         except Exception as exc:  # noqa: BLE001 - said, and the ADIF has it anyway
             row, why = None, str(exc)
         if row is not None:
+            await self._read_worked()               # marked worked from now on
             self.hub.info(N_("{call} logged in the logbook (FT8 {band}, sent {sent}, "
                              "received {rcvd})"), call=fields["CALL"],
                           band=fields.get("BAND", ""), sent=fields.get("RST_SENT", ""),
@@ -821,6 +879,13 @@ class Ft8Service:
                 self._save_settings()
                 self._touch()
                 return {"freq": self.tx_freq}
+            elif method == "worked":
+                mine = geo.locator_to_latlon(self.config.locator)
+                return {**(self.worked.summary() if self.worked is not None else
+                           {"grids": {}, "entities": {}, "qsos": 0}),
+                        "locator": self.config.locator.upper(),
+                        "lat": mine[0] if mine else None, "lon": mine[1] if mine else None,
+                        "logbook": self.worked is not None}
             elif method == "waterfall":
                 self._wf_until = time.monotonic() + min(60.0, float(params.get("seconds", 15)))
                 return {"low": waterfall.LOW, "high": waterfall.HIGH, "step": waterfall.STEP}

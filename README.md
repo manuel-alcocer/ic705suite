@@ -318,6 +318,17 @@ decoded is written on its trace: a click on it chooses that station in the list,
 click answers it, and a click anywhere else puts our transmit frequency there. Gain and Zero
 set its colours. The core computes it only while a screen shows it.
 
+Each station heard is placed: its country (DXCC, from the `cty.dat` WSJT-X installs), and
+the distance and bearing from `[station] locator` (from its grid, or from the one it sent
+last, else from its country's middle: marked ~). With the shared logbook the list also says
+what it would be for the log, as GridTracker and JTAlert do: **NEW DXCC** (magenta), a
+new band for that entity, **NEW GRID**, **B4** (worked before on this band, dim) or ✓
+(the entity confirmed in LoTW). Beside the waterfall, the **Map** tab draws them on the
+world (Natural Earth's land, public domain) with the grey line, Maidenhead's fields and
+squares, the squares worked (orange) and confirmed (green), our station and the great
+circle to the station we work; the wheel zooms, a drag moves it, a click on a station
+chooses it and a double click answers it.
+
 Beside the band's activity (under it in the terminal), the **QSO** area shows the
 conversation alone: what we send, what is sent to us and what the station we work says.
 Under them, what we transmit with: the audio frequency (**[ ]** move it 25 Hz, or type it),

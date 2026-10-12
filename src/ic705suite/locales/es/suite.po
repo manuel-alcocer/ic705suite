@@ -1368,3 +1368,27 @@ msgstr "LoTW: {count} QSO confirmados ({calls})"
 
 msgid "LoTW: {count} QSOs signed and uploaded"
 msgstr "LoTW: {count} QSO firmados y subidos"
+
+msgid "From the country's middle: no grid heard from it yet"
+msgstr "Desde el centro de su país: aún no se le ha oído la cuadrícula"
+
+msgid "GRID BAND"
+msgstr "CUAD. BANDA"
+
+msgid "Green CQ · red calling you · magenta ring a new DXCC · hollow: placed by its country · squares: orange worked, green confirmed · wheel zooms, drag moves, click chooses, double click answers"
+msgstr "Verde CQ · rojo te llama · aro magenta un DXCC nuevo · hueco: situado por su país · cuadrados: naranja trabajado, verde confirmado · la rueda acerca, arrastrar mueve, clic elige, doble clic responde"
+
+msgid "Map"
+msgstr "Mapa"
+
+msgid "NEW BAND"
+msgstr "BANDA NUEVA"
+
+msgid "NEW DXCC"
+msgstr "DXCC NUEVO"
+
+msgid "NEW GRID"
+msgstr "CUAD. NUEVA"
+
+msgid "Where"
+msgstr "Dónde"

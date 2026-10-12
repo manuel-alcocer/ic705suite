@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QSplitter,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
 )
 
@@ -33,14 +34,20 @@ from ic705suite.apps.ft8.app import (
     FT8_BANDS,
     HINT,
     SHORT_HINT,
+    STYLE_B4,
+    STYLE_CONFIRMED,
     STYLE_CQ,
     STYLE_DOUBT,
     STYLE_HEADING,
     STYLE_ME,
+    STYLE_NEW_BAND,
+    STYLE_NEW_DXCC,
+    STYLE_NEW_GRID,
     STYLE_TX,
     Ft8App,
     conversation,
     extra,
+    mark,
     merge,
     power_percent,
     power_step,
@@ -51,6 +58,7 @@ from ic705suite.apps.ft8.app import (
 )
 from ic705suite.apps.ft8.waterfall import decode as waterfall_levels
 from ic705suite.gui import theme
+from ic705suite.gui.ft8map import MapView
 from ic705suite.gui.page import Page
 from ic705suite.gui.waterfall import WaterfallView
 from ic705suite.gui.widgets import Footer, Frame, StatusLine, Table, span
@@ -107,7 +115,7 @@ class Ft8Page(Page):
             if key == "T":
                 self.tone_button = button
         self.frame.body.addLayout(controls)
-        self.table = self.frame.add(self._log_table(), 1)
+        self.table = self.frame.add(self._log_table(placed=True), 1)
         self.table.pass_letters = True                       # C, S are the page's
         self.table.cellDoubleClicked.connect(self._double_click)
         self.qso_frame = Frame(_("QSO"))
@@ -136,11 +144,26 @@ class Ft8Page(Page):
         self.waterfall.station_clicked.connect(self._choose)
         self.waterfall.station_double_clicked.connect(
             lambda start, decode: self._choose(start, decode) and self.action_reply())
+        # Beside the waterfall, in a tab: the map (gui.ft8map), as GridTracker's.
+        self.map_frame = Frame(_("Map"))
+        self.map = self.map_frame.add(MapView(), 1)
+        self.map.setToolTip(_("Green CQ · red calling you · magenta ring a new DXCC · hollow: "
+                              "placed by its country · squares: orange worked, green "
+                              "confirmed · wheel zooms, drag moves, click chooses, double "
+                              "click answers"))
+        self.map.station_clicked.connect(self._choose)
+        self.map.station_double_clicked.connect(
+            lambda start, decode: self._choose(start, decode) and self.action_reply())
+        self.top_tabs = QTabWidget()
+        self.top_tabs.addTab(self.wf_frame, _("Waterfall"))
+        self.top_tabs.addTab(self.map_frame, _("Map"))
+        self.top_tabs.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.top_tabs.currentChanged.connect(self._tab_changed)
         self.panes = QSplitter(Qt.Orientation.Vertical)
-        self.panes.addWidget(self.wf_frame)
+        self.panes.addWidget(self.top_tabs)
         self.panes.addWidget(self.splitter)
         self.panes.setChildrenCollapsible(False)
-        self.panes.setSizes([260, 440])
+        self.panes.setSizes([330, 400])
         self._watch_turn = 0
         self.tx_frame = Frame(_("Transmit"))
         self.tx_frame.body.addLayout(self._tx_controls())
@@ -161,9 +184,13 @@ class Ft8Page(Page):
         self.timer.start()
         self._tick()
 
-    def _log_table(self) -> Table:
-        table = Table(0, 5)
-        table.setHorizontalHeaderLabels([_("UTC"), "dB", "DT", _("Freq"), _("Message")])
+    def _log_table(self, placed: bool = False) -> Table:
+        """A list of decodes; `placed`: with where the sender is and its mark (rows())."""
+        labels = [_("UTC"), "dB", "DT", _("Freq"), _("Message")]
+        if placed:
+            labels += [_("Where"), ""]
+        table = Table(0, len(labels))
+        table.setHorizontalHeaderLabels(labels)
         table.right_align(1, 2, 3)
         table.verticalHeader().hide()
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -174,9 +201,9 @@ class Ft8Page(Page):
         table.verticalHeader().setDefaultSectionSize(
             table.fontMetrics().height() + 4)               # compact, as a log
         header = table.horizontalHeader()
-        for column in range(4):
+        for column in range(len(labels)):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-        header.setStretchLastSection(True)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         return table
 
     def _tx_controls(self) -> QHBoxLayout:
@@ -257,6 +284,12 @@ class Ft8Page(Page):
             row.addWidget(slider)
         return row
 
+    def _tab_changed(self, index: int) -> None:
+        """The map wants room: the top part takes most of the height while it shows."""
+        total = sum(self.panes.sizes()) or self.height()
+        share = 0.6 if self.top_tabs.widget(index) is self.map_frame else 0.42
+        self.panes.setSizes([int(total * share), total - int(total * share)])
+
     def _choose(self, start: float, decode: dict) -> bool:
         """The line of a station clicked on the waterfall, chosen in the list."""
         for row, (line_start, line, _cells, _style) in enumerate(self.lines):
@@ -300,8 +333,11 @@ class Ft8Page(Page):
             self._message("error", _("cannot connect: {error}").format(error=exc))
             return
         self.mycall = ((self.link.welcome or {}).get("callsign") or "").upper()
+        self.map.mycall = self.mycall
         for cycle in (await self.link.call("ft8.history")).get("cycles", []):
             merge(self.cycles, cycle)       # what the core kept (after a reconnection: more)
+            self.map.add_decodes(cycle["start"], cycle["decodes"])
+        await self._read_worked()
         self._fill()
         state = await self.link.call("ft8.state")
         self.state = state
@@ -314,6 +350,14 @@ class Ft8Page(Page):
             self._message("info", _("Decoding: the first cycle comes when the next 15 s "
                                     "are heard whole"))
         self._tick()
+
+    async def _read_worked(self) -> None:
+        """Our place and the squares worked and confirmed, for the map."""
+        reply = await self.link.call("ft8.worked")
+        if reply.get("error"):
+            return
+        self.map.set_home(reply.get("lat"), reply.get("lon"), reply.get("locator", ""))
+        self.map.set_worked(reply.get("grids") or {})
 
     @staticmethod
     def _error(reply: dict) -> str:
@@ -345,12 +389,14 @@ class Ft8Page(Page):
                                    event.get("low", 0), event.get("step", 5))
         elif kind == "ft8.cycle":
             self.waterfall.add_labels(event["start"], event["decodes"])
+            self.map.add_decodes(event["start"], event["decodes"])
             merge(self.cycles, event)
             self._fill(keep_end=True)
             self._message("info", "")
         elif kind == "ft8.qso":
             self.completed = event["qso"].get("CALL", "")
             self._show_progress()
+            self.run_worker(self._read_worked(), group="worked", exclusive=True)
             if not event.get("logbook"):         # the core's shared logbook has it
                 self.run_worker(self._logbook(event["qso"]))
         elif kind == "ft8.tx":
@@ -386,19 +432,34 @@ class Ft8Page(Page):
 
     def _paint(self, table: Table, lines: list[tuple]) -> None:
         table.setRowCount(len(lines))
-        for row, (_start, _decode, cells, style) in enumerate(lines):
+        for row, (_start, decode, cells, style) in enumerate(lines):
             fg, bg, bold = self._colours(style)
             for column, text in enumerate(cells):
                 item = QTableWidgetItem(text)
-                if fg is not None:
-                    item.setForeground(QBrush(fg))
+                colour, strong = fg, bold
+                if column == 5:                              # where: quiet
+                    colour, strong = QColor(theme.DIM), False
+                elif column == 6 and decode is not None:     # the logbook's mark
+                    colour, strong = self._mark_colour(mark(decode)[1])
+                if colour is not None:
+                    item.setForeground(QBrush(colour))
                 if bg is not None:
                     item.setBackground(QBrush(bg))
-                if bold:
+                if strong:
                     font = QFont(table.font())
                     font.setBold(True)
                     item.setFont(font)
+                if column == 5 and decode is not None and decode.get("approx"):
+                    item.setToolTip(_("From the country's middle: no grid heard from it yet"))
                 table.setItem(row, column, item)
+
+    @staticmethod
+    def _mark_colour(style: str) -> tuple[QColor | None, bool]:
+        return {STYLE_NEW_DXCC: (QColor(theme.MAGENTA), True),
+                STYLE_NEW_BAND: (QColor(theme.MAGENTA), False),
+                STYLE_NEW_GRID: (QColor(theme.CYAN), True),
+                STYLE_B4: (QColor(theme.DIM), False),
+                STYLE_CONFIRMED: (QColor(theme.GREEN), False)}.get(style, (None, False))
 
     def _show_progress(self) -> None:
         status = qso_status(self.state.get("tx") or {}, self.completed)
@@ -479,7 +540,10 @@ class Ft8Page(Page):
         self.tone_button.setStyleSheet(f"background: {theme.RED}; color: #ffffff;"
                                        if toning else "")
         self.waterfall.set_markers(int(tx.get("freq") or 1500), int(tx.get("rx") or 0))
+        self.map.set_them((tx.get("them") or "") if tx.get("on") else "")
         self._watch_turn += 1
+        if self._watch_turn % 60 == 0 and self.timer.isActive():
+            self.run_worker(self._read_worked(), group="worked", exclusive=True)
         if on and self._watch_turn % 5 == 1 and self.timer.isActive():
             # The core sends the waterfall only while someone asks for it.
             self.run_worker(self.link.call("ft8.waterfall", seconds=15), group="watch",

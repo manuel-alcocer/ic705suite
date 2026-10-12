@@ -308,3 +308,44 @@ def test_the_tone_button(tmp_path, run, monkeypatch):
             win.close()
 
     run(scenario())
+
+
+def test_the_map_in_the_page(tmp_path, run, monkeypatch):
+    """The map tab: our place from the core, the stations heard on it, room for it."""
+    from ic705suite import geo
+    from tests.ft8.test_worked_ft8 import CTY
+
+    fake_jt9(monkeypatch)
+    table = geo.Cty(CTY)
+    monkeypatch.setattr(geo, "cty", lambda: table)
+
+    async def scenario():
+        from ic705suite.gui.app import MainWindow
+
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77AH",
+                        database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        win = MainWindow(link, config, start_app="ft8")
+        win.resize(1300, 860)
+        win.show()
+        page = win.page
+        try:
+            await until(lambda: page.map.home is not None)
+            assert page.map.home == geo.locator_to_latlon("IM77AH")
+            await until(lambda: "EA1ABC" in page.map.heard)
+            ea1 = page.map.heard["EA1ABC"]
+            assert (ea1.lat, ea1.lon) == tuple(round(v, 3) for v in
+                                               geo.locator_to_latlon("IN73"))
+            assert page.map.heard["DL1ABC"].approx               # placed by its country
+            before = page.panes.sizes()[0]
+            page.top_tabs.setCurrentWidget(page.map_frame)
+            assert page.panes.sizes()[0] > before                # the map gets room
+            row = next(i for i, (_s, d, _c, _st) in enumerate(page.lines)
+                       if d and d.get("sender") == "EA1ABC")
+            assert page.table.item(row, 5).text().startswith("Spain ")
+            assert page.table.item(row, 6).text() == ""          # no logbook here: no mark
+        finally:
+            await link.close()
+            win.close()
+
+    run(scenario())

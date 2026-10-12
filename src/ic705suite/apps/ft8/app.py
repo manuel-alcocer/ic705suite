@@ -39,6 +39,12 @@ STYLE_ME = "bold white on dark_red"
 STYLE_DOUBT = "dim italic"
 STYLE_TX = "bold yellow"
 STYLE_HEADING = "dim"
+# The marks of what is heard against the logbook (worked.py), as GridTracker and JTAlert.
+STYLE_NEW_DXCC = "bold magenta"
+STYLE_NEW_BAND = "magenta"
+STYLE_NEW_GRID = "bold cyan"
+STYLE_B4 = "dim"
+STYLE_CONFIRMED = "green"
 
 
 def kind_style(decode: dict, mycall: str) -> str:
@@ -87,24 +93,51 @@ def sent_line(event: dict) -> dict:
                 "message": event["message"]}]}
 
 
+def where(d: dict) -> str:
+    """Country, distance and bearing: "Wales 1814 km 6°" (~ from the country's middle)."""
+    parts = []
+    if d.get("country"):
+        parts.append(d["country"])
+    if d.get("km") is not None:
+        parts.append(f"{'~' if d.get('approx') else ''}{d['km']} km {d.get('az', 0)}°")
+    return " ".join(parts)
+
+
+def mark(d: dict) -> tuple[str, str]:
+    """(text, style) of what the logbook says of the sender: the newest thing first."""
+    if d.get("dxcc") == "new":
+        return _("NEW DXCC"), STYLE_NEW_DXCC
+    if d.get("dxcc") == "new_band":
+        return _("NEW BAND"), STYLE_NEW_BAND
+    if d.get("grid_state") in ("new", "new_band"):
+        return _("NEW GRID") if d["grid_state"] == "new" else _("GRID BAND"), STYLE_NEW_GRID
+    if d.get("b4"):
+        return "B4", STYLE_B4
+    if d.get("dxcc") == "confirmed":
+        return "✓", STYLE_CONFIRMED
+    return "", ""
+
+
 def rows(cycles: list[dict], cq_only: bool, mycall: str) -> list[tuple]:
-    """(cycle start, decode or None, cells, style) for each line of the list."""
+    """(cycle start, decode or None, cells, style) for each line of the list: time, dB, DT,
+    audio frequency, message, where the sender is, and its mark (mark())."""
     out = []
     for cycle in cycles:
         shown = [d for d in cycle["decodes"] if not cq_only or d.get("kind") in ("cq", "tx")
                  or kind_style(d, mycall) == STYLE_ME]
         if not shown:
             continue                     # a quiet cycle: no heading over nothing
-        out.append((cycle["start"], None, ["────────", "", "", "", heading(cycle)],
+        out.append((cycle["start"], None, ["────────", "", "", "", heading(cycle), "", ""],
                     STYLE_HEADING))
         for d in sorted(shown, key=lambda d: (d.get("kind") != "tx", d["freq"])):
             stamp = f"{d['time'][:2]}:{d['time'][2:4]}:{d['time'][4:]}"
             if d.get("kind") == "tx":
                 out.append((cycle["start"], d, [stamp, "TX", "", str(d["freq"]),
-                                                d["message"]], STYLE_TX))
+                                                d["message"], "", ""], STYLE_TX))
             else:
                 out.append((cycle["start"], d, [stamp, str(d["snr"]), f"{d['dt']:.1f}",
-                                                str(d["freq"]), d["message"]],
+                                                str(d["freq"]), d["message"], where(d),
+                                                mark(d)[0]],
                             kind_style(d, mycall)))
     return out
 
@@ -291,7 +324,7 @@ class Ft8App(App[int]):
         table = self.query_one("#activity", DataTable)
         table.border_title = _("Band activity")
         table.add_columns(_("UTC"), Text("dB", justify="right"), Text("DT", justify="right"),
-                          Text(_("Freq"), justify="right"), _("Message"))
+                          Text(_("Freq"), justify="right"), _("Message"), _("Where"), "")
         table.styles.height = "1fr"
         qso = self.query_one("#qso", DataTable)
         qso.border_title = _("QSO")
@@ -371,11 +404,13 @@ class Ft8App(App[int]):
         row = table.cursor_row
         table.clear()
         self.lines = rows(self.cycles, self.cq_only, self.mycall)
-        for _start, _decode, cells, style in self.lines:
-            stamp, snr, dt, freq, message = cells
+        for _start, decode, cells, style in self.lines:
+            stamp, snr, dt, freq, message, place, tag = cells
             table.add_row(Text(stamp, style=STYLE_HEADING if style == STYLE_HEADING else ""),
                           Text(snr, justify="right"), Text(dt, justify="right"),
-                          Text(freq, justify="right"), Text(message, style=style))
+                          Text(freq, justify="right"), Text(message, style=style),
+                          Text(place, style="dim"),
+                          Text(tag, style=mark(decode)[1] if decode else ""))
         if table.row_count:
             table.move_cursor(row=table.row_count - 1 if at_end or not keep_end
                               else min(row, table.row_count - 1))
