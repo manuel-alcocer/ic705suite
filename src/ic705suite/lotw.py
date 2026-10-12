@@ -7,8 +7,9 @@ LoTW report, each QSO marked with ADIF's own fields in its `extra`:
     LOTW_QSL_RCVD Y, LOTW_QSLRDATE   confirmed by the other station
 
 [lotw] location names TQSL's station location (the certificate's callsign and grid);
-username and password, the LoTW website's, are only for the confirmations. QSOs made
-through a repeater are not sent (LoTW does not count them), nor other operators'.
+username and password, the LoTW website's, are only for the confirmations. Only the bands
+in [lotw] bands are sent (HF unless told otherwise); never QSOs made through a repeater
+(LoTW does not count them), nor other operators'.
 """
 
 from __future__ import annotations
@@ -35,6 +36,8 @@ TQSL_ERRORS = {1: "cancelled", 2: "rejected by LoTW", 3: "unexpected answer from
                4: "TQSL error", 5: "TQSL library error", 6: "cannot open the log",
                7: "cannot write the signed log", 10: "bad command line",
                11: "cannot connect to LoTW"}
+# The bands sent unless [lotw] bands says otherwise: HF (160 to 10 m).
+HF_BANDS = ("160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m")
 SENT, SENT_DATE = "LOTW_QSL_SENT", "LOTW_QSLSDATE"
 RCVD, RCVD_DATE = "LOTW_QSL_RCVD", "LOTW_QSLRDATE"
 
@@ -105,8 +108,9 @@ def _base(call: str) -> str:
     return callsign.base_call(call or "")
 
 
-def pending(own_call: str, limit: int = 500) -> tuple[list[int], str]:
-    """(ids, ADI text) of the operator's QSOs not sent to LoTW yet, repeaters left out."""
+def pending(own_call: str, bands=HF_BANDS, limit: int = 500) -> tuple[list[int], str]:
+    """(ids, ADI text) of the operator's QSOs on `bands` not sent to LoTW yet, repeaters
+    left out."""
     from sqlalchemy import select
 
     from ic705suite.apps.log.adif.writer import adif_header, qso_to_adif
@@ -118,8 +122,10 @@ def pending(own_call: str, limit: int = 500) -> tuple[list[int], str]:
         rows = session.execute(
             select(Qso, Operator.callsign).join(Operator, Qso.operator_id == Operator.id)
             .where(Qso.repeater_id.is_(None)).order_by(Qso.qso_utc)).all()
+        allowed = {b.lower() for b in bands}
         wanted = [q for q, op_call in rows
                   if _base(op_call) == _base(own_call) and not q.repeater_call
+                  and (q.band or "").lower() in allowed
                   and (q.extra or {}).get(SENT) != "Y"][:limit]
         records = [qso_to_adif(row) for row in _to_rows(session, wanted)]
         ids = [q.id for q in wanted]
@@ -224,7 +230,8 @@ class LotwService:
 
         result: dict = {}
         try:
-            ids, adif = await asyncio.to_thread(pending, self.config.callsign)
+            ids, adif = await asyncio.to_thread(pending, self.config.callsign,
+                                                self.config.lotw_bands)
             if ids:
                 said = await asyncio.to_thread(upload, adif, self.config.lotw_location,
                                                self.config.lotw_tqsl, self.config.lotw_key_password)
@@ -277,5 +284,5 @@ class LotwService:
             return await self.sync()
         if method == "state":
             return {"enabled": self.enabled, "location": self.config.lotw_location,
-                    "last": self.last}
+                    "bands": list(self.config.lotw_bands), "last": self.last}
         return {"error": f"unknown method lotw.{method}"}

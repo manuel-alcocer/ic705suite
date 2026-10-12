@@ -165,6 +165,8 @@ max_power = 30
 # uploaded to ARRL's LoTW (apt install trustedqsl xvfb; the certificate in ~/.tqsl), and
 # the confirmations brought back with the LoTW website's account. Keep this file to yourself.
 # location = "Home"
+# The bands sent (HF unless set): QSOs on any other band stay out of LoTW
+# bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"]
 # key_password = ""        # only if the signing key has one
 # username = ""
 # password = ""
@@ -259,6 +261,8 @@ class Config:
     lotw_tqsl: str = "tqsl"
     lotw_key_password: str = ""      # the signing key's, if it has one
     lotw_username: str = ""          # the LoTW website's, for the confirmations
+    lotw_bands: tuple = ("160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m",
+                         "10m")      # the bands sent (HF)
     lotw_password: str = ""
     packet_core: str = ""            # "host:port" of the core packet runs on ("" = this one)
     packet_core_token: str = ""
@@ -354,6 +358,8 @@ def load_config(path: Path | None = None) -> Config:
         cfg.lotw_key_password = str(lotw.get("key_password", cfg.lotw_key_password))
         cfg.lotw_username = str(lotw.get("username", cfg.lotw_username)).strip()
         cfg.lotw_password = str(lotw.get("password", cfg.lotw_password))
+        if "bands" in lotw:
+            cfg.lotw_bands = tuple(str(b).strip().lower() for b in lotw["bands"])
         server, client = data.get("server", {}), data.get("client", {})
         cfg.listen = str(server.get("listen", cfg.listen))
         cfg.server_token = str(server.get("token", cfg.server_token))

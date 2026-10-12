@@ -73,11 +73,14 @@ def test_upload_and_its_answers(tmp_path, monkeypatch):
 def test_pending_sent_and_confirmed(tmp_path, monkeypatch):
     session = logbook(tmp_path, monkeypatch)
     try:
-        ids, adif = lotw.pending("EA7KLX")
-        assert len(ids) == 2 and "<CALL:5>F5RRS" in adif.upper() and "EA7EAY" in adif
+        ids, adif = lotw.pending("EA7KLX")                          # HF only
+        assert len(ids) == 1 and "<CALL:5>F5RRS" in adif.upper()
+        assert "EA7EAY" not in adif                                 # 2 m: not to LoTW
         assert "EA7LLT" not in adif and "DL1ABC" not in adif      # repeater, other operator
-        lotw.mark(ids, {lotw.SENT: "Y", lotw.SENT_DATE: "20261012"})
-        assert lotw.pending("EA7KLX") == ([], "")
+        both, adif = lotw.pending("EA7KLX", bands=("20m", "2m"))     # asked for 2 m too
+        assert len(both) == 2 and "EA7EAY" in adif
+        lotw.mark(both, {lotw.SENT: "Y", lotw.SENT_DATE: "20261012"})
+        assert lotw.pending("EA7KLX", bands=("20m", "2m")) == ([], "")
         report = ("ARRL Logbook of the World Status Report\n<eoh>\n"
                   "<CALL:5>F5RRS <BAND:3>20M <MODE:3>FT8 <QSO_DATE:8>20261012 "
                   "<TIME_ON:6>070500 <QSL_RCVD:1>Y <QSLRDATE:8>20261013 <eor>\n")
@@ -115,8 +118,8 @@ def test_the_service_in_the_core(tmp_path, monkeypatch):
     try:
         assert service.enabled
         result = asyncio.run(service.sync())
-        assert result["uploaded"] == 2 and result["confirm_ok"]
-        assert ("info", "LoTW: 2 QSOs signed and uploaded") in events
+        assert result["uploaded"] == 1 and result["confirm_ok"]          # the HF one
+        assert ("info", "LoTW: 1 QSOs signed and uploaded") in events
         assert asyncio.run(service.sync())["uploaded"] == 0         # nothing new
     finally:
         session.dispose()
