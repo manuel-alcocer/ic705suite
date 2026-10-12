@@ -25,3 +25,13 @@ def private_packet(tmp_path, monkeypatch):
     home = tmp_path / "hamrpkt"
     home.mkdir()
     monkeypatch.setenv("HAMRPKT_HOME", str(home))
+
+
+@pytest.fixture(autouse=True)
+def private_data(tmp_path, monkeypatch):
+    """The suite's data folder (ft8_log.adi, FT8's settings, the antenna history...) in a
+    temporary one: tests wrote their QSOs into the operator's own log."""
+    data = tmp_path / "data"
+    data.mkdir(exist_ok=True)
+    monkeypatch.setenv("XDG_DATA_HOME", str(data))
+    monkeypatch.setenv("LOCALAPPDATA", str(data))
