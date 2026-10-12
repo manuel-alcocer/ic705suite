@@ -988,3 +988,48 @@ def test_the_power_set_is_read_before_sending(tmp_path):
             await link.close()
 
     asyncio.run(scenario())
+
+
+def test_a_caller_to_our_cq_is_answered_in_the_next_turn(tmp_path, monkeypatch):
+    """Calling CQ, a station answers far from our frequency. The whole-cycle pass is slow
+    (a Raspberry Pi takes 6 s): the early pass, over the whole passband while calling CQ,
+    finds it in time, and our very next turn answers it instead of calling CQ again."""
+    air = short_turns(monkeypatch)
+    air["says"] = ""
+
+    def decode(program, wav, depth=3, timeout=30.0, band=None):
+        import time
+
+        stamp = wav.stem.split("_")[1]
+        if "early" not in wav.parent.name:
+            time.sleep(0.6)                     # the whole cycle's pass: too late for us
+        if not air["says"] or (band is not None and not band[0] <= 2600 <= band[1]):
+            return []
+        return jt9.parse(f"{stamp} -11  0.1 2600 ~  {air['says']}")
+
+    def audio(program, message, frequency, rate=12_000):
+        air["sent"].append(message)
+        if message.startswith("CQ "):
+            air["says"] = "EA7KLX DL1ABC JO62"            # answering our CQ, at 2600 Hz
+        return np.zeros(int(rate * 0.2), np.float32)
+
+    monkeypatch.setattr(service_module.jt9, "decode", decode)
+    monkeypatch.setattr(service_module.encode, "audio", audio)
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        try:
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            await link.call("ft8.txfreq", freq=1500)
+            await link.call("ft8.cq")
+            await until(lambda: len(air["sent"]) >= 2, 10)
+            assert air["sent"][:2] == ["CQ EA7KLX IM77", "DL1ABC EA7KLX -11"]
+            await link.call("ft8.halt")
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())

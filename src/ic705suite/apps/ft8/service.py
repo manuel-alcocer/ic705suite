@@ -69,6 +69,10 @@ QUICK = 3.5                # seconds the first pass may take
 DEEP = 13.5                # seconds the second pass may take: done before the next cycle ends
 EARLY = 13.2               # second of the cycle when, in a QSO, the narrow pass runs
 NEAR = 250                 # Hz each side of the other station for that pass
+CQ_EARLY = 11.8 / 13.2     # calling CQ, that pass comes sooner (second 11.8, as WSJT-X's
+                           # first) over the whole passband: a caller may be anywhere
+EARLY_BUDGET = 1.8         # seconds the narrow pass may take to be ready for our turn
+EARLY_WAIT = 1.0           # our turn waits this long (at most) for the early pass
 START = 0.5                # seconds into our cycle when the message starts
 LATE = 2.0                 # starting later than this would not be decoded well: next turn
 LEAD = 0.1                 # audio sent this much ahead (the radio keeps a small buffer)
@@ -147,6 +151,8 @@ class Ft8Service:
         self._pending: set[asyncio.Task] = set()
         self._changed = True
         self.timings: dict[int, float] = {}       # seconds each depth took here, lately
+        self.early_timings: dict[int, float] = {}  # the narrow early pass's, per depth
+        self._early_task: asyncio.Task | None = None
         self._deep_busy = False
         self._known: dict[float, set[str]] = {}   # messages already sent out, per cycle
         # Transmitting
@@ -281,11 +287,12 @@ class Ft8Service:
             # Never the same boundary twice (a timer may wake a little early: Windows).
             boundary = max(cycle_start(now) + CYCLE, last + CYCLE)
             last = boundary
-            early_at = boundary - CYCLE + EARLY
+            early_at = boundary - CYCLE + EARLY * (CQ_EARLY if self.qso.step == "cq" else 1)
             if self._listening_for_them() and now < early_at:
                 await sleep_until(early_at)
                 if self._start is not None and self._listening_for_them():
-                    self._background(self._early(self._start, list(self._chunks)))
+                    self._early_task = self._background(
+                        self._early(self._start, list(self._chunks)))
             await sleep_until(boundary)
             heard, start = self._chunks, self._start
             self._chunks, self._start = [], boundary
@@ -327,19 +334,35 @@ class Ft8Service:
         samples = self._samples(chunks, whole=False)
         if samples is None:
             return
-        centre = self.their_freq or self.tx_freq
-        band = (max(100, centre - NEAR), min(3500, centre + NEAR))
+        if self.qso.step == "cq":
+            # A caller may answer anywhere: the whole passband, as fast as it goes.
+            band, depth = None, 1
+        else:
+            centre = self.their_freq or self.tx_freq
+            band = (max(100, centre - NEAR), min(3500, centre + NEAR))
+            depth = self._early_depth()
         folder = self._folder(start, "early")
         wav = folder / jt9.cycle_name(start)
         try:
             await asyncio.to_thread(jt9.write_wav, wav, samples,
                                     self.station.transport.sample_rate)
-            await self._pass(start, wav, 3 if self.timings.get(3, 99) <= QUICK else 2,
-                             "early", band=band, limit=QUICK * 2)
+            await self._pass(start, wav, depth, "early", band=band, limit=QUICK * 2)
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             log.warning("ft8: early pass: %s", exc)
         finally:
             shutil.rmtree(folder, ignore_errors=True)
+
+    def _early_depth(self) -> int:
+        """The deepest narrow pass ready in time for our turn here: what it took lately,
+        else a guess from the whole passband's (a fifth of the band: about a quarter of the
+        time). A Raspberry Pi takes 1; a desktop, 3."""
+        for depth in (3, 2):
+            took = self.early_timings.get(depth)
+            if took is None:
+                took = self.timings.get(depth, 99.0) * 0.3
+            if took <= EARLY_BUDGET:
+                return depth
+        return 1
 
     async def _decode(self, start: float, chunks: list[np.ndarray]) -> None:
         samples = self._samples(chunks, whole=True)
@@ -381,12 +404,18 @@ class Ft8Service:
         try:
             decodes = await asyncio.to_thread(jt9.decode, self.program, wav, depth, limit, band)
         except subprocess.TimeoutExpired:
-            if band is None:
+            if kind == "early" and band is not None:
+                self.early_timings[depth] = limit
+            elif band is None and kind != "early":
                 self.timings[depth] = limit     # too slow here: not chosen again
             log.info("ft8: depth %d took over %.0f s here", depth, limit)
             return []
         took = round(time.monotonic() - began, 1)
-        if band is None:
+        if kind == "early" and band is not None:
+            before = self.early_timings.get(depth)
+            self.early_timings[depth] = took if before is None else \
+                round(0.7 * before + 0.3 * took, 1)
+        elif band is None and kind != "early":
             # Smoothed: one slow cycle (the machine busy) does not change the choice.
             before = self.timings.get(depth)
             self.timings[depth] = took if before is None else round(0.7 * before + 0.3 * took, 1)
@@ -763,6 +792,13 @@ class Ft8Service:
 
     async def _transmit(self, start: float) -> None:
         qso = self.qso
+        early = self._early_task
+        if early is not None and not early.done():
+            # What the other station (or a caller to our CQ) said may come any moment: a
+            # little wait, and our message answers it in this turn instead of the next.
+            with contextlib.suppress(Exception):     # late or failed: the turn goes on
+                await asyncio.wait_for(asyncio.shield(early), max(
+                    0.0, start + START + min(EARLY_WAIT, LATE / 2) - time.time()))
         if qso.step == "cq":
             self.cq_turns += 1
             if self.auto.on and self.cq_turns > CQS:
