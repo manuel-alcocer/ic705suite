@@ -204,8 +204,12 @@ class Ft8Service:
         for task in (self._task, self._wf_task, self._worked_task):
             if task is not None:
                 task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
+                try:
                     await task
+                except asyncio.CancelledError:
+                    pass
+                except Exception as exc:  # noqa: BLE001 - it ended badly before: stop anyway
+                    log.warning("ft8: a task had stopped: %s", exc)
         self._task = self._wf_task = self._worked_task = None
         for task in list(self._pending):
             task.cancel()
@@ -240,19 +244,28 @@ class Ft8Service:
         """A spectrum row every quarter of a second, while a screen watches."""
         while True:
             await asyncio.sleep(waterfall.INTERVAL)
-            if time.monotonic() >= self._wf_until or not self._wf_fresh:
-                if time.monotonic() >= self._wf_until:
-                    self._wf_audio.clear()
+            if time.monotonic() >= self._wf_until:
+                # Nobody watches: what was kept goes, and so does "fresh" (else, watched
+                # again, an empty buffer was taken for new audio and this task died).
+                self._wf_audio.clear()
+                self._wf_fresh = False
+                continue
+            if not self._wf_fresh or not self._wf_audio:
                 continue                                   # no new audio: no new row
             self._wf_fresh = False
-            rate = self.station.transport.sample_rate
-            keep = waterfall.window_size(rate)
-            samples = np.concatenate(self._wf_audio)[-keep:]
-            self._wf_audio.clear()
-            self._wf_audio.append(samples)                 # the next row overlaps it
+            try:
+                rate = self.station.transport.sample_rate
+                keep = waterfall.window_size(rate)
+                samples = np.concatenate(self._wf_audio)[-keep:]
+                self._wf_audio.clear()
+                self._wf_audio.append(samples)             # the next row overlaps it
+                levels = waterfall.encode(waterfall.row(samples, rate))
+            except Exception as exc:  # noqa: BLE001 - one row lost, never the waterfall
+                log.warning("ft8: a waterfall row: %s", exc)
+                self._wf_audio.clear()
+                continue
             self.hub.emit({"type": "ft8.wf", "time": time.time(), "low": waterfall.LOW,
-                           "step": waterfall.STEP,
-                           "levels": waterfall.encode(waterfall.row(samples, rate))})
+                           "step": waterfall.STEP, "levels": levels})
 
     async def _run(self) -> None:
         last = 0.0

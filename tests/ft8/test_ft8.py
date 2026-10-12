@@ -640,6 +640,20 @@ def test_the_waterfall_only_while_watched(tmp_path, monkeypatch):
             count = len(rows)
             await asyncio.sleep(0.6)
             assert len(rows) == count                        # no longer asked: no rows
+            # Watched again while no audio comes (our turn to transmit: the radio sends
+            # none), by a client that hung or was opened anew. Audio marked fresh with the
+            # buffer emptied once killed the waterfall for good.
+            ft8 = link.core.ft8
+            ft8.station.remove_audio_listener(ft8._audio)
+            ft8._wf_fresh, ft8._wf_until = True, 0.0
+            ft8._wf_audio.clear()
+            await link.call("ft8.waterfall", seconds=2)
+            await asyncio.sleep(0.6)
+            assert not ft8._wf_task.done()
+            ft8.station.add_audio_listener(ft8._audio)        # listening again
+            await until(lambda: len(rows) >= count + 2)
+            await link.call("ft8.stop")
+            assert not (await link.call("ft8.state"))["on"]
         finally:
             await link.close()
 
