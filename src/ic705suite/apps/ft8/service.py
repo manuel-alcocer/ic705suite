@@ -147,6 +147,7 @@ class Ft8Service:
         self._mod_set = False
         self._tone: asyncio.Task | None = None
         self.qso_began: float | None = None      # our first message to the other station
+        self.qso_watts = 0.0                     # the RF power the radio gave in this QSO
         self.logged: list[dict] = []
 
     # ---- life ---------------------------------------------------------------------------------
@@ -387,6 +388,7 @@ class Ft8Service:
             self.tx_freq = int(freq)
         message = self.qso.call_cq()
         self.their_freq, self.cq_turns, self.qso_began = 0, 0, None
+        self.qso_watts = 0.0
         # The next cycle is ours.
         self.tx_parity = parity(cycle_start(time.time()) + CYCLE)
         self.tx_on = True
@@ -401,6 +403,7 @@ class Ft8Service:
         message = self.qso.answer(decode)
         self.their_freq = int(decode.get("freq") or 0)
         self.qso_began = None
+        self.qso_watts = 0.0
         self.tx_parity = 1 - parity(start)
         self.tx_on = True
         self._touch()
@@ -452,9 +455,11 @@ class Ft8Service:
     def _log(self) -> None:
         """The QSO into ft8_log.adi, and to the clients (each one's logbook)."""
         qso, rig = self.qso, self.station.rig
+        # The power measured while sending (the radio may give less than it is set to: a
+        # high SWR); the setting when the meter said nothing.
         power = rig.state.power
-        watts = round(power * self.station.model.max_power_w / 100, 1) \
-            if power is not None else None
+        watts = self.qso_watts or (round(power * self.station.model.max_power_w / 100, 1)
+                                   if power is not None else None)
         fields = adif.record(call=qso.them, grid=qso.their_grid, sent=qso.sent_report,
                              received=qso.got_report, began=self.qso_began or time.time(),
                              ended=time.time(), dial=rig.state.frequency or 0,
@@ -614,6 +619,8 @@ class Ft8Service:
             self._touch()
 
     def _sent(self, start: float, message: str, alc: float, watts: float) -> None:
+        if self.tx_on:                            # a QSO's message (not the tone)
+            self.qso_watts = max(self.qso_watts, round(watts, 1))
         self.last_sent = {"start": start, "message": message, "alc": round(alc, 2),
                           "watts": round(watts, 1), "level": self.tx_level}
         self.hub.emit({"type": "ft8.sent", **self.last_sent})

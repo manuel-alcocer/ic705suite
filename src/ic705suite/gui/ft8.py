@@ -485,7 +485,9 @@ class Ft8Page(Page):
         from ic705suite.apps.ft8.logbook import log_qso
 
         try:
-            row, why = await asyncio.to_thread(log_qso, fields)
+            row, why = await asyncio.to_thread(
+                log_qso, fields, self.config.ft8_setup if self.config else "",
+                ((self.link.welcome or {}).get("rig") or {}).get("name") or "")
         except Exception as exc:  # noqa: BLE001 - shown on screen
             row, why = None, str(exc)
         if row is not None:

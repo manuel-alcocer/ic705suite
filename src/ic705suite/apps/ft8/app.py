@@ -213,9 +213,10 @@ class Ft8App(App[int]):
         Binding("ctrl+q", "leave", show=False, priority=True),
     ]
 
-    def __init__(self, link: Link, owns_link: bool = False) -> None:
+    def __init__(self, link: Link, owns_link: bool = False, config=None) -> None:
         super().__init__()
         self.link = link
+        self.config = config
         self.owns_link = owns_link
         self.state: dict = {}
         self.rig: dict = {}
@@ -383,7 +384,9 @@ class Ft8App(App[int]):
         from ic705suite.apps.ft8.logbook import log_qso
 
         try:
-            row, why = await asyncio.to_thread(log_qso, fields)
+            row, why = await asyncio.to_thread(
+                log_qso, fields, self.config.ft8_setup if self.config else "",
+                ((self.link.welcome or {}).get("rig") or {}).get("name") or "")
         except Exception as exc:  # noqa: BLE001 - shown on screen
             row, why = None, str(exc)
         if row is not None:

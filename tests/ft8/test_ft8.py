@@ -646,7 +646,8 @@ def test_quiet_cycles_take_no_room():
 
     cycles = [{"start": 0, "dial": 14_074_000, "decodes": []},
               {"start": 15, "dial": 14_074_000, "decodes": [
-                  {"time": "000015", "snr": -9, "dt": 0.1, "freq": 900, "message": "G4XYZ F5ABC JN12",
+                  {"time": "000015", "snr": -9, "dt": 0.1, "freq": 900,
+                   "message": "G4XYZ F5ABC JN12",
                    "kind": "call", "sender": "F5ABC", "to": "G4XYZ"}]}]
     assert [start for start, _d, _c, _s in rows(cycles, False, "EA7KLX")] == [15, 15]
     assert rows(cycles, True, "EA7KLX") == []              # only CQs: nothing to show
@@ -699,3 +700,82 @@ def test_the_tune_tone(tmp_path, monkeypatch):
             await link.close()
 
     asyncio.run(scenario())
+
+
+def test_the_power_logged_is_the_one_measured(tmp_path, monkeypatch):
+    """TX_PWR is the most the radio gave while sending the QSO's messages (a high SWR makes
+    it give less than set), not the setting; the tone does not count; with no reading,
+    the setting."""
+    monkeypatch.setattr(service_module, "data_dir", lambda: tmp_path)
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        ft8 = link.core.ft8
+        try:
+            link.core.station.rig.state.power = 100                     # set to 10 W
+            qso = ft8.qso
+            qso.them, qso.their_grid, qso.sent_report, qso.got_report = \
+                "F5RRS", "JN36", "-16", "-08"
+            ft8.tx_on = True
+            ft8._sent(0, "F5RRS EA7KLX -16", 0.1, 5.6)
+            ft8._sent(15, "F5RRS EA7KLX RR73", 0.1, 4.9)
+            ft8.tx_on = False
+            ft8._sent(30, "tone", 0.0, 9.8)                            # not the QSO's
+            ft8._log()
+            assert ft8.logged[-1]["TX_PWR"] == "5.6"
+            ft8.qso_watts = 0.0                                         # nothing measured
+            ft8._log()
+            assert ft8.logged[-1]["TX_PWR"] == "10"
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_into_the_logbook_with_the_ft8_setup(tmp_path):
+    """The QSO goes with the setup of the radio FT8 uses (and its antenna for the band), not
+    the one the logbook has active (2 m FM, say); or with the one named in [ft8] setup."""
+    from ic705suite.apps.ft8.logbook import log_qso
+    from ic705suite.apps.log.core.services import (
+        AntennaService,
+        EquipmentService,
+        OperatorService,
+        SettingsService,
+        StationService,
+    )
+    from ic705suite.apps.log.db.session import init_engine
+
+    init_engine(None)
+    operator = OperatorService.create("EA7KLX", "Manuel")
+    kenwood = StationService.create("Kenwood TM-241E")
+    icom = StationService.create("Icom IC-705")
+    vertical = AntennaService.create("Diamond X-300N", ["2m", "70cm"])
+    komunica = AntennaService.create("Komunica HF-PRO2 PLUS T", ["40m", "20m", "2m"])
+    fm = EquipmentService.create("TM-241E casa", [kenwood.id], [vertical.id])
+    EquipmentService.create("IC-705 V/UHF casa", [icom.id], [vertical.id])
+    hf = EquipmentService.create("IC-705 HF casa", [icom.id], [komunica.id])
+    portable = EquipmentService.create("IC-705 HF portable", [icom.id], [komunica.id])
+    state = SettingsService.load_state()
+    state.operator_id, state.equipment_id = operator.id, fm.id    # FM was the last one
+    SettingsService.save_state(state)
+
+    def qso(call: str) -> dict:
+        return {"CALL": call, "MODE": "FT8", "RST_SENT": "-16", "RST_RCVD": "-08",
+                "QSO_DATE": "20261012", "TIME_ON": "070430", "FREQ": "14.075686",
+                "TX_PWR": "5.6"}
+
+    row, why = log_qso(qso("F5RRS"), radio="IC-705 (simulator)")
+    assert why == "" and row.equipment_name == "IC-705 HF casa"
+    assert (row.station_name, row.antenna_name) == ("Icom IC-705", "Komunica HF-PRO2 PLUS T")
+    assert not row.equipment_mismatch
+    row, _ = log_qso(qso("HA7TM"), setup="ic-705 hf portable", radio="IC-705")
+    assert row.equipment_name == portable.name
+    assert log_qso(qso("F1PBZ"), setup="nothing such") == \
+        (None, "no setup called 'nothing such' in the logbook ([ft8] setup)")
+    row, _ = log_qso(qso("2E0OEW"), radio="FT-891")               # no setup for that radio
+    assert row.equipment_name == "TM-241E casa"                    # the logbook's own
+    assert SettingsService.load_state().equipment_id == fm.id     # not changed by FT8
+    assert hf.id != portable.id

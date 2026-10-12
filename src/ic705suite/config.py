@@ -144,6 +144,9 @@ max_power = 30
 # Transmit audio, of full scale (0.05-1): lower it if the ALC moves while sending (F8 shows
 # it); the radio's power sets the watts
 # level = 0.5
+# The logbook's setup (radio and antennas) the QSOs go with; by default the first setup
+# whose radio for the band is the one FT8 uses
+# setup = "IC-705 HF casa"
 
 [ui]
 # Interface language: "en" or "es" (default: the system language; IC705SUITE_LANG overrides)
@@ -224,6 +227,7 @@ class Config:
     ft8_depth: int = 0               # 0: chosen from how long each depth takes here
     ft8_tx_freq: int = 1500
     ft8_level: float = 0.5
+    ft8_setup: str = ""              # the logbook's setup FT8 QSOs go with ("": by radio)
     packet_core: str = ""            # "host:port" of the core packet runs on ("" = this one)
     packet_core_token: str = ""
     packet_bbs_call: str = ""        # "" = the station callsign -1
@@ -306,6 +310,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.ft8_depth = int(ft8.get("depth", cfg.ft8_depth))
         cfg.ft8_tx_freq = int(ft8.get("tx_freq", cfg.ft8_tx_freq))
         cfg.ft8_level = float(ft8.get("level", cfg.ft8_level))
+        cfg.ft8_setup = str(ft8.get("setup", cfg.ft8_setup))
         server, client = data.get("server", {}), data.get("client", {})
         cfg.listen = str(server.get("listen", cfg.listen))
         cfg.server_token = str(server.get("token", cfg.server_token))
