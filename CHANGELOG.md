@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.19.0 (2026-10-12)
+
+### Features
+
+- **ft8**: The power set is read before each message, and a cut power is said
+  ([`d9f8b67`](https://github.com/manuel-alcocer/ic705suite/commit/d9f8b67d38b3da7ebfab091205dd9394b5d34cb2))
+
+
 ## v0.18.0 (2026-10-12)
 
 ### Bug Fixes
