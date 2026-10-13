@@ -753,6 +753,14 @@ def test_the_power_logged_is_the_one_measured(tmp_path, monkeypatch):
             ft8.qso_watts = 0.0                                         # nothing measured
             ft8._log()
             assert ft8.logged[-1]["TX_PWR"] == "10"
+            # No grid in the QSO's messages (they answered our CQ with a report): the
+            # last one heard from them.
+            qso.them, qso.their_grid = "F5RRS", ""         # call_cq() above cleared them
+            ft8._log()
+            assert "GRIDSQUARE" not in ft8.logged[-1]
+            ft8._place({"sender": "F5RRS", "grid": "JN18"})
+            ft8._log()
+            assert ft8.logged[-1]["GRIDSQUARE"] == "JN18"
         finally:
             await link.close()
 

@@ -686,7 +686,10 @@ class Ft8Service:
         power = rig.state.power
         watts = self.qso_watts or (round(power * self.station.model.max_power_w / 100, 1)
                                    if power is not None else None)
-        fields = adif.record(call=qso.them, grid=qso.their_grid, sent=qso.sent_report,
+        # Their grid: the one the QSO's messages carried, else the last one they sent at all
+        # (a CQ before, a call to another): a station answering with its report sends none.
+        grid = qso.their_grid or self._grids.get(qso.them.strip("<>"), "")
+        fields = adif.record(call=qso.them, grid=grid, sent=qso.sent_report,
                              received=qso.got_report, began=self.qso_began or time.time(),
                              ended=time.time(), dial=rig.state.frequency or 0,
                              audio=self.tx_freq, mycall=qso.mycall,

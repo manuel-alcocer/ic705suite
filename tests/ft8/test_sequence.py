@@ -131,3 +131,16 @@ def test_how_far_the_qso_has_gone():
     assert qso_progress({"on": True, "step": cq.step, "tries": cq.tries})[0] == 1
     heard(cq, "EA7KLX DL1ABC JO62")
     assert qso_progress({"on": True, "step": cq.step, "tries": cq.tries})[0] == 2
+
+
+def test_their_grid_sent_later():
+    """Answered from a message without a grid (their RR73 to another): the grid they send
+    during the QSO is theirs; one already known is kept."""
+    qso = Qso("EA7KLX", "IM77")
+    qso.answer(parse_decode("G4XYZ DL1ABC RR73", -14))
+    assert qso.their_grid == ""
+    assert not heard(qso, "EA7KLX DL1ABC JO62")              # their call, to us
+    assert qso.their_grid == "JO62"
+    assert heard(qso, "EA7KLX DL1ABC -07")
+    assert not heard(qso, "EA7KLX DL1ABC JO50")
+    assert qso.their_grid == "JO62"

@@ -82,6 +82,8 @@ class Qso:
             return True
         if sender != base(self.them):
             return False                                          # another station: later
+        if decode.get("grid") and not self.their_grid:
+            self.their_grid = decode["grid"]                      # sent later (or again)
         their = decode.get("report", "")
         end = decode.get("end", "")
         if self.step == "tx1" and their and not their.startswith("R"):
