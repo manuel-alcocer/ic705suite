@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.20.2 (2026-10-13)
+
+### Bug Fixes
+
+- **log**: A database connection the server dropped is replaced, not used
+  ([`0e8c8d9`](https://github.com/manuel-alcocer/ic705suite/commit/0e8c8d954840045801f832482a9fff8d2e7beba4))
+
+
 ## v0.20.1 (2026-10-12)
 
 ### Bug Fixes
