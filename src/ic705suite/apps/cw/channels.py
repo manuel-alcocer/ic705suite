@@ -333,11 +333,13 @@ class AudioSpool:
         self._file.write((np.clip(samples, -1, 1) * 32767).astype("<i2").tobytes())
         self.position += len(samples)
 
-    def read(self, start: int, end: int) -> np.ndarray:
+    def blocks(self, start: int, end: int, size: int = 1 << 18):
+        """The samples from `start` to `end` as int16, `size` at a time: a channel open for
+        hours is hundreds of MB, more than a Raspberry Pi has to read it whole."""
         self._file.flush()
-        self._file.seek(start * 2)
-        data = self._file.read(max(0, end - start) * 2)
-        return np.frombuffer(data, "<i2").astype(np.float32) / 32768
+        for at in range(start, end, size):
+            self._file.seek(at * 2)
+            yield np.frombuffer(self._file.read(min(size, end - at) * 2), "<i2")
 
     def frequencies(self, start: int, end: int) -> list[tuple[float, int]]:
         """Dial timeline relative to `start`, in seconds."""
@@ -352,14 +354,17 @@ class AudioSpool:
         self.path.unlink(missing_ok=True)
 
 
-def write_flac(path: Path, samples: np.ndarray, sample_rate: int, tags: dict[str, str]) -> None:
-    """Lossless FLAC with Vorbis comment metadata."""
+def write_flac(path: Path, blocks, sample_rate: int, tags: dict[str, str]) -> None:
+    """Lossless FLAC with Vorbis comment metadata, from blocks of int16 samples."""
     import soundfile
 
     from ic705suite.apps.cw.flactags import write_tags
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    soundfile.write(str(path), samples, sample_rate, subtype="PCM_16", format="FLAC")
+    with soundfile.SoundFile(str(path), "w", sample_rate, 1, subtype="PCM_16",
+                             format="FLAC") as out:
+        for block in blocks:
+            out.write(block)
     write_tags(path, tags)
 
 
@@ -472,11 +477,10 @@ class ChannelStore:
         stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         safe = "".join(c if c.isalnum() else "_" for c in name)[:40]
         path = self.audio_dir / f"{channel_id:05d}-{safe}-{stamp}.flac"
-        samples = spool.read(start, end)
-        seconds = len(samples) / spool.sample_rate
+        seconds = (end - start) / spool.sample_rate
         started = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(
             seconds=(spool.position - start) / spool.sample_rate)).isoformat(timespec="seconds")
-        write_flac(path, samples, spool.sample_rate, {
+        write_flac(path, spool.blocks(start, end), spool.sample_rate, {
             "TITLE": name, "ARTIST": record.callsign or "", "DATE": started[:10],
             "COMMENT": f"ic705suite CW recording, {bands.format_frequency(record.frequency)} MHz",
             "IC705SUITE_CHANNEL": name, "IC705SUITE_CALLSIGN": record.callsign or "",

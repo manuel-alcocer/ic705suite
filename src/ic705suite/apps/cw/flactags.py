@@ -8,8 +8,10 @@ length (32-bit little endian). Keys are case insensitive; they are read back low
 
 from __future__ import annotations
 
+import shutil
 import struct
 from pathlib import Path
+from typing import BinaryIO
 
 MAGIC = b"fLaC"
 VORBIS_COMMENT = 4
@@ -17,20 +19,23 @@ PADDING = 1
 VENDOR = b"ic705suite"
 
 
-def _blocks(data: bytes) -> tuple[list[tuple[int, bytes]], int]:
-    """[(type, body), ...] of the metadata, and where the audio frames start."""
-    if data[:4] != MAGIC:
+def _blocks(f: BinaryIO) -> list[tuple[int, bytes]]:
+    """[(type, body), ...] of the metadata, read from the file's start; it is left where
+    the audio frames start (only the metadata is read: the audio may be hundreds of MB)."""
+    if f.read(4) != MAGIC:
         raise ValueError("not a FLAC file")
-    blocks, pos, last = [], 4, False
+    blocks, last = [], False
     while not last:
-        if pos + 4 > len(data):
+        header = f.read(4)
+        if len(header) < 4:
             raise ValueError("truncated FLAC metadata")
-        header = data[pos]
-        last, kind = bool(header & 0x80), header & 0x7F
-        length = int.from_bytes(data[pos + 1:pos + 4], "big")
-        blocks.append((kind, data[pos + 4:pos + 4 + length]))
-        pos += 4 + length
-    return blocks, pos
+        last, kind = bool(header[0] & 0x80), header[0] & 0x7F
+        length = int.from_bytes(header[1:4], "big")
+        body = f.read(length)
+        if len(body) < length:
+            raise ValueError("truncated FLAC metadata")
+        blocks.append((kind, body))
+    return blocks
 
 
 def _parse_comments(body: bytes) -> dict[str, list[str]]:
@@ -51,7 +56,8 @@ def _parse_comments(body: bytes) -> dict[str, list[str]]:
 
 def read_tags(path: str | Path) -> dict[str, list[str]]:
     """{key (lower case): [values]} of a FLAC file ({} without tags)."""
-    blocks, _audio = _blocks(Path(path).read_bytes())
+    with open(path, "rb") as f:
+        blocks = _blocks(f)
     for kind, body in blocks:
         if kind == VORBIS_COMMENT:
             return _parse_comments(body)
@@ -61,20 +67,21 @@ def read_tags(path: str | Path) -> dict[str, list[str]]:
 def write_tags(path: str | Path, tags: dict[str, object]) -> None:
     """Replace the tags of a FLAC file with `tags` (None values are left out)."""
     path = Path(path)
-    data = path.read_bytes()
-    blocks, audio = _blocks(data)
     entries = [f"{key}={value}".encode() for key, value in tags.items() if value is not None]
     body = struct.pack("<I", len(VENDOR)) + VENDOR + struct.pack("<I", len(entries))
     body += b"".join(struct.pack("<I", len(e)) + e for e in entries)
-    # STREAMINFO stays first; the old comments and padding go.
-    kept = [(k, b) for k, b in blocks if k not in (VORBIS_COMMENT, PADDING)]
-    kept.append((VORBIS_COMMENT, body))
-    out = bytearray(MAGIC)
-    for i, (kind, block) in enumerate(kept):
-        if len(block) >= 1 << 24:
-            raise ValueError("FLAC metadata block too large")
-        out.append((0x80 if i == len(kept) - 1 else 0) | kind)
-        out += len(block).to_bytes(3, "big") + block
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_bytes(bytes(out) + data[audio:])
+    with open(path, "rb") as source:
+        # STREAMINFO stays first; the old comments and padding go.
+        kept = [(k, b) for k, b in _blocks(source) if k not in (VORBIS_COMMENT, PADDING)]
+        kept.append((VORBIS_COMMENT, body))
+        out = bytearray(MAGIC)
+        for i, (kind, block) in enumerate(kept):
+            if len(block) >= 1 << 24:
+                raise ValueError("FLAC metadata block too large")
+            out.append((0x80 if i == len(kept) - 1 else 0) | kind)
+            out += len(block).to_bytes(3, "big") + block
+        with open(tmp, "wb") as target:
+            target.write(out)
+            shutil.copyfileobj(source, target)      # the audio frames, a piece at a time
     tmp.replace(path)

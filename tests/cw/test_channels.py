@@ -147,3 +147,31 @@ def test_flac_tags_round_trip(tmp_path):
     assert read_tags(path) == {"ic705suite_callsign": ["EA7KLX"], "title": ["otra vez"]}
     back, rate = soundfile.read(str(path), dtype="int16")
     assert rate == 8000 and (back == samples).all()
+
+
+def test_saving_hours_of_audio_keeps_the_memory_small(tmp_path):
+    # Stopping the core archives every channel with its audio since it opened: on the Pi
+    # 5.7 h of spool (327 MB) were read whole, as floats, and the OOM killer took the core.
+    import tracemalloc
+
+    store, spool, book = make_store(tmp_path), AudioSpool(8000), ChannelBook()
+    try:
+        spool.write(np.zeros(800, np.float32), 7_030_000)
+        book.tuned_rx(7_030_000, "CQ CQ DE EA7XYZ K ", 20, 12, 0)
+        block = (noise(8000 * 60, 0.3, np.random.default_rng(1))).astype(np.float32)
+        for _ in range(20):                 # 20 minutes: 19 MB in the spool
+            spool.write(block, 7_030_000)
+        record = book.tuned
+        tracemalloc.start()
+        archive_id, _name = store.save(record, "Long one", None, spool, with_audio=True)
+        _now, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        saved = store.transcript(archive_id)
+        samples, rate = load_wav(saved["audio"][0]["path"])
+        assert rate == 8000 and len(samples) == spool.position
+        assert read_tags(saved["audio"][0]["path"])["title"] == ["Long one"]
+        spooled = spool.position * 2 / 2**20
+        assert peak < 8 * 2**20, f"{peak / 2**20:.0f} MB to save {spooled:.0f} MB"
+    finally:
+        spool.close()
+        store.close()
