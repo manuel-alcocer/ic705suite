@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.20.4 (2026-10-13)
+
+### Bug Fixes
+
+- **ft8**: The grid logged is the last one heard when the QSO's messages had none
+  ([`616ad8c`](https://github.com/manuel-alcocer/ic705suite/commit/616ad8c01df97d28cfa9e131b13a0e9d435b6cc4))
+
+
 ## v0.20.3 (2026-10-13)
 
 ### Bug Fixes
