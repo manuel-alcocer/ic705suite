@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.20.3 (2026-10-13)
+
+### Bug Fixes
+
+- **cw**: A channel's audio is saved a block at a time, not read whole
+  ([`7e5f7a9`](https://github.com/manuel-alcocer/ic705suite/commit/7e5f7a97302297885cd296a626ee24ed5524adff))
+
+
 ## v0.20.2 (2026-10-13)
 
 ### Bug Fixes
