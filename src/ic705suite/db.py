@@ -31,7 +31,7 @@ def make_engine(url: str | None) -> sa.Engine:
     url = database_url(url)
     if url.startswith("sqlite:///"):
         Path(url[len("sqlite:///"):]).parent.mkdir(parents=True, exist_ok=True)
-    engine = sa.create_engine(url, future=True)
+    engine = sa.create_engine(url, future=True, pool_pre_ping=True)   # idle ones may be gone
     if engine.dialect.name == "sqlite":
         sa.event.listen(engine, "connect",
                         lambda conn, _rec: conn.execute("PRAGMA foreign_keys = ON"))

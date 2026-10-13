@@ -61,7 +61,10 @@ def init_engine(url: str | None = None, *, echo: bool = False) -> Engine:
         # The TUI touches the database from worker threads during exports.
         connect_args["check_same_thread"] = False
 
-    _engine = create_engine(target, echo=echo, future=True, connect_args=connect_args)
+    # pool_pre_ping: a server's connection idle for hours (overnight) may be gone, and the
+    # first QSO of the day then failed with "SSL SYSCALL error: EOF detected".
+    _engine = create_engine(target, echo=echo, future=True, connect_args=connect_args,
+                            pool_pre_ping=True)
 
     if target.startswith("sqlite"):
         _enable_sqlite_pragmas(_engine)

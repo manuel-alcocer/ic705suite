@@ -49,3 +49,22 @@ def test_antenna_history_on_postgres():
     store.add({"ts": "2026-10-10 12:04:53", "band": "40m", "kind": "final", "coil": 12.2})
     assert store.entries("40m")[0]["coil"] == 12.2 and store.entries("20m") == []
     store.close()
+
+
+def test_the_logbook_survives_a_connection_the_server_dropped():
+    # Overnight the server dropped the pooled connection, and the first QSO of the day
+    # failed with "SSL SYSCALL error: EOF detected".
+    from ic705suite.apps.log.db import session
+
+    engine = session.init_engine(URL)
+    try:
+        with engine.connect() as conn:
+            pid = conn.execute(sa.text("SELECT pg_backend_pid()")).scalar()
+        killer = sa.create_engine(URL)
+        with killer.begin() as conn:
+            conn.execute(sa.text("SELECT pg_terminate_backend(:pid)"), {"pid": pid})
+        killer.dispose()
+        with engine.connect() as conn:
+            assert conn.execute(sa.text("SELECT 1")).scalar() == 1
+    finally:
+        session.dispose()
