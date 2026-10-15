@@ -4,6 +4,7 @@ answers."""
 import asyncio
 
 import numpy as np
+import pytest
 
 from ic705suite import geo
 from ic705suite.apps.ft8 import auto as auto_module
@@ -154,6 +155,7 @@ def test_the_mode_needs_transmission(tmp_path):
     asyncio.run(scenario())
 
 
+@pytest.mark.skipif(jt9.find_jt9() is None, reason="WSJT-X's jt9 is not installed")
 def test_the_mode_needs_the_radio_in_a_data_mode(tmp_path):
     """Not turned on with the radio in USB: the reason is said at once, not on its first
     call."""
