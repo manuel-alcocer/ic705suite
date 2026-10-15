@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.21.1 (2026-10-15)
+
+### Bug Fixes
+
+- **log**: The Plasma applet finds ic705suite in ~/.local/bin
+  ([`09bd111`](https://github.com/manuel-alcocer/ic705suite/commit/09bd1110a0761502036cf91317ac36c15bd3d103))
+
+
 ## v0.21.0 (2026-10-15)
 
 ### Bug Fixes
