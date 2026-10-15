@@ -10,6 +10,7 @@ client used for the core. A client then opens it instead of its own file.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 from pathlib import Path
@@ -89,7 +90,9 @@ def ask_core(address: str, token: str, timeout: float = 8.0) -> bool:
             await asyncio.wait_for(link.connect(), timeout)
             return bool((link.welcome or {}).get("logbook"))
         finally:
-            await link.close()
+            # Not the close handshake's 10 s: only the welcome was wanted.
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(link.close(), 1.0)
 
     try:
         return asyncio.run(ask())
