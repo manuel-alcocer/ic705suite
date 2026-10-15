@@ -85,6 +85,11 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
                    help="copy a logbook whole into another, empty database (database URLs)")
     p.add_argument("--qrz-status", action="store_true",
                    help="check the QRZ.com logbook key ([qrz] api_key) and show the logbook")
+    p.add_argument("--qrz-upload", action="store_true",
+                   help="upload to the QRZ.com logbook the QSOs not sent yet, and exit")
+    p.add_argument("--logbook-json", nargs="*", metavar="FILTER",
+                   help="print the logbook's counters and latest QSOs as JSON, of a band "
+                        "and/or mode if given (20m FT8), and exit: for the Plasma applet")
     p.add_argument("--update-scp", action="store_true",
                    help="download MASTER.SCP (callsign database used by the CW skimmer) and exit")
     p.add_argument("--debug", action="store_true", help="debug logging (add -v for packet dumps)")
@@ -276,6 +281,23 @@ def qrz_status(config) -> int:
     return 0
 
 
+def qrz_upload(config) -> int:
+    from ic705suite import qrz
+    from ic705suite.logbook_summary import open_logbook
+
+    if not config.qrz_api_key:
+        print("error: no QRZ logbook key: [qrz] api_key", file=sys.stderr)
+        return 1
+    open_logbook(config)
+    try:
+        uploaded, duplicates = qrz.upload_pending(config.qrz_api_key, config.callsign)
+    except qrz.QrzError as exc:
+        print(f"QRZ.com: {exc}", file=sys.stderr)
+        return 1
+    print(f"QRZ.com: {uploaded} QSOs uploaded, {duplicates} already there")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.init_config:
@@ -301,8 +323,14 @@ def main(argv: list[str] | None = None) -> int:
         return update_scp(config.scp_path)
     if args.qrz_status:
         return qrz_status(config)
+    if args.qrz_upload:
+        return qrz_upload(config)
     if args.copy_logbook:
         return copy_logbook(*args.copy_logbook)
+    if args.logbook_json is not None:
+        from ic705suite.logbook_summary import run as logbook_json
+
+        return logbook_json(config, args.logbook_json)
     apply_overrides(args, config)
     if config.connection == "server" and args.connect is None and not args.serve \
             and not args.wav:

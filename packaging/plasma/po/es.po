@@ -1,0 +1,78 @@
+# Spanish translation of the ic705suite logbook applet.
+msgid ""
+msgstr ""
+"Project-Id-Version: plasma_applet_org.ic705suite.logbook\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+msgid "%1 QSOs, %2 today"
+msgstr "%1 QSOs, %2 hoy"
+
+msgid "All bands"
+msgstr "Todas las bandas"
+
+msgid "All modes"
+msgstr "Todos los modos"
+
+msgid "Calls"
+msgstr "Indicativos"
+
+msgid "Command:"
+msgstr "Orden:"
+
+msgid "Countries"
+msgstr "Países"
+
+msgid "General"
+msgstr "General"
+
+msgid "How ic705suite is run, e.g. ~/.local/bin/ic705suite."
+msgstr "Cómo se ejecuta ic705suite, p. ej. ~/.local/bin/ic705suite."
+
+msgid "ic705suite did not answer (is it installed and up to date?)"
+msgstr "ic705suite no ha respondido (¿está instalado y actualizado?)"
+
+msgid "Last: %1 %2 %3 at %4 UTC"
+msgstr "Último: %1 %2 %3 a las %4 UTC"
+
+msgid "Loading…"
+msgstr "Cargando…"
+
+msgid "Logbook"
+msgstr "Diario"
+
+msgid "Logbook %1"
+msgstr "Diario de %1"
+
+msgid "Look %1 up on QRZ.com"
+msgstr "Buscar %1 en QRZ.com"
+
+msgid "No QSOs of %1"
+msgstr "No hay QSOs de %1"
+
+msgid "No QSOs yet"
+msgstr "Aún no hay QSOs"
+
+msgid "Open the logbook"
+msgstr "Abrir el diario"
+
+msgid "QSOs"
+msgstr "QSOs"
+
+msgid "Refresh"
+msgstr "Actualizar"
+
+msgid "Refresh every (minutes):"
+msgstr "Actualizar cada (minutos):"
+
+msgid "S %1 R %2"
+msgstr "E %1 R %2"
+
+msgid "Today"
+msgstr "Hoy"
+
+msgid "Unexpected answer from ic705suite"
+msgstr "Respuesta inesperada de ic705suite"

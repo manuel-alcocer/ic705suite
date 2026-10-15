@@ -1,0 +1,21 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Manuel Alcocer J"
+            }
+        ],
+        "Category": "Utilities",
+        "Description": "The ic705suite logbook: counters and latest QSOs, by band and mode",
+        "Description[es]": "El diario de ic705suite: contadores y últimos QSOs, por banda y modo",
+        "Icon": "view-list-details",
+        "Id": "org.ic705suite.logbook",
+        "License": "MIT",
+        "Name": "ic705suite logbook",
+        "Name[es]": "Diario de ic705suite",
+        "Version": "1.0",
+        "Website": "https://github.com/manuel-alcocer/ic705suite"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

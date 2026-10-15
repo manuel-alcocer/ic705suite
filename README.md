@@ -401,6 +401,18 @@ the core, once. `ic705suite --copy-logbook FROM TO` moves an existing logbook (t
 file of a computer, say) into it, ids and all, into an empty database only. The clients
 need the `postgres` extra (psycopg); nothing to set on them.
 
+**The log by band and mode.** `/filter 20m FT8` in the logbook's entry line (`/filtro`)
+shows only the QSOs of that band and mode, or of either alone (`/filter cw`, `/filter 2m`);
+`/filter` alone shows them all again. The log's title says what is filtered. In the
+graphical client two boxes over the log do the same with the mouse.
+
+**The logbook in the KDE Plasma panel.** `packaging/plasma/install.sh` installs an applet
+(Plasma 6) showing today's QSOs on its icon and, open, the logbook's counters, the latest
+QSOs (a click looks the call up on QRZ.com) and a band and a mode to narrow them by. It
+reads the logbook the suite's clients open (the core's, when shared) through
+`ic705suite --logbook-json [BAND] [MODE]`, which prints it as JSON; the applet's settings
+say how ic705suite is run and how often to refresh.
+
 **LoTW from the core.** With the shared logbook and a `[lotw]` section (TQSL's station
 location; `apt install trustedqsl xvfb` and the certificate in `~/.tqsl` of the core's
 machine) the core signs and uploads every few minutes the logbook's QSOs not sent yet,
