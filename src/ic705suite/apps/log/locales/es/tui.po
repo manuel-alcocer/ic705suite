@@ -3,8 +3,8 @@ msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8\n"
 
 #: src/hamrlog/tui/app.py:70
-msgid "Commands: /band /freq /mode /profile /repeater /direct /undo /quit"
-msgstr "Comandos: /banda /frec /modo /perfil /repetidor /directo /deshacer /salir"
+msgid "Commands: /band /freq /mode /profile /repeater /direct /filter /undo /quit"
+msgstr "Comandos: /banda /frec /modo /perfil /repetidor /directo /filtro /deshacer /salir"
 
 #: src/hamrlog/tui/app.py:73
 msgid "Inventory: /brand NAME filters the list · /brand alone clears the filter"
@@ -1225,3 +1225,27 @@ msgstr "Duplicados: día (el mismo día UTC), log (siempre, como en un concurso)
 
 msgid "Refresh the log"
 msgstr "Refrescar el log"
+
+msgid "/filter is for the log (F1)."
+msgstr "/filtro es para el log (F1)."
+
+msgid "«{word}» is neither a band nor a mode. Usage: /filter 20m FT8"
+msgstr "«{word}» no es una banda ni un modo. Uso: /filtro 20m FT8"
+
+msgid "The whole log."
+msgstr "Todo el log."
+
+msgid "{count} QSOs of {what} · /filter alone shows them all"
+msgstr "{count} QSOs de {what} · /filtro solo los muestra todos"
+
+msgid "Show only this band (/filter 20m)"
+msgstr "Mostrar solo esta banda (/filtro 20m)"
+
+msgid "Show only this mode (/filter FT8)"
+msgstr "Mostrar solo este modo (/filtro FT8)"
+
+msgid "All bands"
+msgstr "Todas las bandas"
+
+msgid "All modes"
+msgstr "Todos los modos"

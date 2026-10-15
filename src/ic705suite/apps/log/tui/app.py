@@ -74,12 +74,15 @@ COMMANDS: dict[str, str] = {
     "deshacer": "undo", "undo": "undo", "borrar": "undo", "delete": "undo",
     "marca": "brand", "brand": "brand",
     "buscar": "search", "search": "search", "find": "search",
+    "filtro": "filter", "filtrar": "filter", "filter": "filter",
     "salir": "quit", "quit": "quit", "exit": "quit",
 }
 
 #: What ``/help`` puts on the feedback line. Short enough for 80 columns; a
 #: command typed without its value explains itself. Translated where shown.
-COMMAND_SUMMARY = N_("Commands: /band /freq /mode /profile /repeater /direct /undo /quit")
+COMMAND_SUMMARY = N_(
+    "Commands: /band /freq /mode /profile /repeater /direct /filter /undo /quit"
+)
 
 #: ``/help`` and the action bar of the profiles view.
 PROFILES_SUMMARY = N_(
@@ -227,6 +230,9 @@ class HamrlogApp(App[None]):
         self._queries: dict[str, str] = {}
         #: Brand filter per tab key; empty shows every brand.
         self._brands: dict[str, str] = {}
+        #: The log shows only this band and this mode (/filter); "" for all of them.
+        self._log_band = ""
+        self._log_mode = ""
         #: Half-typed entries per view, so switching never loses one.
         self._drafts: dict[str, dict[str, str]] = {}
 
@@ -251,13 +257,13 @@ class HamrlogApp(App[None]):
         self._maybe_start_metrics()
         self.query_one(HistoryPanel).order = self.state.history_order
         self._apply_config()
-        self.query_one(HistoryPanel).load(QsoService.recent())
+        self.query_one(HistoryPanel).load(self._log_rows())
         self._refresh_status()
         self._refresh_stats()
         # Wait for the field boxes to exist before handing them the keyboard,
         # so nothing else can take it first.
         self.query_one(StatusLine).demo = self.demo
-        self.query_one("#log-frame", Vertical).border_title = _("Log")
+        self._show_log_filter()
         self.query_one(DetailPanel).border_title = _("Detail")
         self.query_one(EntryPanel).border_title = _("Entry")
         self.query_one(InventoryView).display = False
@@ -424,7 +430,8 @@ class HamrlogApp(App[None]):
     def _reload_history(self) -> None:
         panel = self.query_one(HistoryPanel)
         panel.set_order(self.state.history_order)
-        panel.load(QsoService.recent())
+        panel.load(self._log_rows())
+        self._show_log_filter()
 
     def action_refresh_log(self) -> None:
         """Ctrl+R: the log as it is now in the database (another client, the core's FT8)."""
@@ -661,7 +668,10 @@ class HamrlogApp(App[None]):
             return
 
         panel.clear()
-        self.query_one(HistoryPanel).append_row_for(row)
+        if self._log_band or self._log_mode:
+            self._reload_history()      # it shows if it is of the band and mode filtered
+        else:
+            self.query_one(HistoryPanel).append_row_for(row)
         self._refresh_stats()
         self._refresh_detail(None)
 
@@ -706,6 +716,9 @@ class HamrlogApp(App[None]):
             return
         if action == "search":
             self._search(command.argument)
+            return
+        if action == "filter":
+            self._filter_log(command.argument)
             return
         if action in COMMAND_USAGE and not command.argument:
             panel.feedback(_(COMMAND_USAGE[action]), "info")
@@ -1412,8 +1425,9 @@ class HamrlogApp(App[None]):
         self.query_one(HistoryPanel).display = in_log
         self.query_one(InventoryView).display = not in_log
         self.query_one("#log-frame", Vertical).border_title = (
-            _("Log") if in_log else _(LIST_VIEWS[view][1])
+            self._log_title() if in_log else _(LIST_VIEWS[view][1])
         )
+        self._show_log_filter()
 
         if in_log:
             panel.build_fields(self.state.field_order)
@@ -1664,6 +1678,49 @@ class HamrlogApp(App[None]):
         self._brands[kind.key] = match
         self._reload_items()
         panel.feedback(_("Brand {brand}.").format(brand=match), "info")
+
+    # ------------------------------------------------------- log filter --
+    def _log_rows(self) -> list:
+        """The QSOs the log shows: the latest, of the band and mode filtered if any."""
+        return QsoService.recent(band=self._log_band or None, mode=self._log_mode or None)
+
+    def _log_title(self) -> str:
+        """«Log», with the filter when there is one: «Log · 20m FT8»."""
+        shown = " ".join(part for part in (self._log_band, self._log_mode) if part)
+        return f"{_('Log')} · {shown}" if shown else _("Log")
+
+    def _show_log_filter(self) -> None:
+        if self._view == "log":
+            self.query_one("#log-frame", Vertical).border_title = self._log_title()
+
+    def set_log_filter(self, band: str = "", mode: str = "") -> None:
+        """Show only the QSOs of `band` and `mode` ("" for any)."""
+        self._log_band, self._log_mode = band, mode
+        self._reload_history()
+
+    def _filter_log(self, text: str) -> None:
+        """``/filter 20m FT8``: the log shows only that band and mode, either one alone
+        too; ``/filter`` alone shows everything again."""
+        panel = self.query_one(EntryPanel)
+        if self._view != "log":
+            panel.feedback(_("/filter is for the log (F1)."), "warning")
+            return
+        try:
+            band, mode = QsoService.parse_filter(text)
+        except ServiceError as exc:
+            panel.feedback(str(exc), "error")
+            return
+        self.set_log_filter(band, mode)
+        if not (band or mode):
+            panel.feedback(_("The whole log."), "info")
+            return
+        panel.feedback(
+            _("{count} QSOs of {what} · /filter alone shows them all").format(
+                count=self.query_one(HistoryPanel).qso_count,
+                what=" ".join(part for part in (band, mode) if part),
+            ),
+            "info",
+        )
 
     def _brand_list(self) -> list[str]:
         return sorted({item.brand for item in self._kind.items() if item.brand}, key=str.lower)

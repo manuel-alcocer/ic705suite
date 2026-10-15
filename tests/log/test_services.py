@@ -123,6 +123,19 @@ def test_history_is_returned_oldest_first(state):
     assert [row.call for row in QsoService.recent()] == ["EA1AAA", "EA2BBB", "EA3CCC"]
 
 
+def test_history_by_band_and_mode(state):
+    log_line("ea1aaa", state)                       # 40m SSB
+    state.set_band("20m")
+    log_line("ea2bbb", state)
+    state.set_mode("CW")
+    log_line("ea3ccc", state)
+    assert [row.call for row in QsoService.recent(band="20m")] == ["EA2BBB", "EA3CCC"]
+    assert [row.call for row in QsoService.recent(mode="SSB")] == ["EA1AAA", "EA2BBB"]
+    assert [row.call for row in QsoService.recent(band="20m", mode="CW")] == ["EA3CCC"]
+    assert QsoService.logged_bands() == ["40m", "20m"]
+    assert QsoService.logged_modes() == ["CW", "SSB"]
+
+
 def test_search_matches_several_fields(state):
     log_line("ea4abc,juan,59,57,Madrid,por la tarde", state)
     assert len(QsoService.search("juan")) == 1

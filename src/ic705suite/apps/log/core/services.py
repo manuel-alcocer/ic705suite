@@ -1754,6 +1754,49 @@ class QsoService:
         return row
 
     @staticmethod
+    def logged_bands() -> list[str]:
+        """The bands with some QSO, lowest first: what the log can be filtered by."""
+        with session_scope() as session:
+            found = set(session.scalars(select(Qso.band).distinct().where(Qso.band != "")))
+        order = {band.name: index for index, band in enumerate(bands.BANDS)}
+        return sorted((b for b in found if b), key=lambda b: (order.get(b, len(order)), b))
+
+    @staticmethod
+    def logged_modes() -> list[str]:
+        """The modes with some QSO, alphabetically."""
+        with session_scope() as session:
+            found = set(session.scalars(select(Qso.mode).distinct().where(Qso.mode != "")))
+        return sorted(m for m in found if m)
+
+    @staticmethod
+    def parse_filter(text: str) -> tuple[str, str]:
+        """(band, mode) of a filter typed as «20m FT8», «cw», «2m» ("" for any); a mode
+        not known here but logged (an FT8 client's own) counts too.
+
+        Raises:
+            ServiceError: For a word that is neither a band nor a mode.
+        """
+        band = mode = ""
+        logged = None
+        for word in text.split():
+            found_band = bands.get(word)
+            if found_band is not None:
+                band = found_band.name
+                continue
+            found_mode = modes.get(word)
+            if found_mode is None and logged is None:
+                logged = {name.upper(): name for name in QsoService.logged_modes()}
+            name = found_mode.name if found_mode else (logged or {}).get(word.upper())
+            if name is None:
+                raise ServiceError(
+                    _("«{word}» is neither a band nor a mode. Usage: /filter 20m FT8").format(
+                        word=word
+                    )
+                )
+            mode = name
+        return band, mode
+
+    @staticmethod
     def version() -> tuple:
         """What changes when the log does (a QSO added, edited or deleted, by this program
         or another sharing the database): cheap enough to ask every few seconds."""
@@ -1763,8 +1806,15 @@ class QsoService:
             ).one())
 
     @staticmethod
-    def recent(limit: int = 200, operator_id: int | None = None) -> list[QsoRow]:
-        """Most recent contacts, newest last so the panel reads top to bottom."""
+    def recent(
+        limit: int = 200,
+        operator_id: int | None = None,
+        *,
+        band: str | None = None,
+        mode: str | None = None,
+    ) -> list[QsoRow]:
+        """Most recent contacts, newest last so the panel reads top to bottom;
+        only those of ``band`` and ``mode`` when given."""
         with session_scope() as session:
             stmt = (
                 select(Qso)
@@ -1780,6 +1830,10 @@ class QsoService:
             )
             if operator_id is not None:
                 stmt = stmt.where(Qso.operator_id == operator_id)
+            if band:
+                stmt = stmt.where(Qso.band == band)
+            if mode:
+                stmt = stmt.where(Qso.mode == mode)
             rows = list(session.scalars(stmt))
             return _to_rows(session, list(reversed(rows)))
 

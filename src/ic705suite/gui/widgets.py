@@ -216,7 +216,7 @@ class Frame(QFrame):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(8, 4, 8, 6)
         outer.setSpacing(4)
-        head = QHBoxLayout()
+        head = self.head = QHBoxLayout()      # title, subtitle, and whatever a page adds
         head.setSpacing(8)
         self.title = QLabel(title, objectName="frame-title")
         self.subtitle = QLabel("", objectName="frame-subtitle")

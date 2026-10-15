@@ -123,6 +123,39 @@ async def test_band_command_changes_the_session(operator):
         assert app.state.mode == "CW"
 
 
+async def test_filter_shows_only_a_band_and_a_mode(operator):
+    app = HamrlogApp()
+    async with app.run_test(size=(120, 30)) as pilot:
+        await type_line(pilot, app, "/banda 40m")
+        await type_line(pilot, app, "/modo ssb")
+        await type_line(pilot, app, "ea4abc,juan")
+        await type_line(pilot, app, "/banda 20m")
+        await type_line(pilot, app, "dl2jkl,hans")
+        await type_line(pilot, app, "/modo cw")
+        await type_line(pilot, app, "f5xyz,pierre")
+        history = app.query_one(HistoryPanel)
+        assert history.qso_count == 3
+
+        await type_line(pilot, app, "/filtro 20m")
+        assert history.qso_count == 2
+        assert "20m" in app.query_one("#log-frame").border_title
+        await type_line(pilot, app, "/filtro 20m ssb")
+        assert [row.call for row in history._rows] == ["DL2JKL"]
+        await type_line(pilot, app, "/filtro cw")
+        assert [row.call for row in history._rows] == ["F5XYZ"]
+        # Logged while filtered: shown only if of the filter.
+        await type_line(pilot, app, "/modo ssb")
+        await type_line(pilot, app, "ea1aaa,ana")
+        assert [row.call for row in history._rows] == ["F5XYZ"]
+
+        await type_line(pilot, app, "/filtro xyz")
+        assert "ni un modo" in app.query_one("#entry").message
+        assert history.qso_count == 1
+        await type_line(pilot, app, "/filtro")
+        assert history.qso_count == 4
+        assert app.query_one("#log-frame").border_title == "Registro"
+
+
 async def test_unknown_command_reports_an_error(operator):
     app = HamrlogApp()
     async with app.run_test(size=(120, 30)) as pilot:

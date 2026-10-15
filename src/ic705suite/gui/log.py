@@ -16,6 +16,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QDialog,
     QFormLayout,
     QHBoxLayout,
@@ -905,12 +906,22 @@ class LogPage(Page):
         self._tabs: dict[str, int] = dict.fromkeys(LIST_VIEWS, 0)
         self._queries: dict[str, str] = {}
         self._brands: dict[str, str] = {}
+        self._log_band = ""
+        self._log_mode = ""
         self._drafts: dict[str, dict[str, str]] = {}
         self._build()
 
     def _build(self) -> None:
         self.statusline = QtStatusLine()
         self.main_frame = LogFrame(log_("Log"))
+        # The log's filter (/filter) with the mouse: a band and a mode, «all» first.
+        self.band_filter = QComboBox(toolTip=log_("Show only this band (/filter 20m)"))
+        self.mode_filter = QComboBox(toolTip=log_("Show only this mode (/filter FT8)"))
+        for combo in (self.band_filter, self.mode_filter):
+            combo.setFocusPolicy(Qt.FocusPolicy.NoFocus)    # the entry line keeps the keys
+            combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+            combo.activated.connect(self._pick_log_filter)
+            self.main_frame.head.addWidget(combo)
         self.history = QtHistoryPanel(self)
         self.inventory = QtInventoryView(self)
         self.inventory.setVisible(False)
@@ -997,7 +1008,7 @@ class LogPage(Page):
         self._apply_config()
         from ic705suite.apps.log.core.services import QsoService
 
-        self.history.load(QsoService.recent())
+        self.history.load(self._log_rows())
         self._refresh_status()
         self._refresh_stats()
         self._log_version = QsoService.version()     # as loaded: changes from here
@@ -1005,7 +1016,7 @@ class LogPage(Page):
         self.log_watch.start()
         self.statusline.demo = self.demo
         self.statusline.refresh()
-        self.main_frame.border_title = log_("Log")
+        self._show_log_filter()
         self.inventory.display = False
         self._refresh_detail(None)
         self.entry.focus_input()
@@ -1017,6 +1028,34 @@ class LogPage(Page):
         super().stop()
 
     def restore_focus(self) -> None:
+        self.entry.focus_input()
+
+    def _show_log_filter(self) -> None:
+        """HamrlogApp._show_log_filter, and the boxes showing it, refilled with the bands
+        and modes logged so far."""
+        in_log = self._view == "log"
+        if in_log:
+            self.main_frame.border_title = self._log_title()
+        from ic705suite.apps.log.core.services import QsoService
+
+        for combo, everything, logged, current in (
+                (self.band_filter, log_("All bands"), QsoService.logged_bands, self._log_band),
+                (self.mode_filter, log_("All modes"), QsoService.logged_modes, self._log_mode)):
+            combo.setVisible(in_log)
+            if not in_log:
+                continue
+            names = logged()
+            if current and current not in names:
+                names.append(current)
+            combo.clear()
+            combo.addItem(everything, "")
+            for name in names:
+                combo.addItem(name, name)
+            combo.setCurrentIndex(max(0, combo.findData(current)))
+
+    def _pick_log_filter(self, _index: int = 0) -> None:
+        self.set_log_filter(self.band_filter.currentData() or "",
+                            self.mode_filter.currentData() or "")
         self.entry.focus_input()
 
     def _page(self, direction: int) -> None:
