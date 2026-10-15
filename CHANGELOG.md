@@ -2,6 +2,35 @@
 
 <!-- version list -->
 
+## v0.21.0 (2026-10-15)
+
+### Bug Fixes
+
+- **ft8**: The grid logged is the last one heard when the QSO's messages had none
+  ([`616ad8c`](https://github.com/manuel-alcocer/ic705suite/commit/616ad8c01df97d28cfa9e131b13a0e9d435b6cc4))
+
+- **ft8**: The super-automatic mode is not turned on with the radio out of a data mode
+  ([`0d8bf7f`](https://github.com/manuel-alcocer/ic705suite/commit/0d8bf7f425ef8d6cf25a7ce6255a3530f07456fe))
+
+### Features
+
+- **log**: A KDE Plasma applet for the logbook
+  ([`ca2a804`](https://github.com/manuel-alcocer/ic705suite/commit/ca2a804c99674036b71ea6298b0b3f4663878c92))
+
+- **log**: The log can be filtered by band and mode
+  ([`c0d4898`](https://github.com/manuel-alcocer/ic705suite/commit/c0d4898bc44e2bf7aab7d8f4f3663bb233d95380))
+
+### Performance Improvements
+
+- **log**: Asking the core for its logbook no longer waits 10 s to close
+  ([`7d421f3`](https://github.com/manuel-alcocer/ic705suite/commit/7d421f351cc223edb4f438f43cba5beac7e94a9e))
+
+### Testing
+
+- **ft8**: The data mode check is skipped where jt9 is not installed
+  ([`2eedc62`](https://github.com/manuel-alcocer/ic705suite/commit/2eedc62da72d1dd0c992a47ba406552ba7ea793f))
+
+
 ## v0.20.4 (2026-10-13)
 
 ### Bug Fixes
