@@ -15,6 +15,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 
 if [[ "${1:-}" == "--uninstall" ]]; then
     kpackagetool6 -t Plasma/Applet --remove "$ID"
+    rm -f "${XDG_DATA_HOME:-$HOME/.local/share}"/locale/*/LC_MESSAGES/"plasma_applet_$ID.mo"
     exit 0
 fi
 
@@ -25,10 +26,14 @@ BUILD="$(mktemp -d)"
 trap 'rm -rf "$BUILD"' EXIT
 cp -r "$HERE/$ID" "$BUILD/"
 if command -v msgfmt >/dev/null; then
+    # In the package, and where KDE looks for every program's translations too.
+    LOCALE="${XDG_DATA_HOME:-$HOME/.local/share}/locale"
     for po in "$HERE"/po/*.po; do
         lang="$(basename "$po" .po)"
-        mkdir -p "$BUILD/$ID/contents/locale/$lang/LC_MESSAGES"
+        mkdir -p "$BUILD/$ID/contents/locale/$lang/LC_MESSAGES" "$LOCALE/$lang/LC_MESSAGES"
         msgfmt -o "$BUILD/$ID/contents/locale/$lang/LC_MESSAGES/plasma_applet_$ID.mo" "$po"
+        cp "$BUILD/$ID/contents/locale/$lang/LC_MESSAGES/plasma_applet_$ID.mo" \
+           "$LOCALE/$lang/LC_MESSAGES/"
     done
 else
     echo "msgfmt not found (gettext): the applet will be in English" >&2

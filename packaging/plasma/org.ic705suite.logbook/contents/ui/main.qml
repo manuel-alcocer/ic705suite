@@ -53,9 +53,14 @@ PlasmoidItem {
         return /^[A-Za-z0-9.\-]*$/.test(word) ? word : ""
     }
 
+    // Plasma's PATH often lacks ~/.local/bin, where the installer puts ic705suite.
+    function program() {
+        return 'PATH="$HOME/.local/bin:$PATH" ' + Plasmoid.configuration.command
+    }
+
     function refresh() {
         const filter = [safe(band), safe(mode)].filter(w => w).join(" ")
-        const command = Plasmoid.configuration.command + " --logbook-json " + filter
+        const command = program() + " --logbook-json " + filter
         loading = true
         executable.connectSource(command.trim())
     }
@@ -67,8 +72,7 @@ PlasmoidItem {
     }
 
     function openLogbook() {
-        executable.connectSource("sh -c '" + Plasmoid.configuration.command
-                                 + " --gui log >/dev/null 2>&1 &'")
+        executable.connectSource("sh -c '" + program() + " --gui log >/dev/null 2>&1 &'")
     }
 
     // "2026-10-15T14:02:15Z" -> "14:02", or "15/10 14:02" when not today (UTC both).
