@@ -733,6 +733,12 @@ class Ft8Service:
         (a QSO under way ends as usual; calling CQ, or a station not answering yet, stops)."""
         if on:
             self._check_tx()
+            # What would stop its first call (the radio not in USB-D...) is said now, not
+            # a cycle or two later with the mode turned off.
+            problem = await self._cannot_key()
+            if problem is not None:
+                msgid, args = problem
+                raise Ft8Error(msgid, **args)
             self.auto.start()
             self.hub.info(N_("FT8: super-automatic mode on (H or A stops it)"))
         elif self.auto.on:

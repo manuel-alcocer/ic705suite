@@ -154,6 +154,27 @@ def test_the_mode_needs_transmission(tmp_path):
     asyncio.run(scenario())
 
 
+def test_the_mode_needs_the_radio_in_a_data_mode(tmp_path):
+    """Not turned on with the radio in USB: the reason is said at once, not on its first
+    call."""
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        try:
+            await link.call("ft8.start")
+            reply = await link.call("ft8.auto", on=True)
+            assert "data mode" in reply.get("error", "")
+            assert not (await link.call("ft8.state"))["auto"]["on"]
+            await link.call("ft8.band", band="20m")             # USB-D
+            assert (await link.call("ft8.auto", on=True))["on"]
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
 def test_a_busy_station_and_an_ignored_country(tmp_path, monkeypatch):
     """France ignored: its CQ is not answered, nor its call to our CQ. England is called; it
     answers another station: left at once for the next (nobody: CQ)."""
