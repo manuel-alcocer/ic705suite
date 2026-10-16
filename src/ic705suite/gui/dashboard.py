@@ -2,7 +2,7 @@
 
 Left, the applications and the quick logbook entry with today's contacts; right, the rig at a
 glance, a small band scope, the basic settings and the station; below, the core's messages.
-The keys are the terminal dashboard's; the mouse opens an application (double click), picks
+The keys are the terminal dashboard's; the mouse opens an application (a click on its icon), picks
 and turns a setting (click, wheel) and tunes on the scope (click, wheel).
 """
 
@@ -12,14 +12,17 @@ import asyncio
 import base64
 
 import numpy as np
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
-    QHeaderView,
+    QFrame,
     QLabel,
     QLineEdit,
+    QListView,
+    QListWidget,
+    QListWidgetItem,
     QSplitter,
     QTableWidgetItem,
     QVBoxLayout,
@@ -41,6 +44,7 @@ from ic705suite.dashboard.app import (
     dashboard_controls,
 )
 from ic705suite.gui import theme
+from ic705suite.gui.appicons import app_icon
 from ic705suite.gui.page import Page
 from ic705suite.gui.widgets import (
     ControlGrid,
@@ -66,6 +70,48 @@ from ic705suite.ui.rigkeys import tune_target
 # The applications the graphical client has so far; the others still open in the terminal.
 GUI_APPS = {"view", "cw", "swr", "log", "packet", "ft8"}
 NOT_YET = N_("{name}: not in the graphical client yet; in the terminal: ic705suite {app}")
+ICON_SIZE = 48                 # the applications' icons, in pixels
+CELL = QSize(116, 100)         # each application: its icon, its name and its key
+ITEM = QSize(110, 94)          # the item in its cell (the rest, room between them)
+
+
+class AppGrid(QListWidget):
+    """The applications as big icons, each with its name and key, as many to a row as fit;
+    its height is that of the rows all of them need, so there is never a scroll bar. A
+    click opens one; the arrows choose and Enter opens, as on the terminal's list."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setViewMode(QListView.ViewMode.IconMode)
+        self.setMovement(QListView.Movement.Static)
+        self.setResizeMode(QListView.ResizeMode.Adjust)
+        self.setFlow(QListView.Flow.LeftToRight)
+        self.setWrapping(True)
+        self.setUniformItemSizes(True)
+        self.setIconSize(QSize(ICON_SIZE, ICON_SIZE))
+        self.setGridSize(CELL)
+        self.setSpacing(0)
+        self.setWordWrap(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setSizePolicy(self.sizePolicy().horizontalPolicy(),
+                           self.sizePolicy().Policy.Fixed)
+
+    def fit(self) -> None:
+        """As tall as the rows the applications need at this width."""
+        per_row = max(1, self.viewport().width() // CELL.width())
+        rows = max(1, -(-self.count() // per_row))
+        height = rows * CELL.height() + 2 * self.frameWidth() + 4
+        if self.height() != height:
+            self.setFixedHeight(height)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        super().resizeEvent(event)
+        self.fit()
+
 
 
 class DashboardPage(PanelKeys, ChannelSaving, Page):
@@ -90,17 +136,9 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
     def _build(self) -> None:
         self.status = StatusLine(self.link.description if self.link else _("no core"))
         self.apps_frame = Frame(_("Applications"))
-        self.table = self.apps_frame.add(Table(0, 3), 1)
-        self.table.setHorizontalHeaderLabels([_("Key"), _("Application"), _("What it does")])
-        self.table.verticalHeader().hide()
-        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.setShowGrid(False)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.table.setWordWrap(False)
-        self.table.activated.connect(lambda _index: self.action_open_chosen())
+        self.table = self.apps_frame.add(AppGrid())
+        # A click opens; Enter comes through the page's keys (action_press).
+        self.table.clicked.connect(lambda _index: self.action_open_chosen())
 
         self.quick_frame = Frame(_("Quick log · today")
                                  + (" · " + _("demo") if self.config.connection == "sim" else ""))
@@ -146,8 +184,8 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
         left = QWidget()
         left_box = QVBoxLayout(left)
         left_box.setContentsMargins(0, 0, 0, 0)
-        left_box.addWidget(self.apps_frame, 2)
-        left_box.addWidget(self.quick_frame, 3)
+        left_box.addWidget(self.apps_frame)
+        left_box.addWidget(self.quick_frame, 1)
         side = QWidget()
         side_box = QVBoxLayout(side)
         side_box.setContentsMargins(0, 0, 0, 0)
@@ -255,6 +293,7 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
             pass
 
     def retheme(self) -> None:
+        self._fill_apps()                   # the icons, in the new colours
         self._show_rig()
         self._show_station()
 
@@ -335,12 +374,13 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
         return app["needs_rig"] and self.link is None
 
     def _fill_apps(self) -> None:
-        table = self.table
-        row = table.currentRow() if table.rowCount() else 0
+        grid = self.table
+        row = grid.currentRow() if grid.count() else 0
         model = self.welcome.get("rig", {}).get("name", "IC-705")
-        table.setRowCount(len(self.apps))
-        for i, app in enumerate(self.apps):
+        grid.clear()
+        for app in self.apps:
             usable = self._usable(app)
+            name = _(app["name"]).format(model=model)
             description = _(app["description"])
             if not app["ready"]:
                 description = f"{_('coming soon')} · {description}"
@@ -348,24 +388,23 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
                 description = f"{_('this rig cannot')} · {description}"
             elif self._lacks_core(app):
                 description = f"{_('needs the radio')} · {description}"
-            cells = (app["key"], _(app["name"]).format(model=model), description)
-            for column, text in enumerate(cells):
-                item = QTableWidgetItem(text)
-                item.setToolTip(text)
-                colour = theme.CYAN if column == 0 else theme.TEXT if usable else theme.DIM
-                item.setForeground(QColor(colour))
-                if column < 2 and usable:
-                    font = item.font()
-                    font.setBold(True)
-                    item.setFont(font)
-                table.setItem(i, column, item)
-        table.resizeColumnToContents(0)
-        table.resizeColumnToContents(1)
+            item = QListWidgetItem(app_icon(app["id"], theme.CYAN if usable else theme.DIM,
+                                            ICON_SIZE), f"{name}\n{app['key']}")
+            item.setToolTip(f"{app['key']}  {name}\n{description}")
+            item.setForeground(QColor(theme.TEXT if usable else theme.DIM))
+            item.setTextAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+            item.setSizeHint(ITEM)          # its whole name, not elided to the icon's width
+            if usable:
+                font = QFont(item.font())
+                font.setBold(True)
+                item.setFont(font)
+            grid.addItem(item)
+        grid.fit()
         ids = [a["id"] for a in self.apps]
         if self.chosen in ids:
             row = ids.index(self.chosen)
         if self.apps:
-            table.selectRow(min(max(row, 0), len(self.apps) - 1))
+            grid.setCurrentRow(min(max(row, 0), len(self.apps) - 1))
 
     def action_open_chosen(self) -> None:
         row = self.table.currentRow()

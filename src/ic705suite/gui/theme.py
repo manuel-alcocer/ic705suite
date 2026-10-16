@@ -121,6 +121,22 @@ QTableWidget {{
 QTableWidget::item:selected {{
     background: {SELECTED};
 }}
+QListWidget {{
+    background: {PANEL};
+    border: none;
+    outline: none;
+}}
+QListWidget::item {{
+    border-radius: 6px;
+    padding: 4px;
+}}
+QListWidget::item:hover {{
+    background: {RAISED};
+}}
+QListWidget::item:selected {{
+    background: {SELECTED};
+    color: {TEXT};
+}}
 QHeaderView::section {{
     background: {RAISED};
     color: {DIM};

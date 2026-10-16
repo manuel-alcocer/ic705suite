@@ -51,6 +51,39 @@ def rig(link) -> dict:
     return link.latest.get("rig", {})
 
 
+
+def test_the_applications_as_icons_all_in_view(tmp_path, run):
+    """Every application an icon, all of them in view at any width (no scroll bar): the
+    arrows choose, Enter opens the one chosen, a click opens one too."""
+    from ic705suite.gui.ft8 import Ft8Page
+    from ic705suite.gui.view import ViewPage
+
+    async def scenario():
+        win, link = await window(tmp_path)
+        try:
+            grid = win.dashboard.table
+            assert grid.count() == len(win.dashboard.apps) >= 7
+            for width in (1300, 900, 700):
+                win.resize(width, 850)
+                await asyncio.sleep(0.1)
+                for row in range(grid.count()):
+                    rect = grid.visualItemRect(grid.item(row))
+                    assert grid.viewport().rect().contains(rect), (width, row)
+            assert grid.currentRow() == 0 and "F2" in grid.item(0).text()
+            grid.setFocus()
+            await key(Qt.Key.Key_Return)
+            await until(lambda: isinstance(win.page, ViewPage))
+            await key(Qt.Key.Key_Escape)
+            await until(lambda: win.page is win.dashboard)
+            ft8 = next(r for r in range(grid.count()) if "F8" in grid.item(r).text())
+            QTest.mouseClick(grid.viewport(), Qt.MouseButton.LeftButton,
+                             pos=grid.visualItemRect(grid.item(ft8)).center())
+            await until(lambda: isinstance(win.page, Ft8Page))
+        finally:
+            await link.close()
+
+    run(scenario())
+
 def test_dashboard_opens_the_view_and_comes_back(tmp_path, run):
     async def scenario():
         win, link = await window(tmp_path)
