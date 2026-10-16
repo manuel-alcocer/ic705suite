@@ -53,8 +53,9 @@ def rig(link) -> dict:
 
 
 def test_the_applications_as_icons_all_in_view(tmp_path, run):
-    """Every application an icon, all of them in view at any width (no scroll bar): the
-    arrows choose, Enter opens the one chosen, a click opens one too."""
+    """Every application an icon, all of them in view (no scroll bar), always four to a
+    row and the same size at any width: the arrows choose, Enter opens the one chosen, a
+    click opens one too."""
     from ic705suite.gui.ft8 import Ft8Page
     from ic705suite.gui.view import ViewPage
 
@@ -63,12 +64,17 @@ def test_the_applications_as_icons_all_in_view(tmp_path, run):
         try:
             grid = win.dashboard.table
             assert grid.count() == len(win.dashboard.apps) >= 7
-            for width in (1300, 900, 700):
+            sizes = set()
+            for width in (1300, 1800, 900):
                 win.resize(width, 850)
                 await asyncio.sleep(0.1)
+                sizes.add((grid.width(), grid.height()))
+                tops = [grid.visualItemRect(grid.item(r)).top() for r in range(grid.count())]
+                assert len(set(tops[:4])) == 1 and tops[4] > tops[0], width     # 4 + 3
                 for row in range(grid.count()):
                     rect = grid.visualItemRect(grid.item(row))
                     assert grid.viewport().rect().contains(rect), (width, row)
+            assert len(sizes) == 1
             assert grid.currentRow() == 0 and "F2" in grid.item(0).text()
             grid.setFocus()
             await key(Qt.Key.Key_Return)

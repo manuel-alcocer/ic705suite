@@ -32,13 +32,33 @@ from ic705suite.station.links import Link
 log = logging.getLogger(__name__)
 
 
+class PageLink:
+    """The link as one page sees it: the same link (everything goes to it), but the page's
+    events come in a slot of its own, so the dashboard and the applications open in tabs
+    and windows all receive them at once. The terminal's code attaches and detaches as it
+    always did."""
+
+    def __init__(self, link: Link, slot: object) -> None:
+        self.target = link
+        self._slot = slot
+
+    def attach(self, callback, replay: bool = True, slot: object = None) -> None:
+        self.target.attach(callback, replay, slot=self._slot)
+
+    def detach(self, slot: object = None) -> None:
+        self.target.detach(self._slot)
+
+    def __getattr__(self, name: str):
+        return getattr(self.target, name)
+
+
 class Page(QWidget):
     TUI: type          # the Textual App this page mirrors (its BINDINGS)
 
     def __init__(self, window, link: Link | None, config: Config) -> None:
         super().__init__()
-        self.window_ = window
-        self.link = link
+        self.window_ = window            # where it is shown: a tab or a window (gui.app)
+        self.link = PageLink(link, id(self)) if link is not None else None
         self.config = config
         self.keymap = KeyMap(self.TUI)
         self.overlay: Overlay | None = None

@@ -200,3 +200,9 @@ msgstr "Tu locator (Maidenhead, p. ej. IM77; FT8 lo envía)"
 
 msgid "That does not look like a locator (for example IM77 or IM77AJ)"
 msgstr "Eso no parece un locator (por ejemplo IM77 o IM77AJ)"
+
+msgid "applications in tabs"
+msgstr "aplicaciones en pestañas"
+
+msgid "applications in their own windows"
+msgstr "aplicaciones en ventanas propias"

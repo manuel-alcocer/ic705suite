@@ -18,11 +18,13 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QFrame,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QListView,
     QListWidget,
     QListWidgetItem,
+    QMenu,
     QSplitter,
     QTableWidgetItem,
     QVBoxLayout,
@@ -73,18 +75,18 @@ NOT_YET = N_("{name}: not in the graphical client yet; in the terminal: ic705sui
 ICON_SIZE = 48                 # the applications' icons, in pixels
 CELL = QSize(116, 100)         # each application: its icon, its name and its key
 ITEM = QSize(110, 94)          # the item in its cell (the rest, room between them)
+COLUMNS = 4                    # applications to a row: always 4 + 3, whatever the width
 
 
 class AppGrid(QListWidget):
-    """The applications as big icons, each with its name and key, as many to a row as fit;
-    its height is that of the rows all of them need, so there is never a scroll bar. A
-    click opens one; the arrows choose and Enter opens, as on the terminal's list."""
+    """The applications as big icons, each with its name and key, COLUMNS to a row: always
+    the same size and the same rows (4 + 3), never a scroll bar. A click opens one; the
+    arrows choose and Enter opens, as on the terminal's list."""
 
     def __init__(self) -> None:
         super().__init__()
         self.setViewMode(QListView.ViewMode.IconMode)
         self.setMovement(QListView.Movement.Static)
-        self.setResizeMode(QListView.ResizeMode.Adjust)
         self.setFlow(QListView.Flow.LeftToRight)
         self.setWrapping(True)
         self.setUniformItemSizes(True)
@@ -97,21 +99,12 @@ class AppGrid(QListWidget):
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setSizePolicy(self.sizePolicy().horizontalPolicy(),
-                           self.sizePolicy().Policy.Fixed)
+        self.setFixedWidth(COLUMNS * CELL.width() + 2 * self.frameWidth() + 4)
 
     def fit(self) -> None:
-        """As tall as the rows the applications need at this width."""
-        per_row = max(1, self.viewport().width() // CELL.width())
-        rows = max(1, -(-self.count() // per_row))
-        height = rows * CELL.height() + 2 * self.frameWidth() + 4
-        if self.height() != height:
-            self.setFixedHeight(height)
-
-    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt's name
-        super().resizeEvent(event)
-        self.fit()
-
+        """As tall as the rows the applications need."""
+        rows = max(1, -(-self.count() // COLUMNS))
+        self.setFixedHeight(rows * CELL.height() + 2 * self.frameWidth() + 4)
 
 
 class DashboardPage(PanelKeys, ChannelSaving, Page):
@@ -137,8 +130,11 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
         self.status = StatusLine(self.link.description if self.link else _("no core"))
         self.apps_frame = Frame(_("Applications"))
         self.table = self.apps_frame.add(AppGrid())
-        # A click opens; Enter comes through the page's keys (action_press).
+        # A click opens ([ui] open_apps: a tab or a window); Enter comes through the page's
+        # keys (action_press); a right click offers both.
         self.table.clicked.connect(lambda _index: self.action_open_chosen())
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._app_menu)
 
         self.quick_frame = Frame(_("Quick log · today")
                                  + (" · " + _("demo") if self.config.connection == "sim" else ""))
@@ -192,10 +188,14 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
         for frame, stretch in ((self.rig_frame, 0), (self.scope_frame, 1),
                                (self.controls_frame, 0), (self.station_frame, 0)):
             side_box.addWidget(frame, stretch)
-        top = QSplitter(Qt.Orientation.Horizontal)
-        top.addWidget(left)
-        top.addWidget(side)
-        top.setSizes([600, 600])
+        # The left column as wide as the applications (it never changes); the right one
+        # takes whatever width the window has besides.
+        top = QWidget()
+        top_box = QHBoxLayout(top)
+        top_box.setContentsMargins(0, 0, 0, 0)
+        top_box.addWidget(left)
+        top_box.addWidget(side, 1)
+        left.setFixedWidth(self.apps_frame.sizeHint().width())
         middle = QSplitter(Qt.Orientation.Vertical)
         middle.addWidget(top)
         middle.addWidget(self.log_frame)
@@ -411,7 +411,21 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
         if 0 <= row < len(self.apps):
             self.action_open(self.apps[row]["id"])
 
-    def action_open(self, app_id: str) -> None:
+    def _app_menu(self, point) -> None:
+        """A right click on an application: open it in a tab or in a window of its own."""
+        item = self.table.itemAt(point)
+        if item is None:
+            return
+        app_id = self.apps[self.table.row(item)]["id"]
+        self.table.setCurrentItem(item)
+        menu = QMenu(self)
+        menu.addAction(_("Open in a tab"), lambda: self.action_open(app_id, "tab"))
+        menu.addAction(_("Open in a new window"), lambda: self.action_open(app_id, "window"))
+        menu.popup(self.table.viewport().mapToGlobal(point))
+
+    def action_open(self, app_id: str, mode: str | None = None) -> None:
+        """Open an application: in a tab or a window of its own (`mode`, else as [ui]
+        open_apps says)."""
         app = next((a for a in self.apps if a["id"] == app_id), None)
         if app is None:
             return
@@ -425,7 +439,10 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
             self._message("error", _(NOT_YET).format(name=name, app=app_id))
             return
         self.chosen = app_id
-        self.exit(app_id)
+        if mode is None:
+            self.exit(app_id)
+        else:
+            self.window_.open_app(app_id, mode)
 
     # ---- the settings (front panel keys) --------------------------------------------------------
 
@@ -503,7 +520,7 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
         self.run_worker(self._leave())
 
     async def _leave(self) -> None:
-        if isinstance(self.link, LocalLink) and self.link.connected \
+        if isinstance(getattr(self.link, "target", None), LocalLink) and self.link.connected \
                 and not await self.offer_save_channels():
             return
         self.exit("quit")

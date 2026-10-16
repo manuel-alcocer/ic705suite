@@ -17,7 +17,13 @@ from collections.abc import Callable
 from pathlib import Path
 
 from ic705suite import i18n
-from ic705suite.config import DEFAULT_PATH, TEMPLATE, Config, load_config, set_values
+from ic705suite.config import (
+    DEFAULT_PATH,
+    TEMPLATE,
+    Config,
+    load_config,
+    set_values,
+)
 from ic705suite.i18n import _
 
 CONNECTIONS = ("lan", "sim", "none", "server")
@@ -53,7 +59,9 @@ def summary(config: Config) -> list[tuple[str, str]]:
     rows.append((_("Remote control from the phone"),
                  _("with a password") if config.swr_remote_password else
                  _("only from the antenna application")))
-    rows.append((_("Graphical client"), config.theme))
+    rows.append((_("Graphical client"), f"{config.theme} · " + (
+        _("applications in tabs") if config.open_apps == "tab" else
+        _("applications in their own windows"))))
     mycall = (config.packet_mycall or config.callsign or "-") if config.packet_client \
         else _("no terminal")
     if config.packet_tnc == "ic705":
@@ -307,6 +315,7 @@ def configure(path: Path | None = None, questions: Questions | None = None,
         ("station", "locator"): config.locator,
         ("rig", "connection"): config.connection,
         ("ui", "theme"): config.theme,
+        ("ui", "open_apps"): config.open_apps,
         ("swr", "remote_password"): config.swr_remote_password,
         ("packet", "host"): config.packet_host,
         ("packet", "tnc"): config.packet_tnc,

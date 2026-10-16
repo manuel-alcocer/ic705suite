@@ -1,5 +1,7 @@
-"""The graphical client (ic705suite --gui): one window that shows the dashboard and, in turn,
-each application it opens, as the terminal suite does.
+"""The graphical client (ic705suite --gui): the main window, with the dashboard in its first
+tab and each application opened in a tab after it (in the order they were opened) or in a
+window of its own, as [ui] open_apps says (a right click on an application's icon offers
+both). Each application is open once: opening it again shows it.
 
 Qt runs on the same asyncio loop as the core (qasync), so the core, the link and the
 terminal's own key handling run unchanged. Priority keys are caught before any widget, as in
@@ -14,9 +16,16 @@ import logging
 import sys
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
-from PySide6.QtGui import QIcon, QKeyEvent
-from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QStackedWidget
+from PySide6.QtGui import QIcon, QKeyEvent, QResizeEvent
+from PySide6.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QMessageBox,
+    QStackedWidget,
+    QTabBar,
+)
 
+from ic705suite.apps import BY_ID
 from ic705suite.config import Config
 from ic705suite.gui import theme
 from ic705suite.gui.page import Page
@@ -49,6 +58,59 @@ THEME_ICONS = {"light": "\u2600", "dark": "\u263e", "auto": "\u25d0"}   # sun, m
 THEME_NAMES = {"light": N_("Light"), "dark": N_("Dark"), "auto": N_("As the system")}
 
 
+class PageHost(QStackedWidget):
+    """Where one page is shown, with the screens it puts over it (its overlays): a tab of
+    the main window or a window of its own. The page reaches the window through it."""
+
+    def __init__(self, window: MainWindow, app_id: str) -> None:
+        super().__init__()
+        self.window = window
+        self.app_id = app_id
+        self.page: Page | None = None
+
+    @property
+    def stack(self) -> QStackedWidget:
+        return self
+
+    def page_done(self, page: Page, result: object) -> None:
+        self.window.page_done(page, result)
+
+    def open_app(self, app_id: str, mode: str | None = None) -> None:
+        self.window.open_app(app_id, mode)
+
+
+class AppWindow(QMainWindow):
+    """An application in a window of its own, beside the main one: its close button leaves
+    the application, as Esc does."""
+
+    def __init__(self, main: MainWindow, host: PageHost, title: str) -> None:
+        super().__init__()
+        self.main = main
+        self.host = host
+        self.closing = False
+        self.setWindowTitle(f"ic705suite · {title}")
+        self.setCentralWidget(host)
+        self.resize(main.size())
+
+    def closeEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        if self.closing:
+            event.accept()
+            return
+        event.ignore()
+        if self.host.page is not None:
+            leave(self.host.page)
+
+
+def leave(page: Page) -> None:
+    """Leave a page as its own key does (Esc: it may ask first, it stops what it started)."""
+    for name in ("action_leave", "action_quit"):
+        action = getattr(page, name, None)
+        if action is not None:
+            action()
+            return
+    page.exit()
+
+
 class MainWindow(QMainWindow):
     def __init__(self, link: Link | None, config: Config, problem: str = "",
                  start_app: str | None = None, scp: set[str] | None = None) -> None:
@@ -60,19 +122,65 @@ class MainWindow(QMainWindow):
         self.scp = scp or set()
         self.start_app = start_app
         self.finished = asyncio.get_event_loop().create_future()
+        self._quitting = False
         self.setWindowTitle("ic705suite")
         self.resize(1360, 860)
-        self.stack = QStackedWidget()
-        self.setCentralWidget(self.stack)
-        self.dashboard = DashboardPage(self, link, config, problem)
-        self.stack.addWidget(self.dashboard)
-        self.page: Page | None = None
+        # The tabs, at the top (in the menu bar's row), over the pages they show.
+        self.pages = QStackedWidget()
+        self.setCentralWidget(self.pages)
+        self.tab_bar = QTabBar()
+        self.tab_bar.setObjectName("apptabs")
+        self.tab_bar.setTabsClosable(True)
+        self.tab_bar.setMovable(False)            # the dashboard first, then in order
+        self.tab_bar.setDrawBase(False)
+        self.tab_bar.setUsesScrollButtons(False)  # every tab in full, no arrows
+        self.tab_bar.setExpanding(False)
+        self.tab_bar.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.tab_bar.currentChanged.connect(self._tab_changed)
+        self.tab_bar.tabCloseRequested.connect(lambda index: leave(self.tabs[index].page))
+        self.tabs: list[PageHost] = []            # in the tab bar's order
+        self.windows: dict[str, AppWindow] = {}   # the applications in windows of their own
+        self.dashboard_host = PageHost(self, "dashboard")
+        self.dashboard = DashboardPage(self.dashboard_host, link, config, problem)
+        self._add_tab(self.dashboard_host, self.dashboard, _("Dashboard"))
+        self.tab_bar.setTabButton(0, QTabBar.ButtonPosition.RightSide, None)   # always there
+        self.tab_bar.setTabButton(0, QTabBar.ButtonPosition.LeftSide, None)
         self._corner_buttons()
         QApplication.instance().installEventFilter(self)
         if start_app is None:
-            self.show_page(self.dashboard)
+            self.dashboard.start()
+            self.dashboard.restore_focus()
         else:
+            self.tab_bar.hide()                   # the application alone, as in the terminal
             self.open_app(start_app, standalone=True)
+
+    def _fit_tabs(self) -> None:
+        """The menu bar gives its corner the room the tabs take now (it sizes it once)."""
+        self.tab_bar.setFixedSize(self.tab_bar.sizeHint())
+        bar = self.menuBar()
+        bar.setCornerWidget(self.tab_bar, Qt.Corner.TopLeftCorner)
+        bar.adjustSize()
+        bar.updateGeometry()
+        bar.resizeEvent(QResizeEvent(bar.size(), bar.size()))
+
+    @property
+    def page(self) -> Page | None:
+        """The page of the tab shown."""
+        index = self.tab_bar.currentIndex()
+        return self.tabs[index].page if 0 <= index < len(self.tabs) else None
+
+    @property
+    def stack(self) -> QStackedWidget:
+        """The tab shown: its page and the screens over it."""
+        return self.pages.currentWidget()
+
+    def _add_tab(self, host: PageHost, page: Page, title: str) -> None:
+        host.page = page
+        host.addWidget(page)
+        self.pages.addWidget(host)
+        self.tabs.append(host)
+        self.tab_bar.addTab(title)
+        self._fit_tabs()
 
     # ---- the corner of the menu bar: the theme and the help ------------------------------
 
@@ -83,6 +191,7 @@ class MainWindow(QMainWindow):
 
         bar = self.menuBar()
         bar.setNativeMenuBar(False)     # macOS: the corner stays in the window
+        bar.setCornerWidget(self.tab_bar, Qt.Corner.TopLeftCorner)
         corner = QWidget(bar)            # owned by the bar (PySide would delete it)
         corner.setObjectName("menucorner")
         row = QHBoxLayout(corner)
@@ -126,10 +235,11 @@ class MainWindow(QMainWindow):
         self.config.theme = name
         theme.switch(name)
         self._show_theme()
-        for index in range(self.stack.count()):
-            page = self.stack.widget(index)
-            if hasattr(page, "retheme"):
-                page.retheme()
+        for host in self._hosts():
+            for index in range(host.count()):
+                page = host.widget(index)
+                if hasattr(page, "retheme"):
+                    page.retheme()
         if save:
             save_theme(self.config)
 
@@ -164,97 +274,162 @@ class MainWindow(QMainWindow):
 
     # ---- pages --------------------------------------------------------------------------
 
-    def show_page(self, page: Page) -> None:
-        if self.page is not None and self.page is not page:
-            self.page.stop()
-        self.page = page
-        self.stack.setCurrentWidget(page)
-        page.start()
+    def _hosts(self) -> list[PageHost]:
+        return self.tabs + [w.host for w in self.windows.values()]
 
-    def open_app(self, app_id: str, standalone: bool = False) -> None:
+    def _tab_changed(self, index: int) -> None:
+        if not 0 <= index < len(self.tabs):
+            return
+        host = self.tabs[index]
+        self.pages.setCurrentWidget(host)
+        title = self.tab_bar.tabText(index)
+        self.setWindowTitle("ic705suite" if index == 0 else f"ic705suite · {title}")
+        if host.page is not None and host.page.overlay is None:
+            host.page.restore_focus()
+
+    def open_app(self, app_id: str, mode: str | None = None, standalone: bool = False) -> None:
+        """The application in a tab or a window of its own (`mode`, else [ui] open_apps);
+        already open: shown where it is."""
+        for index, host in enumerate(self.tabs):
+            if host.app_id == app_id:
+                self.tab_bar.setCurrentIndex(index)
+                return
+        if app_id in self.windows:
+            shown = self.windows[app_id]
+            shown.showNormal()
+            shown.raise_()
+            shown.activateWindow()
+            return
+        mode = "tab" if standalone else (mode or self.config.open_apps)
+        host = PageHost(self, app_id)
+        page = self._make_page(app_id, host, standalone)
+        title = page.windowTitle() or _(BY_ID[app_id].name).format(
+            model=(self.link.welcome or {}).get("rig", {}).get("name", "IC-705")
+            if self.link is not None else "IC-705")
+        if mode == "window":
+            host.page = page
+            host.addWidget(page)
+            window = AppWindow(self, host, title)
+            self.windows[app_id] = window
+            window.show()
+            window.activateWindow()
+            page.start()
+            page.restore_focus()
+            return
+        self._add_tab(host, page, title)
+        page.start()
+        self.tab_bar.setCurrentIndex(len(self.tabs) - 1)
+
+    def _make_page(self, app_id: str, host: PageHost, standalone: bool) -> Page:
         if app_id == "view":
             from ic705suite.gui.view import ViewPage
 
-            page = ViewPage(self, self.link, self.config, owns_link=standalone)
-        elif app_id == "packet":
+            return ViewPage(host, self.link, self.config, owns_link=standalone)
+        if app_id == "packet":
             from ic705suite.gui.packet import PacketPage
             from ic705suite.launcher import packet_link
 
             remote = packet_link(self.config)      # packet on another machine's core
-            page = PacketPage(self, remote or self.link, self.config,
+            return PacketPage(host, remote or self.link, self.config,
                               owns_link=standalone or remote is not None)
-        elif app_id == "ft8":
+        if app_id == "ft8":
             from ic705suite.gui.ft8 import Ft8Page
 
-            page = Ft8Page(self, self.link, self.config, owns_link=standalone)
-        elif app_id == "log":
+            return Ft8Page(host, self.link, self.config, owns_link=standalone)
+        if app_id == "log":
             from ic705suite.gui.log import LogPage
 
             # hamrlog keeps its own database and settings, and needs no radio.
-            page = LogPage(self, None, self.config, demo=self.config.connection == "sim")
-        elif app_id == "swr":
+            return LogPage(host, None, self.config, demo=self.config.connection == "sim")
+        if app_id == "swr":
             from ic705suite.gui.swr import SwrPage
 
-            page = SwrPage(self, self.link, self.config, owns_link=standalone)
-        elif app_id == "cw":
+            return SwrPage(host, self.link, self.config, owns_link=standalone)
+        if app_id == "cw":
             from ic705suite.gui.cw import CwPage
 
-            page = CwPage(self, self.link, self.config, scp=self.scp, owns_link=standalone)
-        else:
-            raise ValueError(f"no graphical page for {app_id}")
-        self.stack.addWidget(page)
-        self.show_page(page)
-        self.setWindowTitle(f"ic705suite · {page.windowTitle() or app_id}")
+            return CwPage(host, self.link, self.config, scp=self.scp, owns_link=standalone)
+        raise ValueError(f"no graphical page for {app_id}")
 
     def page_done(self, page: Page, result: object) -> None:
-        """A page ends: the dashboard opens an application or quits; an application goes
-        back to the dashboard (or quits, when it was opened on its own)."""
+        """A page ends: the dashboard opens an application or quits (the applications open
+        leave first); an application closes its tab, back on the dashboard, or its window
+        (quits, when it was opened on its own)."""
         if page is self.dashboard:
             if result == "quit":
-                self._finish()
+                self._quit()
             elif isinstance(result, str):
                 self.open_app(result)
             return
         page.stop()
-        self.stack.removeWidget(page)
-        page.deleteLater()
-        self.page = None
-        self.setWindowTitle("ic705suite")
-        if self.start_app is not None:
-            self._finish()
+        host = page.window_
+        if host in self.tabs:
+            index = self.tabs.index(host)
+            self.tabs.pop(index)
+            self.tab_bar.removeTab(index)
+            self._fit_tabs()
+            self.pages.removeWidget(host)
+            self.tab_bar.setCurrentIndex(0)
+            self._tab_changed(0)
         else:
-            self.show_page(self.dashboard)
+            window = self.windows.pop(host.app_id, None)
+            if window is not None:
+                window.closing = True
+                window.close()
+                window.deleteLater()
+        host.deleteLater()
+        if self.start_app is not None or (self._quitting and not self._apps_open()):
+            self._finish()
+
+    def _apps_open(self) -> bool:
+        return len(self.tabs) > 1 or bool(self.windows)
+
+    def _quit(self) -> None:
+        """Every application open leaves as its Esc does (FT8 stops decoding...), then the
+        client ends."""
+        self._quitting = True
+        if not self._apps_open():
+            self._finish()
+            return
+        for host in self._hosts():
+            if host.page is not None and host.page is not self.dashboard:
+                leave(host.page)
 
     def _finish(self) -> None:
         QApplication.instance().removeEventFilter(self)
-        if self.page is not None:
-            self.page.stop()
-            self.page = None
+        for host in self._hosts():
+            if host.page is not None:
+                host.page.stop()
+        for window in list(self.windows.values()):
+            window.closing = True
+            window.close()
         if not self.finished.done():
             self.finished.set_result(None)
         self.hide()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt's name
         """The window's close button: as Ctrl+Q on the dashboard (asks about unsaved
-        channels), or leaving the application opened on its own."""
+        channels; the applications open leave too), or leaving the application opened on
+        its own."""
         if self.finished.done():
             event.accept()
             return
         event.ignore()
-        if self.page is self.dashboard:
+        if self.start_app is None:
             self.dashboard.action_leave()
         elif self.page is not None:
-            self.page.action_leave()
+            leave(self.page)
 
     # ---- priority keys --------------------------------------------------------------------
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
-        if event.type() == QEvent.Type.KeyPress and self.page is not None \
-                and self.isActiveWindow() and QApplication.activeModalWidget() is None:
-            key_event = QKeyEvent(event)
-            if self.page.handle_key(key_event, priority=True):
-                return True
-        return False
+        if event.type() != QEvent.Type.KeyPress or QApplication.activeModalWidget() is not None:
+            return False
+        # The page of the window the keys go to: the tab shown here, or an application's
+        # own window.
+        page = self.page if self.isActiveWindow() else next(
+            (w.host.page for w in self.windows.values() if w.isActiveWindow()), None)
+        return page is not None and page.handle_key(QKeyEvent(event), priority=True)
 
 
 async def _run(window: MainWindow, link: Link | None, owns_link: bool) -> int:

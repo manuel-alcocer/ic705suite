@@ -1,8 +1,10 @@
 """Client side of the core: the same interface whether the core runs here or on a server.
 
 One link serves the whole client session: the dashboard and every application opened from
-it attach to it in turn. A link remembers the welcome, the latest state events and the
-text backlog, so an application opened later starts with the full picture.
+it attach to it, in turn in the terminal (one slot), side by side in the graphical client
+(a slot each: its tabs and windows are all open at once). A link remembers the welcome,
+the latest state events and the text backlog, so an application opened later starts with
+the full picture.
 """
 
 from __future__ import annotations
@@ -33,6 +35,7 @@ EventCallback = Callable[[dict], None]
 LATEST = ("rig", "state", "skim", "channels", "swr", "scope", "pkt", "ft8")
 # Events kept in the backlog (text for the operator).
 TEXT = ("rx", "tx", "info", "error", "history")
+MAIN = "main"              # the receivers' slot, taken in turn (the terminal's screens)
 
 
 class LinkError(Exception):
@@ -48,7 +51,7 @@ class Link(abc.ABC):
     """What a user interface talks to. Events arrive through the attached callback."""
 
     def __init__(self) -> None:
-        self._listener: EventCallback = lambda event: None
+        self._listeners: dict[object, EventCallback] = {}   # slot -> receiver
         self.closed = asyncio.Event()  # set when the link ends (server gone, core stopped)
         self.connected = False
         self.description = ""
@@ -64,11 +67,13 @@ class Link(abc.ABC):
 
     @on_event.setter
     def on_event(self, callback: EventCallback) -> None:
-        self._listener = callback
+        self._listeners[MAIN] = callback
 
-    def attach(self, callback: EventCallback, replay: bool = True) -> None:
-        """Make `callback` the receiver of events, replaying what is known so far."""
-        self._listener = callback
+    def attach(self, callback: EventCallback, replay: bool = True,
+               slot: object = None) -> None:
+        """Make `callback` the receiver of events in `slot` (the one other receivers take
+        in turn, by default), replaying what is known so far."""
+        self._listeners[MAIN if slot is None else slot] = callback
         if not replay:
             return
         if self.welcome is not None:
@@ -79,8 +84,8 @@ class Link(abc.ABC):
             if kind in self.latest:
                 callback(self.latest[kind])
 
-    def detach(self) -> None:
-        self._listener = lambda event: None
+    def detach(self, slot: object = None) -> None:
+        self._listeners.pop(MAIN if slot is None else slot, None)
 
     def _dispatch(self, event: dict) -> None:
         kind = event.get("type")
@@ -93,7 +98,8 @@ class Link(abc.ABC):
                 self.backlog[-1] = {"type": "rx", "text": self.backlog[-1]["text"] + event["text"]}
             else:
                 self.backlog.append(event)
-        self._listener(event)
+        for listener in list(self._listeners.values()):
+            listener(event)
 
     async def connect(self) -> None:
         """Connect once; later calls (another application opening) wait for the same

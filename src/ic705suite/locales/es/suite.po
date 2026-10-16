@@ -1518,3 +1518,12 @@ msgstr "Duplicados"
 
 msgid "Allow a second QSO with a station on a band it was worked on (D)"
 msgstr "Permitir un segundo QSO con una estación en una banda en la que ya se trabajó (D)"
+
+msgid "Dashboard"
+msgstr "Panel"
+
+msgid "Open in a tab"
+msgstr "Abrir en una pestaña"
+
+msgid "Open in a new window"
+msgstr "Abrir en una ventana nueva"
