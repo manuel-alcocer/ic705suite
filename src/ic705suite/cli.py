@@ -290,7 +290,8 @@ def qrz_upload(config) -> int:
         return 1
     open_logbook(config)
     try:
-        uploaded, duplicates = qrz.upload_pending(config.qrz_api_key, config.callsign)
+        uploaded, duplicates = qrz.upload_pending(config.qrz_api_key, config.callsign,
+                                                  config.qrz_bands)
     except qrz.QrzError as exc:
         print(f"QRZ.com: {exc}", file=sys.stderr)
         return 1

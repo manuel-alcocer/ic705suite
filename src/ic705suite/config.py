@@ -151,8 +151,11 @@ max_power = 30
 
 [qrz]
 # QRZ.com's logbook access key (on QRZ.com: your logbook > Settings > API Access Key);
-# ic705suite --qrz-status checks it. Keep this file to yourself.
+# ic705suite --qrz-status checks it, --qrz-upload sends the QSOs not sent yet. Keep this
+# file to yourself.
 # api_key = ""
+# The bands uploaded: HF unless told otherwise
+# bands = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"]
 
 [logbook]
 # On the machine of the core (ic705suite --serve): the logbook (hamrlog's database) every
@@ -180,13 +183,13 @@ max_power = 30
 # glyphs = "auto"
 # The graphical client's look (ic705suite --gui): "dark", "light" or "auto" (as the system)
 # theme = "auto"
-
-[server]
-# ic705suite --serve: address to listen on and the token clients must present
 # How the graphical client opens an application by default (a click on its icon, its
 # key): "tab" (a tab in the main window, after the dashboard's) or "window" (a window of
 # its own); a right click on the icon offers both
 # open_apps = "tab"
+
+[server]
+# ic705suite --serve: address to listen on and the token clients must present
 listen = "0.0.0.0:7373"
 token = "{token}"
 
@@ -258,6 +261,8 @@ class Config:
     ft8_setup: str = ""              # the logbook's setup FT8 QSOs go with ("": by radio)
     # [qrz]
     qrz_api_key: str = ""            # QRZ.com's logbook access key (never shown)
+    qrz_bands: tuple = ("160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m",
+                        "10m")       # the bands uploaded (HF)
     # [logbook] (on the core: the logbook every client shares; see shared_logbook)
     logbook_database: str = ""
     logbook_password_file: str = ""
@@ -277,12 +282,12 @@ class Config:
     language: str = ""
     glyphs: str = "auto"
     theme: str = "auto"              # the graphical client: dark, light or auto
+    open_apps: str = "tab"           # the graphical client opens applications: tab, window
     listen: str = "127.0.0.1:7373"
     server_token: str = ""
     connect: str = ""
     client_token: str = ""
     # Where it was read from (the graphical client saves the theme chosen in its menu there).
-    open_apps: str = "tab"           # the graphical client opens applications: tab, window
     source: Path | None = None
 
     @property
@@ -320,14 +325,14 @@ def load_config(path: Path | None = None) -> Config:
         cfg.language = str(data.get("ui", {}).get("language", cfg.language))
         cfg.glyphs = str(data.get("ui", {}).get("glyphs", cfg.glyphs))
         cfg.theme = str(data.get("ui", {}).get("theme", cfg.theme)).lower()
+        cfg.open_apps = str(data.get("ui", {}).get("open_apps", cfg.open_apps)).lower()
+        if cfg.open_apps not in OPEN_APPS:
+            cfg.open_apps = "tab"
         chans = data.get("channels", {})
         cfg.channels_db = str(chans.get("database", cfg.channels_db))
         cfg.channel_audio = bool(chans.get("audio", cfg.channel_audio))
         cfg.autosave_on_exit = bool(chans.get("autosave_on_server_exit", cfg.autosave_on_exit))
         swr = data.get("swr", {})
-        cfg.open_apps = str(data.get("ui", {}).get("open_apps", cfg.open_apps)).lower()
-        if cfg.open_apps not in OPEN_APPS:
-            cfg.open_apps = "tab"
         cfg.swr_web = bool(swr.get("web", cfg.swr_web))
         cfg.swr_host = str(swr.get("host", cfg.swr_host))
         cfg.swr_port = int(swr.get("port", cfg.swr_port))
@@ -356,7 +361,10 @@ def load_config(path: Path | None = None) -> Config:
         cfg.ft8_tx_freq = int(ft8.get("tx_freq", cfg.ft8_tx_freq))
         cfg.ft8_level = float(ft8.get("level", cfg.ft8_level))
         cfg.ft8_setup = str(ft8.get("setup", cfg.ft8_setup))
-        cfg.qrz_api_key = str(data.get("qrz", {}).get("api_key", cfg.qrz_api_key)).strip()
+        qrz = data.get("qrz", {})
+        cfg.qrz_api_key = str(qrz.get("api_key", cfg.qrz_api_key)).strip()
+        if "bands" in qrz:
+            cfg.qrz_bands = tuple(str(b).strip().lower() for b in qrz["bands"])
         logbook = data.get("logbook", {})
         cfg.logbook_database = str(logbook.get("database", cfg.logbook_database)).strip()
         cfg.logbook_password_file = str(logbook.get("password_file",
