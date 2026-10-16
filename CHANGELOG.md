@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v0.22.0 (2026-10-16)
+
+### Features
+
+- **ft8**: A station worked on a band is not worked there again, unless dupes are allowed
+  ([`53b1575`](https://github.com/manuel-alcocer/ic705suite/commit/53b15758ffa52eef8d430de4c494226721365b8c))
+
+- **gui**: The CPU, RAM and temperature on a line of their own, over the footer
+  ([`40973a1`](https://github.com/manuel-alcocer/ic705suite/commit/40973a10335d622cfe35dec7f739f1397e4cb53f))
+
+- **gui**: The dashboard's applications as big icons, all of them in view
+  ([`e6098bb`](https://github.com/manuel-alcocer/ic705suite/commit/e6098bbe41244f6e621407b9ddcda05121ad9907))
+
+
 ## v0.21.1 (2026-10-15)
 
 ### Bug Fixes

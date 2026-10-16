@@ -1,3 +1,3 @@
 """ic705suite - station suite for the Icom IC-705 and other rigs: dashboard, rig control, CW, D-STAR, log, packet."""
 
-__version__ = "0.21.1"
+__version__ = "0.22.0"
