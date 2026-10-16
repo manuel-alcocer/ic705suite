@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 
 DEFAULT_PATH = paths.config_dir() / "config.toml"
 DEFAULT_SCP_PATH = DEFAULT_PATH.parent / "MASTER.SCP"
+OPEN_APPS = ("tab", "window")   # [ui] open_apps: how the graphical client opens one
 SCP_URL = "https://www.supercheckpartial.com/MASTER.SCP"
 # The CW program this suite grew from; its settings are imported on the first run.
 LEGACY_DIR = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "cwic705"
@@ -182,6 +183,10 @@ max_power = 30
 
 [server]
 # ic705suite --serve: address to listen on and the token clients must present
+# How the graphical client opens an application by default (a click on its icon, its
+# key): "tab" (a tab in the main window, after the dashboard's) or "window" (a window of
+# its own); a right click on the icon offers both
+# open_apps = "tab"
 listen = "0.0.0.0:7373"
 token = "{token}"
 
@@ -277,6 +282,7 @@ class Config:
     connect: str = ""
     client_token: str = ""
     # Where it was read from (the graphical client saves the theme chosen in its menu there).
+    open_apps: str = "tab"           # the graphical client opens applications: tab, window
     source: Path | None = None
 
     @property
@@ -319,6 +325,9 @@ def load_config(path: Path | None = None) -> Config:
         cfg.channel_audio = bool(chans.get("audio", cfg.channel_audio))
         cfg.autosave_on_exit = bool(chans.get("autosave_on_server_exit", cfg.autosave_on_exit))
         swr = data.get("swr", {})
+        cfg.open_apps = str(data.get("ui", {}).get("open_apps", cfg.open_apps)).lower()
+        if cfg.open_apps not in OPEN_APPS:
+            cfg.open_apps = "tab"
         cfg.swr_web = bool(swr.get("web", cfg.swr_web))
         cfg.swr_host = str(swr.get("host", cfg.swr_host))
         cfg.swr_port = int(swr.get("port", cfg.swr_port))

@@ -68,6 +68,8 @@ from ic705suite.i18n import _, render
 from ic705suite.rig import bands
 from ic705suite.station.links import Link
 
+MESSAGE_CHARS = 22             # the longest FT8 message (<PJ4/K1ABC> W9XYZ RR73)
+
 
 class Ft8Page(Page):
     TUI = Ft8App
@@ -112,6 +114,10 @@ class Ft8Page(Page):
             lambda on: on != bool(self.state.get("dupes")) and self.action_dupes())
         controls.addWidget(self.dupes_box)
         controls.addStretch(1)
+        self.frame.body.addLayout(controls)
+        # The buttons on a row of their own: one row of everything made the band activity
+        # so wide that the QSO beside it was squeezed.
+        buttons = QHBoxLayout()
         for key, label, action in (("Enter", _("Answer"), self.action_reply),
                                    ("Q", "CQ", self.action_cq),
                                    ("A", _("Auto"), self.action_auto),
@@ -121,7 +127,7 @@ class Ft8Page(Page):
             button = QPushButton(f"{key}  {label}")
             button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             button.clicked.connect(lambda _c=False, a=action: a())
-            controls.addWidget(button)
+            buttons.addWidget(button)
             if key == "T":
                 self.tone_button = button
             if key == "A":
@@ -129,7 +135,8 @@ class Ft8Page(Page):
                 button.setToolTip(_("Super-automatic: answers new countries first, then "
                                     "the least worked, then ours; three calls each; after "
                                     "six stations without a QSO, six CQs"))
-        self.frame.body.addLayout(controls)
+        buttons.addStretch(1)
+        self.frame.body.addLayout(buttons)
         self.table = self.frame.add(self._log_table(placed=True), 1)
         self.table.pass_letters = True                       # C, S are the page's
         self.table.cellDoubleClicked.connect(self._double_click)
@@ -217,7 +224,15 @@ class Ft8Page(Page):
         header = table.horizontalHeader()
         for column in range(len(labels)):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        if placed:
+            # The message as wide as the longest FT8 one (not the room left over): the
+            # columns after it close by, the rest of the width at the end.
+            header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+            header.resizeSection(4, table.fontMetrics().horizontalAdvance("X" * MESSAGE_CHARS)
+                                 + 16)
+            header.setStretchLastSection(True)
+        else:
+            header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         return table
 
     def _tx_controls(self) -> QHBoxLayout:
