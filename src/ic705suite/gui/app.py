@@ -122,7 +122,8 @@ class MainWindow(QMainWindow):
         self.scp = scp or set()
         self.start_app = start_app
         self.finished = asyncio.get_event_loop().create_future()
-        self._quitting = False
+        self._quitting = False                    # the main window is closing
+        self._main_gone = False                   # it closed, windows of their own open
         self.setWindowTitle("ic705suite")
         self.resize(1360, 860)
         # The tabs, at the top (in the menu bar's row), over the pages they show.
@@ -146,6 +147,9 @@ class MainWindow(QMainWindow):
         self.tab_bar.setTabButton(0, QTabBar.ButtonPosition.RightSide, None)   # always there
         self.tab_bar.setTabButton(0, QTabBar.ButtonPosition.LeftSide, None)
         self._corner_buttons()
+        # The client ends when it decides (finished), not when Qt sees no window: the main
+        # one hidden, the last window of its own closing must not stop the loop first.
+        QApplication.instance().setQuitOnLastWindowClosed(False)
         QApplication.instance().installEventFilter(self)
         if start_app is None:
             self.dashboard.start()
@@ -352,12 +356,13 @@ class MainWindow(QMainWindow):
         raise ValueError(f"no graphical page for {app_id}")
 
     def page_done(self, page: Page, result: object) -> None:
-        """A page ends: the dashboard opens an application or quits (the applications open
-        leave first); an application closes its tab, back on the dashboard, or its window
-        (quits, when it was opened on its own)."""
+        """A page ends: the dashboard opens an application or closes the main window (its
+        tabs leave first; the windows of their own stay); an application closes its tab,
+        back on the dashboard, or its window (quits, when it was opened on its own, or when
+        it was the last window)."""
         if page is self.dashboard:
             if result == "quit":
-                self._quit()
+                self._close_main()
             elif isinstance(result, str):
                 self.open_app(result)
             return
@@ -378,22 +383,32 @@ class MainWindow(QMainWindow):
                 window.close()
                 window.deleteLater()
         host.deleteLater()
-        if self.start_app is not None or (self._quitting and not self._apps_open()):
+        if self.start_app is not None:
             self._finish()
+        elif self._quitting and len(self.tabs) == 1:
+            self._main_closed()
+        elif self._main_gone and not self.windows:
+            self._finish()                     # the last window of its own closed
 
-    def _apps_open(self) -> bool:
-        return len(self.tabs) > 1 or bool(self.windows)
-
-    def _quit(self) -> None:
-        """Every application open leaves as its Esc does (FT8 stops decoding...), then the
-        client ends."""
+    def _close_main(self) -> None:
+        """The main window closes: the applications in its tabs leave as their Esc does
+        (FT8 stops decoding...); those in windows of their own go on, and the client ends
+        with the last of them."""
         self._quitting = True
-        if not self._apps_open():
+        if len(self.tabs) == 1:
+            self._main_closed()
+            return
+        for host in self.tabs[1:]:
+            if host.page is not None:
+                leave(host.page)
+
+    def _main_closed(self) -> None:
+        if not self.windows:
             self._finish()
             return
-        for host in self._hosts():
-            if host.page is not None and host.page is not self.dashboard:
-                leave(host.page)
+        self._main_gone = True
+        self.dashboard.stop()
+        self.hide()
 
     def _finish(self) -> None:
         QApplication.instance().removeEventFilter(self)
@@ -409,8 +424,8 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt's name
         """The window's close button: as Ctrl+Q on the dashboard (asks about unsaved
-        channels; the applications open leave too), or leaving the application opened on
-        its own."""
+        channels; the applications in its tabs leave too, those in windows of their own
+        stay open), or leaving the application opened on its own."""
         if self.finished.done():
             event.accept()
             return
@@ -478,6 +493,9 @@ def _signals(window: MainWindow) -> None:
     def close(signum, frame) -> None:
         if window.isVisible():
             window.close()
+        else:                                       # the main one closed: its windows left
+            for own in list(window.windows.values()):
+                own.close()
 
     for sig in (signal.SIGINT, signal.SIGTERM, getattr(signal, "SIGBREAK", None)):
         if sig is not None:                         # SIGBREAK: Ctrl+Break, on Windows

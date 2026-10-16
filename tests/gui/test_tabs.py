@@ -89,8 +89,17 @@ def test_the_default_is_the_configuration(tmp_path, run, monkeypatch):
             win.dashboard.action_open("ft8")
             await until(lambda: "ft8" in win.windows)
             assert len(win.tabs) == 1
-            # Quitting: the applications open leave first, their windows close.
+            await until(lambda: link.core.ft8.on)
+            win.dashboard.action_open("view", "tab")
+            await until(lambda: len(win.tabs) == 2)
+            # Closing the dashboard: its tabs leave, the windows of their own stay open
+            # (FT8 goes on decoding), and the client ends with the last of them.
             win.dashboard.action_leave()
+            await until(lambda: not win.isVisible())
+            assert len(win.tabs) == 1 and not win.finished.done()
+            own = win.windows["ft8"]
+            assert own.isVisible() and link.core.ft8.on
+            own.close()
             await until(lambda: win.finished.done())
             assert not win.windows and not link.core.ft8.on
         finally:
