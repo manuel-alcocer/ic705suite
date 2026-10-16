@@ -4,7 +4,8 @@ The core decodes (apps.ft8.service); this screen starts it when it opens, shows 
 cycle brings (a CQ in green, what is sent to us in red, what we send in yellow) and stops
 it when it closes. Under it, the QSO: what we send, what is sent to us and what the station
 we work says. Enter answers the chosen station, Q calls CQ, A turns the super-automatic
-mode on and off (the core answers and calls by itself: apps.ft8.auto), H halts, F puts our
+mode on and off (the core answers and calls by itself: apps.ft8.auto), D allows a second
+QSO with a station on the same band or not (not, by default), H halts, F puts our
 transmit
 frequency on the chosen line's ([ ] move it), - + the transmit audio (the ALC must stay
 at 0), , . the radio's power.
@@ -28,7 +29,7 @@ from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.widgets import clock_footer, css
 
 HINT = N_("Enter Answer · Q CQ · H Halt · T Tone · F [ ] TX freq · - + TX level · , . Power · "
-          "←→ Band · C CQ only · S Stop/Start · Esc Back")
+          "←→ Band · C CQ only · D Dupes · S Stop/Start · Esc Back")
 SHORT_HINT = N_("Enter Answer · Q CQ · H Halt · ←→ Band · Esc Back")
 FT8_BANDS = list(DIALS)
 FREQ_STEP = 25                 # Hz: [ ] move the transmit frequency
@@ -304,6 +305,7 @@ class Ft8App(App[int]):
         Binding("q", "cq", show=False),
         Binding("h", "halt", show=False),
         Binding("a", "auto", show=False),
+        Binding("d", "dupes", show=False),
         Binding("i", "ignore('call')", show=False),
         Binding("I", "ignore('country')", show=False),
         Binding("t", "tone", show=False),
@@ -574,6 +576,12 @@ class Ft8App(App[int]):
                                      "itself (A or H stops it)") if on else
                                    _("Super-automatic mode off"), "ft8.auto", on=on),
                         group="tx")
+
+    def action_dupes(self) -> None:
+        on = not self.state.get("dupes")
+        self.run_worker(self._call(_("Dupes allowed: a station is worked again on a band") if on
+                                   else _("No dupes: a station worked on a band is left alone "
+                                          "there"), "ft8.dupes", on=on), group="tx")
 
     def action_tx_freq(self) -> None:
         chosen = self._chosen()

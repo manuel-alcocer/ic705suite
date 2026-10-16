@@ -19,6 +19,8 @@ Events (server -> client):
   info       a QSO completed, given up, or a transmission refused (and why)
 Calls ("ft8.*"): state, start, stop, history {cycles}, band {band}, cq {freq}, reply
   {decode, start}, worked (the grids and entities worked and confirmed, and our place),
+  dupes {on} (allow a second QSO with a station on a band it was worked on: off, the
+  default, leaves it unanswered, by hand, in the auto mode and when it answers our CQ),
   halt, tone {on, seconds} (a steady tone on our frequency, for the ALC,
   at most TONE_LONGEST s; halt stops it too), txfreq {freq}, waterfall {seconds} (rows for
   that long: asked again to keep them), level {level} (the transmit audio, 0.05-1 of full
@@ -163,6 +165,7 @@ class Ft8Service:
         self.tx_level = clamp_level(config.ft8_level)
         self.ignore_calls: set[str] = set()      # never worked by the auto mode
         self.ignore_countries: set[str] = set()  # DXCC entities, as cty.dat names them
+        self.allow_dupes = False                  # a station worked on this band again
         self._load_settings()                     # as the operator left them last time
         self.last_sent: dict = {}                 # the last message's ALC and power peaks
         self.their_freq = 0                       # the other station's audio frequency
@@ -182,6 +185,7 @@ class Ft8Service:
         self._worked_task: asyncio.Task | None = None
         self._grids: dict[str, str] = {}         # call -> the grid it last sent
         self.logged: list[dict] = []
+        self._worked_now: set[tuple[str, str]] = set()   # (call, band) logged since it started
         self.auto = Auto()                       # the super-automatic mode (auto.py)
         self._drop_them = False                  # the station called works another: next
 
@@ -513,8 +517,9 @@ class Ft8Service:
                                   call=self.qso.them, other=entry.get("to") or "?")
                     self.auto.missed_one(self.qso.them, time.time())
                     break
-            if self.auto.on and self.qso.step == "cq" and self.ignored(entry):
-                continue                          # not answered: a call or country ignored
+            if self.qso.step == "cq" and (self.auto.on and self.ignored(entry)
+                                          or self.dupe(entry)):
+                continue                          # not answered: ignored, or worked before
             if self.qso.heard(entry):
                 self.cq_turns = 0
                 self._touch()
@@ -533,6 +538,25 @@ class Ft8Service:
         sender = base(entry.get("sender") or "")
         return bool(sender) and (sender in self.ignore_calls
                                  or (entry.get("country") or "") in self.ignore_countries)
+
+    def dupe(self, entry: dict) -> bool:
+        """A station worked on this band before, with dupes not allowed: the logbook's mark,
+        or a QSO logged here that the worked index has not read yet (or with no logbook)."""
+        if self.allow_dupes:
+            return False
+        sender = base(entry.get("sender") or "")
+        if not sender or sender.startswith("<"):
+            return False
+        dial = self.station.rig.state.frequency
+        band = bands.band_for(dial) if dial else None
+        return bool(entry.get("b4")) or \
+            (sender, (band.name if band else "").lower()) in self._worked_now
+
+    def set_dupes(self, on: bool) -> dict:
+        self.allow_dupes = bool(on)
+        self._save_settings()
+        self._touch()
+        return {"allow": self.allow_dupes}
 
     def set_ignore(self, call: str = "", country: str = "", on: bool = True) -> dict:
         for name, table in ((base(call), self.ignore_calls), (country, self.ignore_countries)):
@@ -587,6 +611,9 @@ class Ft8Service:
         self._check_tx()
         if not decode.get("sender") or decode.get("kind") not in ("cq", "call"):
             raise Ft8Error(N_("Nobody to answer in that message"))
+        if self.dupe(decode):
+            raise Ft8Error(N_("{call} was already worked on this band (allow dupes to work "
+                              "it again)"), call=decode["sender"])
         message = self.qso.answer(decode)
         self.qso.first_tries = tries
         self.their_freq = int(decode.get("freq") or 0)
@@ -649,6 +676,7 @@ class Ft8Service:
             self.tx_freq = max(200, min(3000, int(saved.get("tx_freq", self.tx_freq))))
             self.ignore_calls = {str(c).upper() for c in saved.get("ignore_calls", [])}
             self.ignore_countries = {str(c) for c in saved.get("ignore_countries", [])}
+            self.allow_dupes = bool(saved.get("allow_dupes", False))
         except (OSError, ValueError, TypeError, AttributeError):
             pass
 
@@ -658,7 +686,8 @@ class Ft8Service:
             self.settings_path.write_text(json.dumps(
                 {"level": self.tx_level, "tx_freq": self.tx_freq,
                  "ignore_calls": sorted(self.ignore_calls),
-                 "ignore_countries": sorted(self.ignore_countries)}), encoding="utf-8")
+                 "ignore_countries": sorted(self.ignore_countries),
+                 "allow_dupes": self.allow_dupes}), encoding="utf-8")
         except OSError as exc:
             log.warning("ft8: cannot save %s: %s", self.settings_path, exc)
 
@@ -701,6 +730,7 @@ class Ft8Service:
             self.hub.error(N_("FT8: cannot write {path}: {error}"), path=str(self.log_path),
                            error=str(exc))
         self.logged.append(fields)
+        self._worked_now.add((base(qso.them), (fields.get("BAND") or "").lower()))
         # With the shared logbook ([logbook]) the core logs it, once for every client.
         here = bool(self.config.logbook_database)
         self.hub.emit({"type": "ft8.qso", "qso": fields, "path": str(self.log_path),
@@ -763,7 +793,8 @@ class Ft8Service:
         cycle = next((c for c in self.history if c["start"] == start), None)
         decodes = cycle["decodes"] if cycle is not None else []
         pick = None if auto.wants_cq() else auto.pick(
-            [d for d in decodes if not self.ignored(d)], self.config.callsign, time.time())
+            [d for d in decodes if not self.ignored(d) and not self.dupe(d)],
+            self.config.callsign, time.time())
         if pick is not None:
             auto.quiet = 0
             await self._auto_go(self.reply(pick, start, tries=TRIES_EACH),
@@ -1078,7 +1109,8 @@ class Ft8Service:
                        "rx": self.their_freq if self.tx_on else 0,
                        "level": self.tx_level, "last": self.last_sent,
                        "tone": self.toning},
-                "auto": self.auto_state(), "ignore": self.ignore_state()}
+                "auto": self.auto_state(), "ignore": self.ignore_state(),
+                "dupes": self.allow_dupes}
 
     async def call(self, method: str, params: dict) -> dict:
         try:
@@ -1104,6 +1136,8 @@ class Ft8Service:
                 return self.set_ignore(str(params.get("call") or ""),
                                        str(params.get("country") or ""),
                                        bool(params.get("on", True)))
+            elif method == "dupes":
+                return self.set_dupes(bool(params.get("on", not self.allow_dupes)))
             elif method == "auto":
                 return await self.set_auto(bool(params.get("on", not self.auto.on)))
             elif method == "tone":

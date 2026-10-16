@@ -104,6 +104,13 @@ class Ft8Page(Page):
         self.cq_box.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.cq_box.toggled.connect(lambda on: on != self.cq_only and self.action_cq_only())
         controls.addWidget(self.cq_box)
+        self.dupes_box = QCheckBox(_("Dupes"))
+        self.dupes_box.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.dupes_box.setToolTip(_("Allow a second QSO with a station on a band it was "
+                                    "worked on (D)"))
+        self.dupes_box.toggled.connect(
+            lambda on: on != bool(self.state.get("dupes")) and self.action_dupes())
+        controls.addWidget(self.dupes_box)
         controls.addStretch(1)
         for key, label, action in (("Enter", _("Answer"), self.action_reply),
                                    ("Q", "CQ", self.action_cq),
@@ -552,6 +559,9 @@ class Ft8Page(Page):
         self.tone_button.setText(f"T  {_('Stop tone') if toning else _('Tone')}")
         self.tone_button.setStyleSheet(f"background: {theme.RED}; color: #ffffff;"
                                        if toning else "")
+        self.dupes_box.blockSignals(True)
+        self.dupes_box.setChecked(bool(self.state.get("dupes")))
+        self.dupes_box.blockSignals(False)
         auto = bool((self.state.get("auto") or {}).get("on"))
         self.auto_button.setText(f"A  {_('Auto on') if auto else _('Auto')}")
         self.auto_button.setStyleSheet(f"background: {theme.MAGENTA}; color: #ffffff;"
@@ -680,6 +690,8 @@ class Ft8Page(Page):
                                      "itself (A or H stops it)") if on else
                                    _("Super-automatic mode off"), "ft8.auto", on=on),
                         group="tx")
+
+    action_dupes = Ft8App.action_dupes
 
     def action_tx_freq(self) -> None:
         chosen = self._chosen()

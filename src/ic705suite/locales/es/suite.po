@@ -1141,8 +1141,8 @@ msgstr "Elige antes una línea (↑↓): su frecuencia"
 msgid "Choose a station's line first (↑↓)"
 msgstr "Elige antes la línea de una estación (↑↓)"
 
-msgid "Enter Answer · Q CQ · H Halt · T Tone · F [ ] TX freq · - + TX level · , . Power · ←→ Band · C CQ only · S Stop/Start · Esc Back"
-msgstr "Intro Responder · Q CQ · H Parar TX · T Tono · F [ ] Frec TX · - + Nivel TX · , . Potencia · ←→ Banda · C Solo CQ · S Parar/Seguir · Esc Volver"
+msgid "Enter Answer · Q CQ · H Halt · T Tone · F [ ] TX freq · - + TX level · , . Power · ←→ Band · C CQ only · D Dupes · S Stop/Start · Esc Back"
+msgstr "Intro Responder · Q CQ · H Parar TX · T Tono · F [ ] Frec TX · - + Nivel TX · , . Potencia · ←→ Banda · C Solo CQ · D Duplicados · S Parar/Seguir · Esc Volver"
 
 msgid "Enter Answer · Q CQ · H Halt · ←→ Band · Esc Back"
 msgstr "Intro Responder · Q CQ · H Parar TX · ←→ Banda · Esc Volver"
@@ -1503,3 +1503,18 @@ msgstr "{name} ignorado: el modo auto no lo trabajará"
 
 msgid "{name} no longer ignored"
 msgstr "{name} ya no se ignora"
+
+msgid "{call} was already worked on this band (allow dupes to work it again)"
+msgstr "{call} ya se trabajó en esta banda (permite los duplicados para trabajarlo otra vez)"
+
+msgid "Dupes allowed: a station is worked again on a band"
+msgstr "Duplicados permitidos: una estación se trabaja otra vez en la misma banda"
+
+msgid "No dupes: a station worked on a band is left alone there"
+msgstr "Sin duplicados: una estación ya trabajada en una banda no se vuelve a trabajar en ella"
+
+msgid "Dupes"
+msgstr "Duplicados"
+
+msgid "Allow a second QSO with a station on a band it was worked on (D)"
+msgstr "Permitir un segundo QSO con una estación en una banda en la que ya se trabajó (D)"
