@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.23.0 (2026-10-16)
+
+### Bug Fixes
+
+- **ft8**: The QSO beside the band activity is not squeezed
+  ([`5bbc05c`](https://github.com/manuel-alcocer/ic705suite/commit/5bbc05c0c59a5a3f9b67c10a8795cce42f2db8f7))
+
+### Features
+
+- **gui**: Applications in tabs after the dashboard, or in windows of their own
+  ([`4239e66`](https://github.com/manuel-alcocer/ic705suite/commit/4239e666f32ed12489e07c42f6787d57840b9fe8))
+
+
 ## v0.22.0 (2026-10-16)
 
 ### Features
