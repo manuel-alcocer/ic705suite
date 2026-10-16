@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v0.24.0 (2026-10-16)
+
+### Bug Fixes
+
+- **gui**: Closing the dashboard leaves the windows of their own open
+  ([`bbb00d2`](https://github.com/manuel-alcocer/ic705suite/commit/bbb00d2149a589cd39902a0260abc88f8b459f7c))
+
+### Features
+
+- **ft8**: The super-automatic mode only where [ft8] super_auto allows it
+  ([`f50a4c2`](https://github.com/manuel-alcocer/ic705suite/commit/f50a4c2c5e7a15063d62cddb02a02a90b68fcae3))
+
+- **qrz**: --qrz-upload sends the logbook's QSOs not on QRZ.com yet
+  ([`1e5d162`](https://github.com/manuel-alcocer/ic705suite/commit/1e5d162a8167f622f43632352a129959ec39ab98))
+
+
 ## v0.23.0 (2026-10-16)
 
 ### Bug Fixes
