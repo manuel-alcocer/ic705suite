@@ -4,7 +4,8 @@ The core decodes (apps.ft8.service); this screen starts it when it opens, shows 
 cycle brings (a CQ in green, what is sent to us in red, what we send in yellow) and stops
 it when it closes. Under it, the QSO: what we send, what is sent to us and what the station
 we work says. Enter answers the chosen station, Q calls CQ, A turns the super-automatic
-mode on and off (the core answers and calls by itself: apps.ft8.auto), D allows a second
+mode on and off where the core's [ft8] super_auto allows it (the core answers and calls by
+itself: apps.ft8.auto), D allows a second
 QSO with a station on the same band or not (not, by default), H halts, F puts our
 transmit
 frequency on the chosen line's ([ ] move it), - + the transmit audio (the ALC must stay
@@ -571,6 +572,8 @@ class Ft8App(App[int]):
         self._fill(keep_end=True)
 
     def action_auto(self) -> None:
+        if not (self.state.get("auto") or {}).get("allowed"):
+            return                          # the core's [ft8] super_auto is not set
         on = not (self.state.get("auto") or {}).get("on")
         self.run_worker(self._call(_("Super-automatic mode on: it answers and calls CQ by "
                                      "itself (A or H stops it)") if on else

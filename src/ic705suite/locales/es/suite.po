@@ -1429,6 +1429,9 @@ msgstr "FT8: modo superautomático desactivado"
 msgid "FT8: super-automatic mode off: {error}"
 msgstr "FT8: modo superautomático desactivado: {error}"
 
+msgid "The super-automatic mode is not available on this station"
+msgstr "El modo superautomático no está disponible en esta estación"
+
 msgid "FT8: super-automatic mode on (H or A stops it)"
 msgstr "FT8: modo superautomático activado (H o A lo para)"
 

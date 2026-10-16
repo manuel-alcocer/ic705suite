@@ -762,6 +762,8 @@ class Ft8Service:
         """Turn the super-automatic mode on (it begins with the next cycle heard) or off
         (a QSO under way ends as usual; calling CQ, or a station not answering yet, stops)."""
         if on:
+            if not self.config.ft8_auto:
+                raise Ft8Error(N_("The super-automatic mode is not available on this station"))
             self._check_tx()
             # What would stop its first call (the radio not in USB-D...) is said now, not
             # a cycle or two later with the mode turned off.
@@ -781,7 +783,7 @@ class Ft8Service:
 
     def auto_state(self) -> dict:
         return {"on": self.auto.on, "phase": self.auto.phase, "missed": self.auto.missed,
-                "stations": STATIONS, "cqs": CQS}
+                "stations": STATIONS, "cqs": CQS, "allowed": self.config.ft8_auto}
 
     async def _auto_turn(self, start: float) -> None:
         """A cycle decoded: with nothing under way, the next station, or CQ."""

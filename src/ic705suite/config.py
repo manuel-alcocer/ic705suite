@@ -259,6 +259,8 @@ class Config:
     ft8_tx_freq: int = 1500
     ft8_level: float = 0.5
     ft8_setup: str = ""              # the logbook's setup FT8 QSOs go with ("": by radio)
+    ft8_auto: bool = False           # [ft8] super_auto: the super-automatic mode, left out
+                                     # of the template on purpose (the owner's station only)
     # [qrz]
     qrz_api_key: str = ""            # QRZ.com's logbook access key (never shown)
     qrz_bands: tuple = ("160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m",
@@ -361,6 +363,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.ft8_tx_freq = int(ft8.get("tx_freq", cfg.ft8_tx_freq))
         cfg.ft8_level = float(ft8.get("level", cfg.ft8_level))
         cfg.ft8_setup = str(ft8.get("setup", cfg.ft8_setup))
+        cfg.ft8_auto = bool(ft8.get("super_auto", cfg.ft8_auto))
         qrz = data.get("qrz", {})
         cfg.qrz_api_key = str(qrz.get("api_key", cfg.qrz_api_key)).strip()
         if "bands" in qrz:

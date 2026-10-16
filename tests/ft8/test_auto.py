@@ -11,7 +11,7 @@ from ic705suite.apps.ft8 import auto as auto_module
 from ic705suite.apps.ft8 import jt9
 from ic705suite.apps.ft8 import service as service_module
 from ic705suite.apps.ft8.auto import Auto
-from ic705suite.config import Config
+from ic705suite.config import Config, load_config
 from ic705suite.station.links import LocalLink
 from tests.ft8.test_ft8 import short_turns, until
 from tests.ft8.test_worked_ft8 import CTY
@@ -108,6 +108,7 @@ def test_the_mode_on_air(tmp_path, monkeypatch):
 
     async def scenario():
         config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        ft8_auto=True,
                         tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
         link = LocalLink(None, config)
         await link.connect()
@@ -140,7 +141,7 @@ def test_the_mode_on_air(tmp_path, monkeypatch):
 
 def test_the_mode_needs_transmission(tmp_path):
     async def scenario():
-        config = Config(connection="sim", swr_web=False, callsign="EA7KLX",
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", ft8_auto=True,
                         database_url=f"sqlite:///{tmp_path / 'suite.db'}")
         link = LocalLink(None, config)
         await link.connect()
@@ -155,12 +156,41 @@ def test_the_mode_needs_transmission(tmp_path):
     asyncio.run(scenario())
 
 
+def test_the_mode_only_where_the_configuration_allows_it(tmp_path):
+    """Without [ft8] super_auto the core refuses it and says so in its state (the clients
+    hide its button and key)."""
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        try:
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            reply = await link.call("ft8.auto", on=True)
+            assert "not available" in reply.get("error", "")
+            state = (await link.call("ft8.state"))["auto"]
+            assert not state["on"] and not state["allowed"]
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_super_auto_is_read_from_the_configuration(tmp_path):
+    config_file = tmp_path / "config.toml"
+    assert not load_config(config_file).ft8_auto
+    config_file.write_text("[ft8]\nsuper_auto = true\n", encoding="utf-8")
+    assert load_config(config_file).ft8_auto
+
+
 @pytest.mark.skipif(jt9.find_jt9() is None, reason="WSJT-X's jt9 is not installed")
 def test_the_mode_needs_the_radio_in_a_data_mode(tmp_path):
     """Not turned on with the radio in USB: the reason is said at once, not on its first
     call."""
     async def scenario():
         config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        ft8_auto=True,
                         tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
         link = LocalLink(None, config)
         await link.connect()
@@ -208,6 +238,7 @@ def test_a_busy_station_and_an_ignored_country(tmp_path, monkeypatch):
 
     async def scenario():
         config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        ft8_auto=True,
                         tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
         link = LocalLink(None, config)
         await link.connect()

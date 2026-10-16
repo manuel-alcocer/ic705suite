@@ -579,6 +579,7 @@ class Ft8Page(Page):
         self.dupes_box.setChecked(bool(self.state.get("dupes")))
         self.dupes_box.blockSignals(False)
         auto = bool((self.state.get("auto") or {}).get("on"))
+        self.auto_button.setVisible(bool((self.state.get("auto") or {}).get("allowed")) or auto)
         self.auto_button.setText(f"A  {_('Auto on') if auto else _('Auto')}")
         self.auto_button.setStyleSheet(f"background: {theme.MAGENTA}; color: #ffffff;"
                                        if auto else "")
@@ -701,6 +702,8 @@ class Ft8Page(Page):
             self._fill(keep_end=True)
 
     def action_auto(self) -> None:
+        if not (self.state.get("auto") or {}).get("allowed"):
+            return                          # the core's [ft8] super_auto is not set
         on = not (self.state.get("auto") or {}).get("on")
         self.run_worker(self._call(_("Super-automatic mode on: it answers and calls CQ by "
                                      "itself (A or H stops it)") if on else
