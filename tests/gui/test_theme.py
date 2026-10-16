@@ -44,12 +44,13 @@ def test_the_waterfall_is_dark_in_the_light_theme(light, qapp):
 
 
 def test_help_menu_and_the_version_always_shown(tmp_path, run):
-    """? opens About: the version and the project's and the help's links; every status
-    line ends with the version."""
+    """? opens About: the version and the project's and the help's links; the load line
+    over the footer ends with the version (not the status line: the window stays narrow)."""
     from PySide6.QtWidgets import QMessageBox
 
     from ic705suite import __version__
     from ic705suite.gui.app import HELP_URL, PROJECT_URL
+    from ic705suite.gui.widgets import LoadLine
     from tests.gui.test_pages import window
 
     async def scenario():
@@ -61,7 +62,8 @@ def test_help_menu_and_the_version_always_shown(tmp_path, run):
             assert f"ic705suite {__version__}" in box.text()
             assert PROJECT_URL in box.text() and HELP_URL in box.text()
             box.close()
-            assert f"v{__version__}" in win.dashboard.status.text()
+            assert f"v{__version__}" in win.dashboard.findChild(LoadLine).text()
+            assert "CPU" not in win.dashboard.status.text()
         finally:
             await link.close()
 

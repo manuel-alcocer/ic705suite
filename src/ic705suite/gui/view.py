@@ -29,6 +29,7 @@ from ic705suite.gui.widgets import (
     ControlGrid,
     Footer,
     Frame,
+    LoadLine,
     Meter,
     Scope,
     SevenSegment,
@@ -112,6 +113,7 @@ class ViewPage(PanelKeys, Page):
         box.addWidget(self.scope_frame, 1)
         box.addWidget(self.panel_frame)
         box.addWidget(self.entry_frame)
+        box.addWidget(LoadLine())
         box.addWidget(self.footer)
         for widget in (self.digits, self.vfo_label, self.scope, self.status, self.footer):
             widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)

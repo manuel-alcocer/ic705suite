@@ -56,7 +56,17 @@ from ic705suite.apps.swr.photos import (
 from ic705suite.apps.swr.web import antenna_url
 from ic705suite.gui import theme
 from ic705suite.gui.page import Overlay, Page, ask_text, choose
-from ic705suite.gui.widgets import Footer, Frame, StatusLine, Table, badge, esc, rich_html, span
+from ic705suite.gui.widgets import (
+    Footer,
+    Frame,
+    LoadLine,
+    StatusLine,
+    Table,
+    badge,
+    esc,
+    rich_html,
+    span,
+)
 from ic705suite.i18n import N_, _, render
 from ic705suite.rig import bands
 from ic705suite.station.links import Link
@@ -250,6 +260,7 @@ class SwrPage(Page):
         box.addWidget(self.status)
         box.addLayout(top, 1)
         box.addWidget(self.message)
+        box.addWidget(LoadLine())
         box.addWidget(self.footer)
         self._show_state()
 

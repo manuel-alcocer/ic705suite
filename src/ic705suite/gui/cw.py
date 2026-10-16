@@ -52,6 +52,7 @@ from ic705suite.gui.page import Overlay, Page, show_text
 from ic705suite.gui.widgets import (
     Footer,
     Frame,
+    LoadLine,
     Meter,
     Scope,
     StatusLine,
@@ -60,7 +61,6 @@ from ic705suite.gui.widgets import (
     esc,
     hint_html,
     span,
-    with_load_html,
 )
 from ic705suite.i18n import N_, _, render
 from ic705suite.rig import bands
@@ -183,7 +183,7 @@ class CwStatus(StatusLine):
         chunks.append(span(f"{_('LINK')} ", theme.DIM) + span(self.link_description, theme.BLUE,
                                                                True))
         separator = span(" · ", theme.DIM)
-        self.setText(with_load_html("".join(parts) + separator.join(chunks)))
+        self.setText("".join(parts) + separator.join(chunks))
 
 
 class CwPage(ChannelSaving, Page):
@@ -299,6 +299,7 @@ class CwPage(ChannelSaving, Page):
         box.addWidget(self.meaning_frame, 2)
         box.addWidget(self.detail_frame)
         box.addWidget(self.entry_frame)
+        box.addWidget(LoadLine())
         box.addWidget(self.footer)
         for widget in (self.status, self.footer, self.detail, self.level, self.detail_keys,
                        self.scope):

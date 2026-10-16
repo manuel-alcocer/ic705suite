@@ -46,6 +46,7 @@ from ic705suite.gui.widgets import (
     ControlGrid,
     Footer,
     Frame,
+    LoadLine,
     Meter,
     Scope,
     StatusLine,
@@ -166,6 +167,7 @@ class DashboardPage(PanelKeys, ChannelSaving, Page):
         box.setSpacing(6)
         box.addWidget(self.status)
         box.addWidget(middle, 1)
+        box.addWidget(LoadLine())
         box.addWidget(self.footer)
         for widget in (self.rig_label, self.station_label, self.log_label, self.scope,
                        self.rig_meter, self.status, self.footer):

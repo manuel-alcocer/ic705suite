@@ -39,7 +39,7 @@ from ic705suite.apps.packet.app import (
 from ic705suite.apps.packet.client import CHANNELS, STYLES, PacketClient, piece_text
 from ic705suite.gui import theme
 from ic705suite.gui.page import Overlay, Page, choose
-from ic705suite.gui.widgets import Footer, Frame, Table, rich_html, span, with_load_html
+from ic705suite.gui.widgets import Footer, Frame, LoadLine, Table, rich_html, span
 from ic705suite.i18n import _
 from ic705suite.station.links import Link
 
@@ -335,6 +335,7 @@ class PacketPage(Page):
         body.addWidget(self.line)
         body.addWidget(self.feedback)
         layout.addLayout(body, 1)
+        layout.addWidget(LoadLine())
         layout.addWidget(self.footer)
         self.timer = QTimer(self, interval=1000, timeout=self._tick)
         self.timer.start()
@@ -407,7 +408,7 @@ class PacketPage(Page):
                       "bold red": theme.RED, "bold cyan": theme.CYAN}.get(style, theme.TEXT)
             parts.append((span(label, theme.DIM) + " " if label else "")
                          + span(value, colour, bold=True))
-        self.status.setText(with_load_html("&nbsp;&nbsp;&nbsp;".join(parts)))
+        self.status.setText("&nbsp;&nbsp;&nbsp;".join(parts))
         self.footer.counters = self.client.counters()
         self.footer.redraw()
 

@@ -178,6 +178,10 @@ QLabel#statusbar {{
     background: {PANEL};
     border-bottom: 1px solid {BORDER};
 }}
+QLabel#loadbar {{
+    background: {PANEL};
+    border-top: 1px solid {BORDER};
+}}
 QLabel#footerbar {{
     background: {PANEL};
     border-top: 1px solid {BORDER};

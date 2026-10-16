@@ -253,7 +253,7 @@ class Frame(QFrame):
 # ---- status line and footer ------------------------------------------------------------------
 
 def load_html() -> str:
-    """The suite's CPU and RAM, and its version: the right end of every status line."""
+    """The suite's CPU and RAM, and its version: the load line over every footer."""
     from ic705suite import __version__
 
     load = LOAD.sample()
@@ -283,14 +283,28 @@ def _load_html(cpu: float, ram: float | None, rss: int | None, temp: float | Non
     return part
 
 
-def with_load_html(left: str) -> str:
-    """A status line: `left`, and the load and version on the right."""
-    return (f'<table width="100%"><tr><td>{left}</td>'
-            f'<td align="right">{load_html()}</td></tr></table>')
+class LoadLine(QLabel):
+    """The suite's CPU, RAM and temperature (and the core's, on another machine) and its
+    version, on a line of their own over the footer: the status line stays short and the
+    window can be narrow."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setTextFormat(Qt.TextFormat.RichText)
+        self.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.setContentsMargins(6, 2, 6, 2)
+        self.setObjectName("loadbar")        # styled by the theme
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.timer = QTimer(self, interval=2000, timeout=self.redraw)
+        self.timer.start()
+        self.redraw()
+
+    def redraw(self) -> None:
+        self.setText(load_html())
 
 
 class StatusLine(QLabel):
-    """Badges, rig, frequency, mode, S-meter, power, the link, and the suite's CPU and RAM."""
+    """Badges, rig, frequency, mode, S-meter, power and the link."""
 
     def __init__(self, link_description: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -337,7 +351,7 @@ class StatusLine(QLabel):
             chunk(label, value, theme.TEXT, False)
         chunk(_("LINK"), self.link_description, theme.BLUE)
         separator = span(" · ", theme.DIM)
-        self.setText(with_load_html("".join(parts) + separator.join(chunks)))
+        self.setText("".join(parts) + separator.join(chunks))
 
 
 class Footer(QLabel):

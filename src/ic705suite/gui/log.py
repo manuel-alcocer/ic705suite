@@ -62,13 +62,13 @@ from ic705suite.gui.borrow import borrow
 from ic705suite.gui.page import Page, _Dialog, _wait
 from ic705suite.gui.widgets import (
     Frame,
+    LoadLine,
     Table,
     clickable_keys,
     hint_html,
     rich_colour,
     rich_html,
     span,
-    with_load_html,
 )
 
 
@@ -487,11 +487,9 @@ class QtStatusLine(QLabel):
         self.setContentsMargins(6, 3, 6, 3)
         self.setObjectName("statusbar")      # styled by the theme
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.timer = QTimer(self, interval=2000, timeout=self.refresh)   # the load
-        self.timer.start()
 
     def refresh(self) -> None:
-        self.setText(with_load_html(rich_html(LogStatusLine.line(self))))
+        self.setText(rich_html(LogStatusLine.line(self)))
 
 
 class QtStatsFooter(QLabel):
@@ -947,6 +945,7 @@ class LogPage(Page):
         box.addWidget(self.main_frame, 1)
         box.addWidget(self.detail_frame)
         box.addWidget(self.entry_frame)
+        box.addWidget(LoadLine())
         box.addWidget(self.footer)
         self._widgets = {
             QtEntryPanel: self.entry, QtHistoryPanel: self.history,

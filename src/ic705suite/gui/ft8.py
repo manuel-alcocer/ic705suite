@@ -63,7 +63,7 @@ from ic705suite.gui import theme
 from ic705suite.gui.ft8map import MapView
 from ic705suite.gui.page import Page
 from ic705suite.gui.waterfall import WaterfallView
-from ic705suite.gui.widgets import Footer, Frame, StatusLine, Table, span
+from ic705suite.gui.widgets import Footer, Frame, LoadLine, StatusLine, Table, span
 from ic705suite.i18n import _, render
 from ic705suite.rig import bands
 from ic705suite.station.links import Link
@@ -192,6 +192,7 @@ class Ft8Page(Page):
         body.addWidget(self.tx_frame)
         body.addWidget(self.message)
         layout.addLayout(body, 1)
+        layout.addWidget(LoadLine())
         layout.addWidget(self.footer)
         self.timer = QTimer(self, interval=1000, timeout=self._tick)
         self.timer.start()
