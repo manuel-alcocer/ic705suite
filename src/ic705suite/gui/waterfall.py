@@ -60,6 +60,7 @@ class WaterfallView(QWidget):
     freq_clicked = Signal(int)                       # Hz: put our transmit frequency there
     station_clicked = Signal(float, dict)            # a call on the waterfall: chosen
     station_double_clicked = Signal(float, dict)     # and answered
+    station_menu = Signal(float, dict, QPoint)       # right-clicked: its menu, there
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -236,6 +237,11 @@ class WaterfallView(QWidget):
         label = self._label_at(event.position().toPoint())
         if label is not None:
             self.station_double_clicked.emit(label.start, label.decode)
+
+    def contextMenuEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        label = self._label_at(event.pos())
+        if label is not None:
+            self.station_menu.emit(label.start, label.decode, event.globalPos())
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         point = event.position().toPoint()

@@ -21,7 +21,7 @@ import time
 from dataclasses import dataclass
 from importlib import resources
 
-from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
+from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -116,6 +116,7 @@ def night_polygon(now: float | None = None, step: float = 2.0) -> QPolygonF:
 class MapView(QWidget):
     station_clicked = Signal(float, dict)
     station_double_clicked = Signal(float, dict)
+    station_menu = Signal(float, dict, QPoint)        # right-clicked: its menu, there
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -613,6 +614,11 @@ class MapView(QWidget):
 
     def mouseReleaseEvent(self, _event: QMouseEvent) -> None:  # noqa: N802
         self._drag = None
+
+    def contextMenuEvent(self, event) -> None:  # noqa: N802 - Qt's name
+        heard = self._heard_at(QPointF(event.pos()))
+        if heard is not None:
+            self.station_menu.emit(heard.start, heard.decode, event.globalPos())
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         heard = self._heard_at(event.position())

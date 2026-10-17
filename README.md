@@ -330,6 +330,16 @@ unattended` minutes (10 by default, 0 without a limit) it stops transmitting and
 decoding; the **Alone** box changes that until the core restarts. The messages between
 other stations show in a quieter grey; **Only the CQs** (C) hides them.
 
+A right click on a station (its line in the band activity or the QSO, its dot on the map,
+its call on the waterfall) offers: ignore it (I) or its country (Shift+I), so the automatic
+modes leave it, and **CQ auto** (w), the stations wanted. With **Auto CQ** on (W), a wanted
+station heard in the last three minutes, with nothing under way, is called six times, then
+left two minutes, and called again while it is heard; it goes before the super-automatic
+mode, and once worked on a band it is not called there again. The lists live in the
+suite's database (table `ft8_lists`; the ignored ones of older versions are taken in from
+FT8's settings file) and the **Lists** tab, beside the waterfall and the map, shows them in a
+table: filtered by list, the name and the note edited in place, rows added and removed.
+
 In the graphical client the **waterfall** sits above the lists, as WSJT-X's Wide Graph:
 0-3200 Hz, a row every quarter of a second, a dashed line and the time at each cycle, our
 transmit frequency in red and the station we work in green. The call of each station

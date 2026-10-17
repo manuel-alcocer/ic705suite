@@ -310,6 +310,8 @@ class Ft8App(App[int]):
         Binding("d", "dupes", show=False),
         Binding("i", "ignore('call')", show=False),
         Binding("I", "ignore('country')", show=False),
+        Binding("w", "wanted", show=False),
+        Binding("W", "wanted_auto", show=False),
         Binding("t", "tone", show=False),
         Binding("f", "tx_freq", show=False),
         Binding("left_square_bracket", "move_tx(-1)", show=False),
@@ -572,6 +574,37 @@ class Ft8App(App[int]):
         self._message("info", (_("{name} ignored: the auto mode leaves it") if on
                                else _("{name} no longer ignored")).format(name=shown))
         self._fill(keep_end=True)
+
+    def action_wanted(self) -> None:
+        """The chosen station (w) into the Auto CQ list, or out of it."""
+        chosen = self._chosen()
+        if chosen is None:
+            self._message("error", _("Choose a station's line first (↑↓)"))
+            return
+        self.run_worker(self._wanted(chosen[1]), group="tx")
+
+    async def _wanted(self, decode: dict) -> None:
+        name = base(decode.get("sender") or "")
+        if not name:
+            return
+        on = name not in (self.state.get("ignore") or {}).get("wanted", ())
+        reply = await self.link.call("ft8.list.add" if on else "ft8.list.remove",
+                                     kind="wanted", name=name)
+        if reply.get("error"):
+            self._message("error", render(reply) if reply.get("msgid") else reply["error"])
+            return
+        wanted = sorted(e["name"] for e in reply.get("entries", []) if e["kind"] == "wanted")
+        self.state.setdefault("ignore", {})["wanted"] = wanted
+        self._message("info", (_("{name} wanted: Auto CQ calls it when it is heard (W)")
+                               if on else _("{name} no longer wanted")).format(name=name))
+        self._fill(keep_end=True)
+
+    def action_wanted_auto(self) -> None:
+        """Auto CQ (W): the wanted stations called when they are heard, or not."""
+        on = not (self.state.get("wanted_auto") or {}).get("on")
+        self.run_worker(self._call(_("Auto CQ on: a wanted station heard is called, six "
+                                     "times, then a rest (W or H stops it)") if on else
+                                   _("Auto CQ off"), "ft8.wanted_auto", on=on), group="tx")
 
     def action_auto(self) -> None:
         if not (self.state.get("auto") or {}).get("allowed"):

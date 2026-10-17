@@ -246,7 +246,7 @@ def test_a_busy_station_and_an_ignored_country(tmp_path, monkeypatch):
         link.attach(lambda e: e.get("type") == "info" and said.append(e.get("text", "")))
         try:
             reply = await link.call("ft8.ignore", country="France")
-            assert reply == {"calls": [], "countries": ["France"]}
+            assert reply == {"calls": [], "countries": ["France"], "wanted": []}
             await link.call("ft8.band", band="20m")
             await link.call("ft8.start")
             air["says"] = "CQ G4XYZ IO91"

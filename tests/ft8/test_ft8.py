@@ -1085,3 +1085,112 @@ def test_with_nobody_connected_it_stops_transmitting_and_goes_on_decoding(tmp_pa
             await link.close()
 
     asyncio.run(scenario())
+
+
+def test_the_lists_in_the_database(tmp_path, monkeypatch):
+    fake_jt9(monkeypatch)
+    from ic705suite.paths import data_dir
+
+    settings = data_dir() / "ft8" / "settings.json"          # ignored before the database
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    settings.write_text('{"ignore_calls": ["RA3TKS"], "ignore_countries": ["Brazil"]}')
+
+    async def scenario():
+        link = await sim_link(tmp_path)
+        try:
+            entries = (await link.call("ft8.lists"))["entries"]
+            assert {(e["kind"], e["name"]) for e in entries} == {("call", "RA3TKS"),
+                                                                 ("country", "Brazil")}
+            assert "ignore_calls" not in settings.read_text()  # the database's now
+            await link.call("ft8.ignore", call="K4YYL/P")
+            reply = await link.call("ft8.list.add", kind="wanted", name="vp8ldx",
+                                    note="South Georgia")
+            wanted = next(e for e in reply["entries"] if e["kind"] == "wanted")
+            assert wanted["name"] == "VP8LDX" and wanted["note"] == "South Georgia"
+            state = await link.call("ft8.state")
+            assert state["ignore"] == {"calls": ["K4YYL", "RA3TKS"], "countries": ["Brazil"],
+                                       "wanted": ["VP8LDX"]}
+            await link.call("ft8.list.edit", id=wanted["id"], name="VP8XX", note="")
+            clash = await link.call("ft8.list.add", kind="wanted", name="VP8XX")
+            assert len([e for e in clash["entries"] if e["kind"] == "wanted"]) == 1
+            await link.call("ft8.list.remove", id=wanted["id"])
+            await link.call("ft8.ignore", country="Brazil", on=False)
+            state = await link.call("ft8.state")
+            assert state["ignore"] == {"calls": ["K4YYL", "RA3TKS"], "countries": [],
+                                       "wanted": []}
+            bad = await link.call("ft8.list.add", kind="wanted", name="  ")
+            assert "Not changed" in bad["error"]
+        finally:
+            await link.close()
+        # Kept: a new core reads them from the database.
+        link = await sim_link(tmp_path)
+        try:
+            assert link.core.ft8.ignore_calls == {"K4YYL", "RA3TKS"}
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_auto_cq_calls_a_wanted_station_rests_and_calls_again(tmp_path, monkeypatch):
+    air = short_turns(monkeypatch)
+    air["says"] = "G4XYZ DL1ABC JO62"                         # busy with another station
+    monkeypatch.setattr(service_module, "WANTED_CALLS", 2)
+    monkeypatch.setattr(service_module, "WANTED_REST", 4.0)
+    audio = service_module.encode.audio
+
+    def deaf(*args, **kwargs):                                # it never hears us
+        sound = audio(*args, **kwargs)
+        air["says"] = "G4XYZ DL1ABC JO62"
+        return sound
+
+    monkeypatch.setattr(service_module.encode, "audio", deaf)
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        try:
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            await link.call("ft8.list.add", kind="wanted", name="DL1ABC")
+            assert (await link.call("ft8.wanted_auto", on=True)) == {"on": True}
+            await until(lambda: len(air["sent"]) >= 2, 15)
+            assert air["sent"][:2] == ["DL1ABC EA7KLX IM77"] * 2
+            await asyncio.sleep(2.5)                          # resting
+            assert len(air["sent"]) == 2
+            await until(lambda: len(air["sent"]) >= 3, 15)    # and again
+            assert air["sent"][2] == "DL1ABC EA7KLX IM77"
+            await link.call("ft8.halt")
+            assert not (await link.call("ft8.state"))["wanted_auto"]["on"]
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_auto_cq_works_a_wanted_station_once(tmp_path, monkeypatch):
+    air = short_turns(monkeypatch)                            # DL1ABC answers
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        ft8 = link.core.ft8
+        try:
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            await link.call("ft8.list.add", kind="wanted", name="DL1ABC")
+            await link.call("ft8.wanted_auto", on=True)
+            await until(lambda: ft8.logged, 20)
+            assert ft8.logged[0]["CALL"] == "DL1ABC"
+            count = len(air["sent"])
+            await asyncio.sleep(3)
+            assert len(air["sent"]) <= count + 1               # its 73 at most: not again
+            assert ("DL1ABC", "20m") in ft8._wanted_done
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())

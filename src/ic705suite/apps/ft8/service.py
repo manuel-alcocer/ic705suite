@@ -92,6 +92,9 @@ CUT_POWER = 0.5            # of the power set: less with the ALC acting, the rad
 LOW_SETTING_W = 2.0        # the radio set to less than this: said (it may have been left so)
 LONGEST_KEY = 16.0         # the PTT watchdog while a message goes out
 CQ_TURNS = 20              # CQs with nobody answering (5 minutes): stop
+WANTED_CALLS = 6           # Auto CQ: calls to a wanted station in a row,
+WANTED_REST = 120.0        # then this rest (seconds) before calling it again,
+WANTED_HEARD = 180.0       # while it was heard this lately
 WORKED_EVERY = 60.0        # seconds between readings of the worked index (the logbook)
 TONE_SECONDS = 10.0        # the tune tone, unless asked otherwise
 TONE_LONGEST = 15.0        # and never longer
@@ -167,6 +170,14 @@ class Ft8Service:
         self.ignore_countries: set[str] = set()  # DXCC entities, as cty.dat names them
         self.allow_dupes = False                  # a station worked on this band again
         self._load_settings()                     # as the operator left them last time
+        # Auto CQ: the stations wanted (the lists, in the database), called when heard.
+        self.wanted: set[str] = set()
+        self.wanted_auto = False
+        self._wanted_call = ""                    # the wanted station being called
+        self._wanted_rest: dict[str, float] = {}  # call -> called until then, resting
+        self._wanted_done: set[tuple[str, str]] = set()   # (call, band) worked by it
+        self.lists = None
+        self._open_lists()
         self.last_sent: dict = {}                 # the last message's ALC and power peaks
         self.their_freq = 0                       # the other station's audio frequency
         self.transmitting = False
@@ -447,6 +458,7 @@ class Ft8Service:
             self._drop_them = False
             await self._stop_tx()                 # the next one comes from this cycle
         if kind != "early":
+            await self._wanted_turn(start)
             await self._auto_turn(start)
         self._touch()
         return entries
@@ -534,8 +546,9 @@ class Ft8Service:
         """In the auto mode, the station we call (it was calling CQ) answers another: it
         will not hear us now."""
         to = entry.get("to") or ""
-        return self.auto.on and self.qso.step == "tx1" and entry.get("kind") == "call" \
-            and bool(to) and not to.startswith("<") and base(to) != base(self.qso.mycall)
+        return self.auto.on and not self._wanted_call and self.qso.step == "tx1" \
+            and entry.get("kind") == "call" and bool(to) and not to.startswith("<") \
+            and base(to) != base(self.qso.mycall)
 
     def ignored(self, entry: dict) -> bool:
         """A station, or its country, the operator does not want the auto mode to work."""
@@ -563,18 +576,80 @@ class Ft8Service:
         return {"allow": self.allow_dupes}
 
     def set_ignore(self, call: str = "", country: str = "", on: bool = True) -> dict:
-        for name, table in ((base(call), self.ignore_calls), (country, self.ignore_countries)):
+        for kind, name in (("call", base(call)), ("country", country)):
             if name:
-                if on:
-                    table.add(name)
-                else:
-                    table.discard(name)
-        self._save_settings()
-        self._touch()
+                self.set_listed(kind, name, on)
         return self.ignore_state()
 
     def ignore_state(self) -> dict:
-        return {"calls": sorted(self.ignore_calls), "countries": sorted(self.ignore_countries)}
+        return {"calls": sorted(self.ignore_calls), "countries": sorted(self.ignore_countries),
+                "wanted": sorted(self.wanted)}
+
+    # ---- the lists (ignored, wanted), in the database -----------------------------------------
+
+    def _open_lists(self) -> None:
+        from ic705suite.apps.ft8.lists import Lists
+
+        try:
+            self.lists = Lists(self.config.database_url or None)
+            # Ignored before the database had them (FT8's settings file): taken in once.
+            if self.ignore_calls or self.ignore_countries:
+                known = {(e["kind"], e["name"]) for e in self.lists.entries()}
+                for kind, names in (("call", self.ignore_calls),
+                                    ("country", self.ignore_countries)):
+                    for name in names:
+                        if (kind, name) not in known:
+                            self.lists.add(kind, name)
+                self._save_settings()             # without them from now on
+            self._read_lists()
+        except Exception as exc:  # noqa: BLE001 - FT8 works without them
+            self.lists = None
+            log.warning("ft8: the lists cannot be read from the database: %s", exc)
+
+    def _read_lists(self) -> None:
+        if self.lists is None:
+            return
+        entries = self.lists.entries()
+        self.ignore_calls = {e["name"] for e in entries if e["kind"] == "call"}
+        self.ignore_countries = {e["name"] for e in entries if e["kind"] == "country"}
+        self.wanted = {e["name"] for e in entries if e["kind"] == "wanted"}
+        self._touch()
+
+    def _need_lists(self):
+        if self.lists is None:
+            raise Ft8Error(N_("The lists are not available: the database cannot be reached"))
+        return self.lists
+
+    def set_listed(self, kind: str, name: str, on: bool = True, note: str = "") -> None:
+        from ic705suite.apps.ft8.lists import ListError
+
+        lists = self._need_lists()
+        try:
+            if on:
+                lists.add(kind, name, note)
+            else:
+                lists.remove(kind, name)
+        except ListError as exc:
+            raise Ft8Error(N_("Not changed: {error}"), error=str(exc)) from None
+        self._read_lists()
+
+    def list_entries(self) -> dict:
+        return {"entries": self._need_lists().entries()}
+
+    def edit_listed(self, entry_id: int, name: str | None = None,
+                    note: str | None = None) -> dict:
+        from ic705suite.apps.ft8.lists import ListError
+
+        try:
+            entry = self._need_lists().edit(entry_id, name, note)
+        except ListError as exc:
+            raise Ft8Error(N_("Not changed: {error}"), error=str(exc)) from None
+        self._read_lists()
+        return entry
+
+    def remove_listed(self, entry_id: int) -> None:
+        self._need_lists().remove(entry_id=entry_id)
+        self._read_lists()
 
     def _late_end(self, start: float, entries: list[dict]) -> None:
         """Their RR73 (or RRR, 73) decoded just after we gave up on them (it comes in the
@@ -631,7 +706,8 @@ class Ft8Service:
     @property
     def sending(self) -> bool:
         """Anything that transmits under way: a QSO, CQ, the tone, the super-automatic."""
-        return self.tx_on or self.transmitting or self.toning or self.auto.on
+        return self.tx_on or self.transmitting or self.toning or self.auto.on or \
+            self.wanted_auto
 
     def watch_clients(self, clients: int, now: float | None = None) -> None:
         """The core's clients, every moment: with nobody connected for `unattended`
@@ -655,6 +731,10 @@ class Ft8Service:
         if self.auto.on:
             self.auto.stop()
             self.hub.info(N_("FT8: super-automatic mode off"))
+        if self.wanted_auto:
+            self.wanted_auto = False
+            self.hub.info(N_("FT8: Auto CQ off"))
+        self._wanted_call = ""
         await self._stop_tx()
 
     async def _stop_tx(self) -> None:
@@ -700,6 +780,7 @@ class Ft8Service:
             saved = json.loads(self.settings_path.read_text(encoding="utf-8"))
             self.tx_level = clamp_level(saved.get("level", self.tx_level))
             self.tx_freq = max(200, min(3000, int(saved.get("tx_freq", self.tx_freq))))
+            # Before the database had them (taken into it once: _open_lists).
             self.ignore_calls = {str(c).upper() for c in saved.get("ignore_calls", [])}
             self.ignore_countries = {str(c) for c in saved.get("ignore_countries", [])}
             self.allow_dupes = bool(saved.get("allow_dupes", False))
@@ -711,15 +792,15 @@ class Ft8Service:
             self.settings_path.parent.mkdir(parents=True, exist_ok=True)
             self.settings_path.write_text(json.dumps(
                 {"level": self.tx_level, "tx_freq": self.tx_freq,
-                 "ignore_calls": sorted(self.ignore_calls),
-                 "ignore_countries": sorted(self.ignore_countries),
                  "allow_dupes": self.allow_dupes}), encoding="utf-8")
         except OSError as exc:
             log.warning("ft8: cannot save %s: %s", self.settings_path, exc)
 
     def _finished(self) -> None:
         them = self.qso.them
-        if self.auto.on:
+        if self._wanted_finished(them, self.qso.complete):
+            pass                                  # not the super-automatic mode's to count
+        elif self.auto.on:
             if self.qso.complete:
                 self.auto.worked_one()
             elif them:
@@ -781,6 +862,72 @@ class Ft8Service:
         elif why != "already logged":
             self.hub.error(N_("Not in the logbook: {error} (it is in ft8_log.adi)"),
                            error=why)
+
+    # ---- Auto CQ: the stations wanted ---------------------------------------------------------
+
+    def set_wanted_auto(self, on: bool) -> dict:
+        """Auto CQ on: a wanted station heard, with nothing under way, is called."""
+        if on:
+            self._check_tx()
+        self.wanted_auto = on
+        self._touch()
+        return {"on": on}
+
+    def _wanted_pick(self, start: float, now: float) -> tuple[dict, float] | None:
+        """The wanted station to call now, with the cycle it was last heard in: heard in
+        the last WANTED_HEARD seconds, not resting, not ignored, not worked here (dupes)."""
+        if not self.wanted:
+            return None
+        band = bands.band_for(self.station.rig.state.frequency or 0)
+        band_name = band.name if band else ""
+        latest: dict[str, tuple[dict, float]] = {}
+        for cycle in self.history:
+            if cycle["start"] > start or start - cycle["start"] > WANTED_HEARD:
+                continue
+            for d in cycle["decodes"]:
+                call = base(d.get("sender") or "")
+                if call in self.wanted and d.get("kind") in ("cq", "call"):
+                    latest[call] = (d, cycle["start"])
+        for call, (d, heard) in sorted(latest.items(), key=lambda item: -item[1][1]):
+            if self._wanted_rest.get(call, 0) > now or (call, band_name) in self._wanted_done:
+                continue
+            if self.ignored(d) or self.dupe(d):
+                continue
+            return d, heard
+        return None
+
+    async def _wanted_turn(self, start: float) -> None:
+        """A cycle decoded: with Auto CQ on and nothing under way, a wanted station heard
+        is called (before the super-automatic mode's turn)."""
+        if not self.wanted_auto or self.tx_on or self.transmitting or self.toning:
+            return
+        if self._late_until and start <= self._late_until:
+            return
+        pick = self._wanted_pick(start, time.time())
+        if pick is None:
+            return
+        decode, heard = pick
+        try:
+            await self.reply(decode, heard, tries=WANTED_CALLS)
+        except Ft8Error as exc:
+            self.wanted_auto = False
+            self.hub.error(N_("FT8: Auto CQ off: {error}"), error=str(exc))
+            return
+        self._wanted_call = base(decode["sender"])
+        self.hub.info(N_("FT8 Auto CQ: calling {call}, wanted ({count} times, then a rest)"),
+                      call=decode["sender"], count=WANTED_CALLS)
+
+    def _wanted_finished(self, them: str, complete: bool) -> bool:
+        """A QSO ended: when it was Auto CQ's call, its rest or its end. True if it was."""
+        call, self._wanted_call = self._wanted_call, ""
+        if not call or base(them) != call:
+            return False
+        if complete:
+            band = bands.band_for(self.station.rig.state.frequency or 0)
+            self._wanted_done.add((call, band.name if band else ""))
+        else:
+            self._wanted_rest[call] = time.time() + WANTED_REST
+        return True
 
     # ---- the super-automatic mode ---------------------------------------------------------------
 
@@ -883,7 +1030,9 @@ class Ft8Service:
         if qso.gave_up:
             self.hub.info(N_("FT8: no answer from {call}; stopped"), call=qso.them or "?")
             began = self.qso_began
-            if self.auto.on:
+            if self._wanted_finished(qso.them, False):
+                pass
+            elif self.auto.on:
                 self.auto.missed_one(qso.them, time.time())
             await self._stop_tx()
             self.qso_began = began               # for a late end (_late_end)
@@ -1140,7 +1289,9 @@ class Ft8Service:
                        "level": self.tx_level, "last": self.last_sent,
                        "tone": self.toning},
                 "auto": self.auto_state(), "ignore": self.ignore_state(),
-                "dupes": self.allow_dupes, "unattended": self.unattended}
+                "dupes": self.allow_dupes, "unattended": self.unattended,
+                "wanted_auto": {"on": self.wanted_auto, "calling": self._wanted_call,
+                                "calls": WANTED_CALLS, "rest": WANTED_REST}}
 
     async def call(self, method: str, params: dict) -> dict:
         try:
@@ -1194,6 +1345,23 @@ class Ft8Service:
             elif method == "waterfall":
                 self._wf_until = time.monotonic() + min(60.0, float(params.get("seconds", 15)))
                 return {"low": waterfall.LOW, "high": waterfall.HIGH, "step": waterfall.STEP}
+            elif method == "lists":
+                return self.list_entries()
+            elif method == "list.add":
+                self.set_listed(str(params["kind"]), str(params["name"]), True,
+                                str(params.get("note") or ""))
+                return self.list_entries()
+            elif method == "list.remove":
+                if params.get("id") is not None:
+                    self.remove_listed(int(params["id"]))
+                else:
+                    self.set_listed(str(params["kind"]), str(params["name"]), False)
+                return self.list_entries()
+            elif method == "list.edit":
+                self.edit_listed(int(params["id"]), params.get("name"), params.get("note"))
+                return self.list_entries()
+            elif method == "wanted_auto":
+                return self.set_wanted_auto(bool(params.get("on", not self.wanted_auto)))
             elif method == "unattended":
                 self.unattended = max(0, min(24 * 60, int(params["minutes"])))
                 self._touch()

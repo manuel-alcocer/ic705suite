@@ -1617,3 +1617,81 @@ msgstr "Las llamadas entre otras estaciones de los últimos ciclos, tenues, por 
 
 msgid "calls between others"
 msgstr "llamadas entre otros"
+
+msgid "Auto CQ"
+msgstr "Auto CQ"
+
+msgid "Auto CQ on"
+msgstr "Auto CQ activo"
+
+msgid "Auto CQ: {call}"
+msgstr "Auto CQ: {call}"
+
+msgid "Auto CQ: a station marked CQ auto (right click, w), heard with nothing under way, is called six times, then a rest of two minutes, while it is heard"
+msgstr "Auto CQ: una estación marcada como CQ auto (clic derecho, w) que se oiga sin nada en curso se llama seis veces y luego descansa dos minutos, mientras se la oiga"
+
+msgid "w  CQ auto: {name}"
+msgstr "w  CQ auto: {name}"
+
+msgid "The lists…"
+msgstr "Las listas…"
+
+msgid "Lists"
+msgstr "Listas"
+
+msgid "Ignored station"
+msgstr "Estación ignorada"
+
+msgid "Ignored country"
+msgstr "País ignorado"
+
+msgid "CQ auto"
+msgstr "CQ auto"
+
+msgid "Every list"
+msgstr "Todas las listas"
+
+msgid "Remove the rows chosen"
+msgstr "Quitar las filas elegidas"
+
+msgid "List"
+msgstr "Lista"
+
+msgid "Name"
+msgstr "Nombre"
+
+msgid "Added"
+msgstr "Añadido"
+
+msgid "Callsign, or country as cty.dat names it"
+msgstr "Indicativo, o país tal como lo nombra cty.dat"
+
+msgid "Add"
+msgstr "Añadir"
+
+msgid "{name} wanted: Auto CQ calls it when it is heard (W)"
+msgstr "{name} marcada: Auto CQ la llama cuando se la oiga (W)"
+
+msgid "{name} no longer wanted"
+msgstr "{name} ya no está marcada"
+
+msgid "Auto CQ on: a wanted station heard is called, six times, then a rest (W or H stops it)"
+msgstr "Auto CQ activo: una estación marcada que se oiga se llama seis veces y luego descansa (W o H lo paran)"
+
+msgid "Auto CQ off"
+msgstr "Auto CQ desactivado"
+
+msgid "The lists are not available: the database cannot be reached"
+msgstr "Las listas no están disponibles: no se puede acceder a la base de datos"
+
+msgid "Not changed: {error}"
+msgstr "Sin cambios: {error}"
+
+msgid "FT8: Auto CQ off: {error}"
+msgstr "FT8: Auto CQ desactivado: {error}"
+
+msgid "FT8 Auto CQ: calling {call}, wanted ({count} times, then a rest)"
+msgstr "FT8 Auto CQ: llamando a {call}, marcada ({count} veces, luego descanso)"
+
+msgid "FT8: Auto CQ off"
+msgstr "FT8: Auto CQ desactivado"

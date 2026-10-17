@@ -62,6 +62,7 @@ from ic705suite.apps.ft8.app import (
 from ic705suite.apps.ft8.waterfall import decode as waterfall_levels
 from ic705suite.configure import remember
 from ic705suite.gui import theme
+from ic705suite.gui.ft8lists import ListsPane
 from ic705suite.gui.ft8map import MapView
 from ic705suite.gui.page import Page
 from ic705suite.gui.waterfall import WaterfallView
@@ -132,6 +133,7 @@ class Ft8Page(Page):
         for key, label, action in (("Enter", _("Answer"), self.action_reply),
                                    ("Q", "CQ", self.action_cq),
                                    ("A", _("Auto"), self.action_auto),
+                                   ("W", _("Auto CQ"), self.action_wanted_auto),
                                    ("H", _("Halt"), self.action_halt),
                                    ("T", _("Tone"), self.action_tone),
                                    ("F", _("TX freq"), self.action_tx_freq)):
@@ -141,6 +143,11 @@ class Ft8Page(Page):
             buttons.addWidget(button)
             if key == "T":
                 self.tone_button = button
+            if key == "W":
+                self.wanted_button = button
+                button.setToolTip(_("Auto CQ: a station marked CQ auto (right click, w), "
+                                    "heard with nothing under way, is called six times, "
+                                    "then a rest of two minutes, while it is heard"))
             if key == "A":
                 self.auto_button = button
                 button.setToolTip(_("Super-automatic: answers new countries first, then "
@@ -164,6 +171,9 @@ class Ft8Page(Page):
         self.qso_table = self.qso_frame.add(self._log_table(), 1)
         self.qso_table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.qso_table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.qso_lines: list[tuple] = []
+        self.qso_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.qso_table.customContextMenuRequested.connect(self._qso_menu)
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.addWidget(self.frame)
         self.splitter.addWidget(self.qso_frame)
@@ -177,6 +187,7 @@ class Ft8Page(Page):
         self.waterfall.freq_clicked.connect(lambda hz: self.run_worker(self._call(
             _("Transmitting on {freq} Hz"), "ft8.txfreq", freq=hz), group="tx"))
         self.waterfall.station_clicked.connect(self._choose)
+        self.waterfall.station_menu.connect(self._station_menu)
         self.waterfall.station_double_clicked.connect(
             lambda start, decode: self._choose(start, decode) and self.action_reply())
         # Beside the waterfall, in a tab: the map (gui.ft8map), as GridTracker's.
@@ -191,11 +202,15 @@ class Ft8Page(Page):
         self.traffic_box.toggled.connect(self._map_traffic)
         self.map_frame.head.addWidget(self.traffic_box)
         self.map.station_clicked.connect(self._choose)
+        self.map.station_menu.connect(self._station_menu)
         self.map.station_double_clicked.connect(
             lambda start, decode: self._choose(start, decode) and self.action_reply())
         self.top_tabs = QTabWidget()
         self.top_tabs.addTab(self.wf_frame, _("Waterfall"))
         self.top_tabs.addTab(self.map_frame, _("Map"))
+        self.lists_frame = Frame(_("Lists"))
+        self.lists_pane = self.lists_frame.add(ListsPane(self), 1)
+        self.top_tabs.addTab(self.lists_frame, _("Lists"))
         self.top_tabs.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.top_tabs.currentChanged.connect(self._tab_changed)
         self.panes = QSplitter(Qt.Orientation.Vertical)
@@ -351,9 +366,13 @@ class Ft8Page(Page):
         remember(self.config, "ft8", "map_traffic", on)
 
     def _tab_changed(self, index: int) -> None:
-        """The map wants room: the top part takes most of the height while it shows."""
+        """The map and the lists want room: the top part takes most of the height while
+        they show."""
         total = sum(self.panes.sizes()) or self.height()
-        share = 0.6 if self.top_tabs.widget(index) is self.map_frame else 0.42
+        tab = self.top_tabs.widget(index)
+        share = 0.6 if tab in (self.map_frame, self.lists_frame) else 0.42
+        if tab is self.lists_frame:
+            self.lists_pane.reload()
         self.panes.setSizes([int(total * share), total - int(total * share)])
 
     def _choose(self, start: float, decode: dict) -> bool:
@@ -440,7 +459,11 @@ class Ft8Page(Page):
             self._show_tx()
         elif kind == "ft8":
             them = (self.state.get("tx") or {}).get("them")
+            listed = self.state.get("ignore")
             self.state = event
+            if event.get("ignore") != listed and \
+                    self.top_tabs.currentWidget() is self.lists_frame:
+                self.lists_pane.reload()          # changed here or by another client
             if (event.get("tx") or {}).get("on"):
                 self.completed = ""                     # a new QSO (or CQ) under way
             if (event.get("tx") or {}).get("them") != them:
@@ -557,7 +580,8 @@ class Ft8Page(Page):
 
     def _fill_qso(self) -> None:
         them = (self.state.get("tx") or {}).get("them") or ""
-        self._paint(self.qso_table, conversation(self.cycles, self.mycall, them))
+        self.qso_lines = conversation(self.cycles, self.mycall, them)
+        self._paint(self.qso_table, self.qso_lines)
         self.qso_table.scrollToBottom()
 
     def _show_tx(self) -> None:
@@ -626,6 +650,13 @@ class Ft8Page(Page):
         self.auto_button.setText(f"A  {_('Auto on') if auto else _('Auto')}")
         self.auto_button.setStyleSheet(f"background: {theme.MAGENTA}; color: #ffffff;"
                                        if auto else "")
+        wanted = self.state.get("wanted_auto") or {}
+        calling = wanted.get("calling") or ""
+        self.wanted_button.setText("W  " + (_("Auto CQ: {call}").format(call=calling)
+                                            if calling else _("Auto CQ on")
+                                            if wanted.get("on") else _("Auto CQ")))
+        self.wanted_button.setStyleSheet(f"background: {theme.BLUE}; color: #ffffff;"
+                                         if wanted.get("on") else "")
         self.waterfall.set_markers(int(tx.get("freq") or 1500), int(tx.get("rx") or 0))
         self.map.set_them((tx.get("them") or "") if tx.get("on") else "")
         self._watch_turn += 1
@@ -701,48 +732,55 @@ class Ft8Page(Page):
     action_ignore = Ft8App.action_ignore
     _ignore = Ft8App._ignore
 
+    # The terminal's: the chosen station into the Auto CQ list (w), Auto CQ on/off (W).
+    action_wanted = Ft8App.action_wanted
+    _wanted = Ft8App._wanted
+    action_wanted_auto = Ft8App.action_wanted_auto
+
     def _context_menu(self, point) -> None:
-        """A right click on a station: ignore it or its country (or no longer), and the
-        list of what is ignored, each one to take out of it."""
+        """A right click on the band activity's line of a station: its menu."""
         row = self.table.rowAt(point.y())
         if row >= 0:
             self.table.selectRow(row)
         chosen = self._chosen()
-        ignore = self.state.get("ignore") or {}
-        menu = QMenu(self)
         if chosen is not None:
-            decode = chosen[1]
-            call = (decode.get("sender") or "").strip("<>")
-            country = decode.get("country") or ""
-            ignored_call = call.split("/")[0] in ignore.get("calls", ()) or \
-                call in ignore.get("calls", ())
-            menu.addAction((_("I  Stop ignoring {name}") if ignored_call else
-                            _("I  Ignore {name}")).format(name=call),
-                           lambda: self.action_ignore("call"))
-            if country:
-                menu.addAction((_("Shift+I  Stop ignoring {name}")
-                                if country in ignore.get("countries", ())
-                                else _("Shift+I  Ignore {name}")).format(name=_(country)),
-                               lambda: self.action_ignore("country"))
-        listed = [("call", c, c) for c in ignore.get("calls", ())] + \
-            [("country", c, _(c)) for c in ignore.get("countries", ())]
-        if listed:
-            menu.addSeparator()
-            ignored = menu.addMenu(_("Ignored ({count})").format(count=len(listed)))
-            for what, name, shown in listed:
-                ignored.addAction(_("Stop ignoring {name}").format(name=shown),
-                                  lambda w=what, n=name: self.run_worker(
-                                      self._unignore(w, n), group="tx"))
-        if not menu.isEmpty():
-            menu.popup(self.table.viewport().mapToGlobal(point))
+            self._station_menu(chosen[0], chosen[1],
+                               self.table.viewport().mapToGlobal(point))
 
-    async def _unignore(self, what: str, name: str) -> None:
-        reply = await self.link.call("ft8.ignore", on=False, **{what: name})
-        if not reply.get("error"):
-            self.state["ignore"] = reply
-            self._message("info", _("{name} no longer ignored").format(
-                name=name if what == "call" else _(name)))
-            self._fill(keep_end=True)
+    def _qso_menu(self, point) -> None:
+        row = self.qso_table.rowAt(point.y())
+        if 0 <= row < len(self.qso_lines):
+            start, decode, _cells, style = self.qso_lines[row]
+            if decode is not None and style != STYLE_TX:
+                self._station_menu(start, decode, self.qso_table.viewport().mapToGlobal(point))
+
+    def _station_menu(self, start: float, decode: dict, where) -> None:
+        """A right click on a station (the band activity, the QSO, the map, the waterfall):
+        ignore it or its country, mark it CQ auto (or no longer), and the lists' tab."""
+        call = (decode.get("sender") or "").strip("<>")
+        if not call:
+            return
+        name = call.split("/")[0]
+        country = decode.get("country") or ""
+        listed = self.state.get("ignore") or {}
+        menu = QMenu(self)
+        menu.addAction((_("I  Stop ignoring {name}") if name in listed.get("calls", ())
+                        else _("I  Ignore {name}")).format(name=call),
+                       lambda: self.run_worker(self._ignore(decode, "call"), group="tx"))
+        if country:
+            menu.addAction((_("Shift+I  Stop ignoring {name}")
+                            if country in listed.get("countries", ())
+                            else _("Shift+I  Ignore {name}")).format(name=_(country)),
+                           lambda: self.run_worker(self._ignore(decode, "country"),
+                                                   group="tx"))
+        wanted = menu.addAction(_("w  CQ auto: {name}").format(name=name),
+                                lambda: self.run_worker(self._wanted(decode), group="tx"))
+        wanted.setCheckable(True)
+        wanted.setChecked(name in listed.get("wanted", ()))
+        menu.addSeparator()
+        menu.addAction(_("The lists…"),
+                       lambda: self.top_tabs.setCurrentWidget(self.lists_frame))
+        menu.popup(where)
 
     def action_auto(self) -> None:
         if not (self.state.get("auto") or {}).get("allowed"):

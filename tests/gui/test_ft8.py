@@ -394,3 +394,70 @@ def test_a_long_list_with_a_row_chosen_fills_fast(qapp):
     assert header.sectionResizeMode(0) == QHeaderView.ResizeMode.ResizeToContents
     assert header.sectionSize(0) >= table.fontMetrics().horizontalAdvance("599·0 EA7KLX")
     table.close()
+
+
+def test_a_station_menu_the_lists_tab_and_auto_cq(tmp_path, run, monkeypatch):
+    fake_jt9(monkeypatch)
+    from PySide6.QtWidgets import QMenu
+
+    menus: list[QMenu] = []
+    monkeypatch.setattr(QMenu, "popup", lambda menu, _where: menus.append(menu))
+
+    async def scenario():
+        from ic705suite.gui.app import MainWindow
+
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", tx_enabled=True,
+                        database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        win = MainWindow(link, config, start_app="ft8")
+        win.resize(1200, 800)
+        win.show()
+        page = win.page
+        ft8 = link.core.ft8
+        try:
+            await until(lambda: page.table.rowCount() >= 4)
+            decode = next(d for _s, d, _c, _st in page.lines
+                          if d and d.get("sender") == "DL1ABC")
+            # The same menu from the map and the waterfall (their signal) as from the list.
+            page.map.station_menu.emit(1000.0, decode, page.mapToGlobal(page.rect().center()))
+            texts = [a.text() for a in menus[-1].actions() if a.text()]
+            assert texts[0] == "I  Ignore DL1ABC" and texts[2] == "w  CQ auto: DL1ABC"
+            assert texts[1].startswith("Shift+I  Ignore ")
+            next(a for a in menus[-1].actions() if a.text().startswith("w ")).trigger()
+            await until(lambda: ft8.wanted == {"DL1ABC"})
+            next(a for a in menus[-1].actions() if a.text() == "I  Ignore DL1ABC").trigger()
+            await until(lambda: ft8.ignore_calls == {"DL1ABC"})
+            await until(lambda: "DL1ABC" in (page.state.get("ignore") or {}).get("wanted", []))
+            page.waterfall.station_menu.emit(1000.0, decode, page.mapToGlobal(page.pos()))
+            wanted = next(a for a in menus[-1].actions() if a.text().startswith("w "))
+            assert wanted.isChecked()
+            assert next(a.text() for a in menus[-1].actions()
+                        if "DL1ABC" in a.text()).startswith("I  Stop ignoring")
+            # The lists' tab: both entries, a note edited, one added, one removed.
+            next(a for a in menus[-1].actions() if a.text() == "The lists…").trigger()
+            pane = page.lists_pane
+            await until(lambda: pane.table.rowCount() == 2)
+            names = {pane.table.item(r, 1).text(): r for r in range(pane.table.rowCount())}
+            pane.table.item(names["DL1ABC"], 2).setText("rare one")
+            await until(lambda: any(e["note"] == "rare one" for e in pane.entries))
+            pane.kind_box.setCurrentIndex(2)                  # CQ auto
+            pane.name_edit.setText("vp8ldx")
+            pane.add_button.click()
+            await until(lambda: "VP8LDX" in ft8.wanted)
+            pane.filter.setCurrentIndex(3)                    # CQ auto only
+            assert {pane.table.item(r, 1).text() for r in range(pane.table.rowCount())} == \
+                {"DL1ABC", "VP8LDX"}
+            pane.table.selectRow(0)
+            pane.remove_button.click()
+            await until(lambda: len(ft8.wanted) == 1)
+            # Auto CQ, its button.
+            page.wanted_button.click()
+            await until(lambda: ft8.wanted_auto)
+            await until(lambda: "Auto CQ" in page.wanted_button.text()
+                        and page.wanted_button.styleSheet())
+            page.wanted_button.click()
+            await until(lambda: not ft8.wanted_auto)
+        finally:
+            await link.close()
+
+    run(scenario())
