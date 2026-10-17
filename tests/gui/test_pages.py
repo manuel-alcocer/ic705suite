@@ -101,9 +101,6 @@ def test_dashboard_opens_the_view_and_comes_back(tmp_path, run):
             await until(lambda: isinstance(win.page, ViewPage))
             await key(Qt.Key.Key_Escape)
             await until(lambda: win.page is win.dashboard)
-            # An application not there yet (in the terminal either) says so.
-            win.dashboard.action_open("dstar")
-            assert "coming soon" in win.dashboard.messages[-1][1]
             await key(Qt.Key.Key_Q, Qt.KeyboardModifier.ControlModifier)
             await until(lambda: win.finished.done())
         finally:

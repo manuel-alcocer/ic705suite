@@ -7,7 +7,7 @@ to the radio; a dashboard opens the applications, which all share that one conne
 |---|---|---|
 | F2 | **IC-705 View** | the whole front panel (about 50 controls), meters, and a band scope with waterfall: our own wfview for the console |
 | F3 | **CW** | Bayesian CW decoder, multi-signal skimmer, keyer, channels with plain-language translation (formerly *cwic705*) |
-| F4 | **D-STAR** | terminal mode, built-in gateway, reflectors, D-PRS: *QDStar* in the terminal — **coming soon** |
+| F4 | **D-STAR** | reflectors in Terminal Mode, the overs heard (name, place, message, distance) and their history (formerly *QDStar*; D-PRS and the USB gateway to come) |
 | F5 | **Antenna** | SWR and noise sweeps, which way to move the coil, per-band history; also a page for the phone (formerly *swr-remote*) |
 | F6 | **Logbook** | *hamrlog*: contacts, ADIF, repeaters, address book |
 | F7 | **Packet** | BayCom-style terminal: 8 AX.25 channels and the monitor, over a Direwolf TNC (here or on another machine) |
@@ -36,7 +36,7 @@ or full blocks, square borders. It is chosen by itself when `TERM=linux`; `[ui] 
 │ Key  Application   What it does                         ││ Icom IC-705                       │
 │ F2   IC-705 View   Rig control: frequency, band, mode…  ││ Link: lan · connected             │
 │ F3   CW            Decoder, skimmer and keyer; channels ││   7.030.00 MHz   40m   CW         │
-│ F4   D-STAR        coming soon · Terminal mode, gateway ││   S6     ▮▮▮▮▮▮··············     │
+│ F4   D-STAR        Reflectors in Terminal Mode, overs   ││   S6     ▮▮▮▮▮▮··············     │
 │ F5   Antenna       SWR and noise sweeps, coil; phone    ││   Receive only (--tx to transmit) │
 │ F6   Logbook       hamrlog: contacts, ADIF, repeaters   │╰───────────────────────────────────╯
 │ F7   Packet        BayCom-style, 8 channels, Direwolf   │╭─ Station ─────────────────────────╮
@@ -183,6 +183,23 @@ one; hamrlog's repeaters, FM and D-STAR up to 70 cm, imported) and the radio's (
 the IC-705's 100 x 100 channels read, one written from the current frequency or a suite's
 memory, one cleared), a double click tuning to any of them; and the quick log with today's
 contacts. The radio's memory layout is the one wfview reads (CI-V 1A 00).
+
+**D-STAR** (F4, terminal and window alike) follows the radio in DV through the core, so
+it goes on with no client open when the core runs on a server: every 700 ms the last DV
+call signs, message and status received are read over CI-V, every 5 s the mode and MY /
+UR / R1 / R2. Each over goes to the history (table `dstar_history`) with the operator's
+name and place from radioid.net (cached), the message when it comes, and the D-PRS
+position read after it (distance and direction from `[station] locator`); the same header
+again within 8 s is the same over resumed, and replies of our own gateway are no
+conversation. In Terminal Mode with the radio's internal gateway (INT, R1 `<call> Z`) the
+reflector is changed by writing the TO (UR, R1 / R2 kept, read back): `[` `]` choose it, `C`
+writes it, then a short PTT registers on the reflector; `[dstar] server` is the G3 server
+set on the radio (it cannot be read over CI-V), and a reflector reached through another one
+is warned about. `N` writes the MY note, `M` the TX message, `H` hides our own overs and
+Enter (a click in the window) shows an over of the history. The reflector list is the one
+shipped (`apps/dstar/default_reflectors.json`) and the operator's own (table
+`dstar_reflectors`). This is QDStar, the same author's D-STAR controller, brought into the
+suite: its D-PRS views, the reflectors' status and its own gateway over USB (EXT) follow.
 
 ### Core on a Raspberry Pi, client here
 
@@ -532,4 +549,4 @@ author's written permission; whoever sells it without permission may be claimed 
 whole of the profits obtained.
 
 Versions published before this licence (up to commit 9760095) were GPL-3.0-or-later. The
-suite brings together cwic705, hamrlog and hamrpkt and, soon, QDStar, all by the same author.
+suite brings together cwic705, hamrlog, hamrpkt and QDStar, all by the same author.

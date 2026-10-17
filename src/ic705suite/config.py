@@ -160,6 +160,12 @@ max_power = 30
 # The map's Maidenhead grid, fields and squares with their names (its box keeps it here)
 # map_grid = true
 
+[dstar]
+# D-STAR (F4). The G3 server of Terminal Mode with the radio's internal gateway (INT), as
+# set on the radio (MENU > DV GW > Gateway Repeater): it cannot be read over CI-V, and a
+# reflector reached through another one is warned about
+# server = "server1.dstar.es"
+
 [qrz]
 # QRZ.com's logbook access key (on QRZ.com: your logbook > Settings > API Access Key);
 # ic705suite --qrz-status checks it, --qrz-upload sends the QSOs not sent yet. Keep this
@@ -278,6 +284,8 @@ class Config:
     ft8_unattended: int = 10         # [ft8] unattended: minutes transmitting with no client
     ft8_map_traffic: bool = True     # [ft8] map_traffic: the calls between others on the map
     ft8_map_grid: bool = True        # [ft8] map_grid: Maidenhead's grid on the map
+    # [dstar]
+    dstar_server: str = ""           # the G3 server the radio's internal gateway uses (INT)
                                      # of the template on purpose (the owner's station only)
     # [qrz]
     qrz_api_key: str = ""            # QRZ.com's logbook access key (never shown)
@@ -388,6 +396,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.ft8_unattended = int(ft8.get("unattended", cfg.ft8_unattended))
         cfg.ft8_map_traffic = bool(ft8.get("map_traffic", cfg.ft8_map_traffic))
         cfg.ft8_map_grid = bool(ft8.get("map_grid", cfg.ft8_map_grid))
+        cfg.dstar_server = str(data.get("dstar", {}).get("server", cfg.dstar_server))
         qrz = data.get("qrz", {})
         cfg.qrz_api_key = str(qrz.get("api_key", cfg.qrz_api_key)).strip()
         if "bands" in qrz:

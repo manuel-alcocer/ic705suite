@@ -98,6 +98,13 @@ class SimTransport(Transport):
         self.smeter = 0
         self.data_mode = (0, 0)
         self.memories: dict[bytes, bytes] = {}   # group + channel (BCD) -> its contents
+        # D-STAR: MY and its note, UR / R1 / R2, the TX message, and the last DV received
+        self.dv_my = b"EA4SIM  705 "
+        self.dv_tx_calls = b"CQCQCQ  " + b" " * 16
+        self.dv_message = b"\xff"
+        self.dv_header = b"\xff"                # flags, caller, note, called, R1, R2
+        self.dv_rx_message = b"\xff"            # message, caller, note
+        self.dv_voice = False
         self.ptt = False
         self.tx_audio_bytes = 0
         self.tx_peak = 0.0                   # of full scale: the audio sent lately (the ALC)
@@ -134,6 +141,22 @@ class SimTransport(Transport):
             self.tx_peak = float(np.abs(np.frombuffer(pcm, "<i2")).max()) / 32767
         if self.on_tx_audio is not None:
             self.on_tx_audio(pcm, self.ptt)
+
+    def dv_receive(self, caller: str, note: str = "", called: str = "CQCQCQ",
+                   rpt1: str = "", rpt2: str = "", message: str = "") -> None:
+        """A D-STAR over heard (the DV call signs and message the radio then reports)."""
+        def call(text: str) -> bytes:
+            return text.upper()[:8].ljust(8).encode()
+
+        self.dv_header = b"\x00\x00" + call(caller) + note[:4].ljust(4).encode() + \
+            call(called) + call(rpt1) + call(rpt2)
+        if message:
+            self.dv_rx_message = message[:20].ljust(20).encode() + call(caller) + \
+                note[:4].ljust(4).encode()
+        self.dv_voice = True
+
+    def dv_end(self) -> None:
+        self.dv_voice = False
 
     async def connect(self) -> None:
         self.civ_address = civ.IC705_ADDR
@@ -183,6 +206,23 @@ class SimTransport(Transport):
             return ok
         if cmd == 0x07:
             return ok
+        if cmd == 0x1F and data:                          # D-STAR: MY, UR/R1/R2, message
+            stored = {0x00: "dv_my", 0x01: "dv_tx_calls", 0x02: "dv_message"}.get(data[0])
+            if stored is None:
+                return ng
+            if len(data) == 1:
+                return body + getattr(self, stored)
+            setattr(self, stored, bytes(data[1:]))
+            return ok
+        if cmd == 0x20 and len(data) >= 2 and data[1] == 0x02:   # D-STAR: the last DV received
+            if data[0] == 0x00:
+                return body + self.dv_header
+            if data[0] == 0x01:
+                return body + self.dv_rx_message
+            if data[0] == 0x02:
+                return body + bytes([0x40 | 0x10 if self.dv_voice else 0x00])
+            if data[0] == 0x03:
+                return body + b"\xff"
         if body[:2] == b"\x1a\x00" and len(data) >= 5:      # memory channels
             where = bytes(data[1:5])
             if len(data) == 5:

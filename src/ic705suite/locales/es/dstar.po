@@ -1,0 +1,245 @@
+# D-STAR (apps.dstar, gui.dstar, gui.dstarscreen); many from QDStar's catalog.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "(set [dstar] server)"
+msgstr "(pon [dstar] server)"
+
+msgid "Call sign"
+msgstr "Indicativo"
+
+msgid "Change"
+msgstr "Cambiar"
+
+msgid "Changing the TO to {to}…"
+msgstr "Cambiando TO a {to}…"
+
+msgid "D-STAR: TO {to}; press the PTT briefly to register on the reflector"
+msgstr "D-STAR: TO {to}; pulsa el PTT un momento para registrarte en el reflector"
+
+msgid "D-STAR: system reply {caller} to {called}"
+msgstr "D-STAR: respuesta del sistema {caller} a {called}"
+
+msgid "Dist."
+msgstr "Dist."
+
+msgid "Esc Back"
+msgstr "Esc Volver"
+
+
+msgid "Hide mine"
+msgstr "Ocultar las mías"
+
+msgid "Invalid TO format (e.g. /XLX214D)"
+msgstr "Formato de TO no válido (ej. /XLX214D)"
+
+msgid "Invalid locator (e.g. IN80DK)"
+msgstr "Localizador no válido (ej. IN80DK)"
+
+msgid "Invalid reflector format (e.g. REF001 C)"
+msgstr "Formato de reflector no válido (ej. REF001 C)"
+
+
+msgid "Location"
+msgstr "Ubicación"
+
+msgid "MY note"
+msgstr "Nota MY"
+
+msgid "MY note /{note} written"
+msgstr "Nota MY /{note} escrita"
+
+msgid "R1 / R2 have not been read from the radio yet (is it in DV, in Terminal Mode?)"
+msgstr "Aún no se han leído R1 / R2 de la radio (¿está en DV, en modo Terminal?)"
+
+
+msgid "Reflector"
+msgstr "Reflector"
+
+msgid "Reflectors in Terminal Mode, the overs heard and their history"
+msgstr "Reflectores en modo Terminal, las pasadas oídas y su historial"
+
+
+msgid "TO {to}: press the PTT briefly to register on the reflector"
+msgstr "TO {to}: pulsa el PTT un momento para registrarte en el reflector"
+
+msgid "TX message"
+msgstr "Mensaje TX"
+
+msgid "TX message written"
+msgstr "Mensaje TX escrito"
+
+msgid "Terminal Mode with the radio's internal gateway (R1 <call> Z)"
+msgstr "Modo Terminal con la pasarela interna de la radio (R1 <indicativo> Z)"
+
+msgid "The 20-character message your overs carry, written to the radio with Enter"
+msgstr "El mensaje de 20 caracteres que llevan tus pasadas; se escribe en la radio con Intro"
+
+msgid "The 4 characters after your call sign (/xxxx), written to the radio with Enter"
+msgstr "Los 4 caracteres tras tu indicativo (/xxxx); se escriben en la radio con Intro"
+
+msgid "The MY call sign has not been read from the radio yet"
+msgstr "Todavía no se ha leído el indicativo MY de la radio"
+
+
+msgid "The radio did not confirm the TO {to}"
+msgstr "La radio no confirmó el TO {to}"
+
+msgid "The radio did not confirm the note /{note}"
+msgstr "La radio no ha confirmado la nota /{note}"
+
+
+msgid "Time"
+msgstr "Hora"
+
+msgid "Transmitting"
+msgstr "Transmitiendo"
+
+msgid "Write this TO to the radio (Terminal Mode with its internal gateway); then a short PTT registers on the reflector"
+msgstr "Escribe este TO en la radio (modo Terminal con su pasarela interna); después, un PTT corto te registra en el reflector"
+
+msgid "empty"
+msgstr "vacío"
+
+
+
+msgid "the radio is in {mode}, not DV"
+msgstr "la radio está en {mode}, no en DV"
+
+msgid "the radio is not in INT Terminal Mode (R1 {r1})"
+msgstr "la radio no está en Terminal Mode INT (R1 {r1})"
+
+msgid "{to} is already the current TO"
+msgstr "{to} ya es el TO actual"
+
+msgid "{to} is reached through {needed}"
+msgstr "{to} se alcanza por {needed}"
+
+msgid "N"
+msgstr "N"
+
+msgid "NNE"
+msgstr "NNE"
+
+msgid "NE"
+msgstr "NE"
+
+msgid "ENE"
+msgstr "ENE"
+
+msgid "E"
+msgstr "E"
+
+msgid "ESE"
+msgstr "ESE"
+
+msgid "SE"
+msgstr "SE"
+
+msgid "SSE"
+msgstr "SSE"
+
+msgid "S"
+msgstr "S"
+
+msgid "SSW"
+msgstr "SSO"
+
+msgid "SW"
+msgstr "SO"
+
+msgid "WSW"
+msgstr "OSO"
+
+msgid "W"
+msgstr "O"
+
+msgid "WNW"
+msgstr "ONO"
+
+msgid "NW"
+msgstr "NO"
+
+msgid "NNW"
+msgstr "NNO"
+
+
+
+
+msgid "HISTORY"
+msgstr "HISTÓRICO"
+
+
+msgid "LIVE"
+msgstr "LIVE"
+
+
+
+msgid "REFLECTOR"
+msgstr "REFLECTOR"
+
+
+
+msgid "no activity"
+msgstr "sin actividad"
+
+msgid "no position"
+msgstr "sin posición"
+
+
+
+msgid "transmitting"
+msgstr "transmitiendo"
+
+msgid "{n} d ago"
+msgstr "hace {n} d"
+
+msgid "{n} h ago"
+msgstr "hace {n} h"
+
+msgid "{n} min ago"
+msgstr "hace {n} min"
+
+
+msgid "{n}s ago"
+msgstr "hace {n}s"
+
+msgid "C changes to it"
+msgstr "C cambia a él"
+
+msgid "C changes to {to}"
+msgstr "C cambia a {to}"
+
+msgid "Choose a reflector first ([ ])"
+msgstr "Elige antes un reflector ([ ])"
+
+msgid "Last heard here"
+msgstr "Últimos oídos aquí"
+
+msgid "On air"
+msgstr "En el aire"
+
+msgid "Our own overs hidden"
+msgstr "Pasadas propias ocultas"
+
+msgid "Our own overs shown"
+msgstr "Pasadas propias visibles"
+
+msgid "Overs"
+msgstr "Pasadas"
+
+msgid "Server"
+msgstr "Servidor"
+
+msgid "The 20-character message your overs carry:"
+msgstr "El mensaje de 20 caracteres que llevan tus pasadas:"
+
+msgid "The 4 characters after your call sign (/xxxx):"
+msgstr "Los 4 caracteres tras tu indicativo (/xxxx):"
+
+msgid "[ ] Reflector · C Change · Esc Back"
+msgstr "[ ] Reflector · C Cambiar · Esc Volver"
+
+msgid "[ ] Reflector · C Change · N MY note · M TX message · H Hide mine · Enter Show over · Esc Live / Back"
+msgstr "[ ] Reflector · C Cambiar · N Nota MY · M Mensaje TX · H Ocultar las mías · Intro Ver pasada · Esc En directo / Volver"

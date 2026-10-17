@@ -70,7 +70,7 @@ from ic705suite.ui.panelmodel import PanelModel
 from ic705suite.ui.rigkeys import tune_target
 
 # The applications the graphical client has so far; the others still open in the terminal.
-GUI_APPS = {"view", "cw", "swr", "log", "packet", "ft8", "phone"}
+GUI_APPS = {"view", "cw", "dstar", "swr", "log", "packet", "ft8", "phone"}
 NOT_YET = N_("{name}: not in the graphical client yet; in the terminal: ic705suite {app}")
 ICON_SIZE = 48                 # the applications' icons, in pixels
 CELL = QSize(116, 100)         # each application: its icon, its name and its key

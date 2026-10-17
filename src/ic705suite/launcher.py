@@ -70,6 +70,11 @@ async def run_app(app_id: str, link: Link | None, config: Config, scp: set[str] 
         # With the simulator it is hamrlog's demo log (see cli.demo_logbook).
         await HamrlogApp(demo=config.connection == "sim").run_async(mouse=False)
         return 0
+    if app_id == "dstar":
+        from ic705suite.apps.dstar.app import DStarApp
+
+        return await DStarApp(link, owns_link=standalone, config=config).run_async(
+            mouse=False) or 0
     if app_id == "ft8":
         from ic705suite.apps.ft8.app import Ft8App
 

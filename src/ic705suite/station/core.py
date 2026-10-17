@@ -36,6 +36,7 @@ Commands (client -> server):
            swr.remote {on}, swr.final {coil, band?, note?}, swr.antennas, swr.antenna.select {id},
            swr.antenna.save {name, notes, coil_sign, id?}, swr.antenna.delete {id},
            pkt.* (see apps.packet.service), ft8.* (see apps.ft8.service),
+           dstar.* (see apps.dstar.service),
            audio.listen {on}  receive audio for this client (remote: binary frames)
            voice.ptt {on, source}  key the radio for this client's microphone, or for the
            radio's own (source "radio"; see station.voice)
@@ -191,6 +192,7 @@ def skim_table(session: Session) -> Event:
 class Core:
     def __init__(self, transport: Transport | None, config: Config) -> None:
         """transport=None opens the rig described by the config ([rig] model, connection)."""
+        from ic705suite.apps.dstar.service import DStarService
         from ic705suite.apps.ft8.service import Ft8Service
         from ic705suite.apps.packet.service import PacketService
         from ic705suite.apps.swr.service import SwrService
@@ -207,6 +209,7 @@ class Core:
         self.ft8 = Ft8Service(self.station, config, self.hub)
         self.lotw = LotwService(config, self.hub)
         self.voice = Voice(self.station, config, self.hub)
+        self.dstar = DStarService(self.station, config, self.hub)
         self._memories = None                  # station.memories, opened when first asked
         self._ticker: asyncio.Task | None = None
         self._pcm: list[PcmListener] = []
@@ -310,6 +313,7 @@ class Core:
         await self.ft8.stop()
         await self.lotw.stop()
         await self.voice.stop()
+        await self.dstar.stop()
         await self.session.stop()
         await self.station.stop()
 
@@ -355,6 +359,8 @@ class Core:
             return await self.lotw.call(method[5:], params)
         if method.startswith("ft8."):
             return await self.ft8.call(method[4:], params)
+        if method.startswith("dstar."):
+            return await self.dstar.call(method[6:], params)
         return {"error": f"unknown method {method}"}
 
     # ---- memory channels: the suite's (database) and the radio's --------------------------
@@ -439,3 +445,5 @@ class Core:
                 self.ft8.watch_clients(self.clients)
                 if self.ft8.changed():
                     self.hub.emit({"type": "ft8", **self.ft8.state()})
+                if self.dstar.changed():
+                    self.hub.emit({"type": "dstar", **self.dstar.state()})
