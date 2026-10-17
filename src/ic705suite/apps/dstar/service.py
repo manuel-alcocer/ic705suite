@@ -11,9 +11,16 @@ and the D-PRS position read after it. Replies of our own gateway or terminal are
 conversation. In Terminal Mode with the radio's internal gateway (INT) the reflector is
 changed by writing the TO (UR), read back to confirm it.
 
+D-PRS: every report heard is kept (positions, objects, items, weather), the one of the
+station on air (or one without a name) placed on its over; our own beacon's settings (the
+radio's menu 1A 05 0281-0297) are read every minute and written from a form, and with
+[dstar] aprs on, after each over of ours its position goes to APRS-IS too (and, with
+aprs_heard, the position of the station on air, gated as ours).
+
 Events: dstar {...state()} when it changes. Calls (dstar.*): start, stop, state,
 history {limit}, reflectors, reflector.save {item, old_to}, reflector.delete {to},
-change {to}, note {note}, message {text}, clear_history.
+change {to}, note {note}, message {text}, clear_history, dprs {limit}, weather,
+dprs_settings, dprs_save {send, source, lat, lon, alt, symbol, ssid, comment}.
 """
 
 from __future__ import annotations
@@ -27,7 +34,7 @@ import urllib.parse
 import urllib.request
 
 from ic705suite import geo
-from ic705suite.apps.dstar import civ
+from ic705suite.apps.dstar import aprs, civ, dprs
 from ic705suite.apps.dstar.protocol import ur_command
 from ic705suite.i18n import N_
 from ic705suite.rig.base import RigError
@@ -43,6 +50,8 @@ RX_RESUME = 8.0        # s: the same header again within this, the same over
 DPRS_AFTER = 2.5       # s into an over: its D-PRS position has arrived in the slow data
 DPRS_REPEAT = 300.0    # s: the same D-PRS data again is the radio's last one, not a new one
 TO_CONFIRM = 3.0       # s: the TO written must read back by then
+OWN_POLL = 60.0        # s: our own beacon's settings and GPS fix, read again
+VIA_WINDOW = 10.0      # s after an over: a report still came with it
 RADIOID_URL = "https://radioid.net/api/dmr/user/?callsign={}"
 HISTORY = 300          # rows a client gets at most
 
@@ -111,7 +120,11 @@ class DStarService:
         self.rx_info: dict | None = None        # the over on air, or the last one
         self.last_rx: dict | None = None        # for resuming it
         self.history_version = 0
+        self.dprs_version = 0
         self.reflector_info: dict | None = None   # the registry's entry of the TO in use
+        self.own: dict[str, bytes] = {}           # our beacon's items (1A 05 nnnn)
+        self.gps_fix: tuple | None = None         # the radio's GPS (23 00)
+        self.aprs = aprs.AprsIs(lambda text: log.info("dstar: %s", text))
 
     # ---- the database (blocking: threads) ------------------------------------------------
 
@@ -174,11 +187,14 @@ class DStarService:
         self._changed = True
 
     async def _run(self) -> None:
-        next_slow = 0.0
+        next_slow = next_own = 0.0
         while True:
             try:
                 if self.station.connected:
                     now = time.monotonic()
+                    if now >= next_own:
+                        next_own = now + OWN_POLL
+                        await self.read_own()
                     if now >= next_slow:
                         next_slow = now + SLOW_POLL
                         for body in (b"\x04", b"\x1f\x00", b"\x1f\x01"):
@@ -246,6 +262,15 @@ class DStarService:
                     await self._start_rx(self.last_header)     # the same header, a new over
         elif kind == "dprs" and value is not None:
             await self._on_dprs(value)
+        elif kind == "setting":
+            number, data = value
+            if number in dprs.OWN_SETTINGS and self.own.get(number) != data:
+                self.own[number] = data
+                self._touch()
+        elif kind == "my_position":
+            if value != self.gps_fix:
+                self.gps_fix = value
+                self._touch()
 
     async def _on_header(self, header: civ.RxCalls | None) -> None:
         if header is None:
@@ -375,6 +400,7 @@ class DStarService:
             await self._db(self.storage.update_entry, self.tx_entry, ended=time.time(),
                            name=own.get("name") or "", location=own.get("location") or "")
             self.tx_entry = None
+            self._beacon_own()
         self._history_changed()
 
     async def _find_reflector(self, to: str) -> None:
@@ -418,11 +444,23 @@ class DStarService:
         finally:
             self._lookups.discard(callsign)
 
+    def settings(self) -> dict | None:
+        """Our beacon's settings as a form, once all its items have been read."""
+        if not all(n in self.own for n in dprs.OWN_SETTINGS):
+            return None
+        return dprs.decode_settings(self.own)
+
     def _home(self) -> tuple[float, float] | None:
+        """Where we are: the radio's manual position or its GPS fix, else [station]
+        locator."""
+        settings = self.settings()
+        mine = dprs.own_position(settings, self.gps_fix) if settings else None
+        if mine:
+            return mine
         return geo.locator_to_latlon(self.config.locator) if self.config.locator else None
 
     def _place(self, info: dict, latlon: tuple[float, float]) -> None:
-        """Where the station is, and (with [station] locator) how far and which way."""
+        """Where the station is, and how far and which way from us."""
         info["lat"], info["lon"] = latlon
         info["pos"] = list(latlon)
         home = self._home()
@@ -430,25 +468,96 @@ class DStarService:
             info["distance"] = round(geo.distance_km(home, latlon), 1)
             info["bearing"] = round(geo.bearing_deg(home, latlon))
 
+    def _on_air(self) -> bool:
+        return bool(self.rx_info) and (self.rx_info.get("live") or
+                                       time.time() - self.rx_info.get("ended", 0) < VIA_WINDOW)
+
     async def _on_dprs(self, pos) -> None:
         """A D-PRS report: new data, or from the station on air (the radio keeps the last one
-        it heard, and a read may give an earlier station's)."""
+        it heard, and a read may give an earlier station's). Kept with the station whose over
+        carried it when that is someone else; a position without a name, or an object or
+        item during the over, belongs to the over on air."""
         raw = json.dumps([pos.callsign, pos.kind, pos.lat, pos.lon]).encode()
+        base = base_call(pos.callsign.split("-")[0])
         caller = base_call(self.rx_caller)
-        own = base_call(pos.callsign.split("-")[0]) == caller
+        own_report = bool(base) and base == caller
         repeated = raw == self.last_dprs and time.monotonic() - self.last_dprs_time < DPRS_REPEAT
-        if repeated and not own:
+        if repeated and not own_report:
             return
         self.last_dprs, self.last_dprs_time = raw, time.monotonic()
-        on_air = self.rx_info and (self.rx_info.get("live") or
-                                   time.time() - self.rx_info.get("ended", 0) < 10)
-        via = self.rx_info["callsign"] if on_air and not self._is_system_call(
-            self.rx_info["callsign"]) else ""
-        await self._db(self.storage.add_dprs, pos, via, self.reflector)
-        if pos.kind == "position" and own and self.rx_info and self.rx_entry is not None:
+        on_air = self._on_air() and not self._is_system_call(self.rx_info["callsign"])
+        over_call = self.rx_info["callsign"] if on_air else ""
+        via = over_call if over_call and base and base != over_call else ""
+        name = pos.callsign or over_call or "?"
+        report = civ.DprsPosition(name, pos.symbol, pos.lat, pos.lon, pos.altitude, pos.kind,
+                                  pos.weather)
+        if await self._db(self.storage.add_dprs, report, via, self.reflector):
+            self.dprs_version += 1
+            self._touch()
+        self._gate_heard(pos, base)
+        if not on_air or self.rx_entry is None:
+            return
+        same = base == over_call or (pos.kind == "position" and not base)
+        if same or pos.kind in ("object", "item"):
             self._place(self.rx_info, (pos.lat, pos.lon))
             await self._db(self.storage.update_entry, self.rx_entry, lat=pos.lat, lon=pos.lon)
-        self._history_changed()
+            self._history_changed()
+
+    # ---- our beacon, and APRS-IS ----------------------------------------------------------
+
+    async def read_own(self) -> None:
+        for number in dprs.OWN_SETTINGS:
+            await self._ask(b"\x1a\x05" + bytes.fromhex(number))
+        await self._ask(b"\x23\x00")
+
+    def _aprs_ready(self) -> bool:
+        call = base_call(self.config.callsign or self.my_call)
+        if not self.config.dstar_aprs or not call:
+            return False
+        self.aprs.configure(call, self.config.dstar_aprs_server)
+        return True
+
+    def _beacon_own(self) -> None:
+        """After our over, the position the radio sent over D-STAR goes to APRS-IS too."""
+        settings = self.settings()
+        if not settings or not settings["send"] or not self._aprs_ready():
+            return
+        mine = dprs.own_position(settings, self.gps_fix)
+        if not mine:
+            return
+        symbol = settings["symbols"][settings["symbol"]] or "/-"
+        altitude = settings["alt"] if settings["source"] == "manual" else None
+        body = aprs.position_body(mine[0], mine[1], symbol, altitude, settings["comment"])
+        self.aprs.send_own(dprs.source_call(self.aprs.callsign, settings["ssid"]), body)
+
+    def _gate_heard(self, pos, base: str) -> None:
+        """The position of the station on air (never objects, weather or relayed reports)."""
+        if not self.config.dstar_aprs_heard or pos.kind != "position" or not base:
+            return
+        mine = base_call(self.my_call or self.config.callsign)
+        if not self._on_air() or base_call(self.rx_caller) != base or base == mine:
+            return
+        if self._aprs_ready():
+            self.aprs.send_heard(pos.callsign, aprs.position_body(pos.lat, pos.lon,
+                                                                  pos.symbol or "/[",
+                                                                  pos.altitude))
+
+    async def save_settings(self, form: dict) -> dict:
+        """Our beacon's settings written, each item read back to confirm it."""
+        writes = dprs.encode_settings(form)
+        for number, data in writes.items():
+            await self.station.rig.transact(b"\x1a\x05" + bytes.fromhex(number) + data)
+        refused = []
+        for number, data in writes.items():
+            self.own.pop(number, None)
+            await self._ask(b"\x1a\x05" + bytes.fromhex(number))
+            if number in dprs.OWN_SETTINGS and self.own.get(number) != data:
+                refused.append(number)
+        if refused:
+            raise DStarError(N_("The radio did not accept the settings {numbers}"),
+                             numbers=", ".join(refused))
+        self._touch()
+        return {"settings": self.settings()}
 
     # ---- what the operator does -----------------------------------------------------------
 
@@ -518,6 +627,9 @@ class DStarService:
                 "transmitting": self.transmitting, "tx_since": self.tx_since,
                 "rx": info, "rx_active": self.rx_active, "server": self.config.dstar_server,
                 "reflector": self.reflector_info, "history_version": self.history_version,
+                "dprs_version": self.dprs_version, "dprs": self.settings(),
+                "home": list(self._home()) if self._home() else None,
+                "aprs": self.config.dstar_aprs,
                 "locator": self.config.locator, "callsign": self.config.callsign}
 
     async def call(self, method: str, params: dict) -> dict:
@@ -546,6 +658,17 @@ class DStarService:
                 return await self.set_note(str(params.get("note", "")))
             elif method == "message":
                 return await self.set_message(str(params.get("text", "")))
+            elif method == "dprs":
+                rows = await self._db(self.storage.recent_dprs,
+                                      min(HISTORY, int(params.get("limit", HISTORY))))
+                return {"dprs": rows}
+            elif method == "weather":
+                return {"weather": await self._db(self.storage.latest_weather)}
+            elif method == "dprs_settings":
+                await self.read_own()
+                return {"settings": self.settings()}
+            elif method == "dprs_save":
+                return await self.save_settings(params)
             elif method == "clear_history":
                 await self._db(self.storage.clear_history)
                 self._history_changed()

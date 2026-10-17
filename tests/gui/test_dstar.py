@@ -91,3 +91,54 @@ def test_dstar_opens_from_the_dashboard(tmp_path, run):
             await link.close()
 
     run(scenario())
+
+
+def test_dprs_views_and_the_beacon_dialog(tmp_path, run, monkeypatch):
+    monkeypatch.setattr(service_module, "FAST_POLL", 0.1)
+    monkeypatch.setattr(service_module, "RX_END_GRACE", 0.4)
+    monkeypatch.setattr(service_module, "DPRS_AFTER", 0.2)
+    monkeypatch.setattr(service_module, "lookup_name", lambda call: ("", ""))
+
+    async def scenario():
+        from ic705suite.gui.app import MainWindow
+        from ic705suite.gui.dstar import BeaconDialog
+
+        config = Config(connection="sim", swr_web=False, callsign="EA4SIM", locator="IM77",
+                        database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        win = MainWindow(link, config, start_app="dstar")
+        win.resize(1300, 900)
+        win.show()
+        page = win.page
+        await until(lambda: link.connected)
+        sim = link.core.station.transport
+        sim.mode = 0x17
+        try:
+            await until(lambda: page.state.get("dprs"))
+            sim.dv_position("EA7ABC-9", 37.39, -5.98)
+            sim.dv_receive("EA7ABC", "705")
+            await until(lambda: page.dprs_table.rowCount() == 1)
+            assert page.dprs_table.item(0, 1).text() == "EA7ABC-9"
+            assert "km" in page.dprs_table.item(0, 3).text()
+            page.table.setFocus()
+            await key(None, text="v")                      # V: the next view
+            assert page.views.currentIndex() == 1 and page.view == "dprs"
+            await key(None, text="v")
+            assert page.view == "weather"
+            await key(None, text="b")                      # B: the beacon, from the radio
+            await until(lambda: page.findChildren(BeaconDialog))
+            dialog = page.findChildren(BeaconDialog)[0]
+            assert dialog.symbol.count() == 4 and dialog.source.currentData() == "gps"
+            dialog.send.setChecked(True)
+            dialog.source.setCurrentIndex(1)
+            dialog.locator.setText("IN80DK")
+            dialog.comment.setText("hola")
+            dialog._save()
+            await until(lambda: (page.state.get("dprs") or {}).get("send"))
+            assert page.state["dprs"]["source"] == "manual"
+            assert page.state["dprs"]["comment"] == "hola"
+            assert "confirmed" in page.message.text()
+        finally:
+            await link.close()
+
+    run(scenario())

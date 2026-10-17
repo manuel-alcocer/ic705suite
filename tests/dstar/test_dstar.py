@@ -158,6 +158,23 @@ def test_the_terminal_screen(tmp_path, monkeypatch):
                     if sim.dv_tx_calls[:8] == chosen.encode().ljust(8):
                         break
                 assert sim.dv_tx_calls[:8] == chosen.encode().ljust(8)
+                await pilot.press("v")                    # the D-PRS reports, the weather
+                assert app.view == "dprs"
+                assert app.query_one("#history", DataTable).border_title == "D-PRS"
+                await pilot.press("v")
+                await pilot.press("v")                    # and the history again
+                assert app.view == "history"
+                await pilot.press("b")                    # the beacon's form, from the radio
+                from ic705suite.apps.dstar.app import BeaconScreen
+
+                for _ in range(40):
+                    await pilot.pause(0.1)
+                    if isinstance(app.screen, BeaconScreen):
+                        break
+                assert isinstance(app.screen, BeaconScreen)
+                await pilot.press("escape")               # left as it was
+                await pilot.pause(0.2)
+                assert not isinstance(app.screen, BeaconScreen)
                 await pilot.press("escape")
                 await pilot.pause(0.3)
             assert app.return_value == 0
@@ -165,3 +182,83 @@ def test_the_terminal_screen(tmp_path, monkeypatch):
             await link.close()
 
     asyncio.run(scenario())
+
+
+def test_dprs_reports_and_our_beacon(tmp_path, monkeypatch):
+    """A D-PRS position heard with an over is kept and placed on it (distance from us);
+    our beacon's settings are read, written and confirmed; after our over its position
+    goes to APRS-IS (a fake server)."""
+    from ic705suite.apps.dstar import aprs, dprs
+
+    monkeypatch.setattr(service_module, "FAST_POLL", 0.1)
+    monkeypatch.setattr(service_module, "RX_END_GRACE", 0.4)
+    monkeypatch.setattr(service_module, "DPRS_AFTER", 0.2)
+    monkeypatch.setattr(service_module, "lookup_name", lambda call: ("", ""))
+    sent: list[str] = []
+
+    async def scenario():
+        async def server(reader, writer):
+            login = (await reader.readline()).decode()
+            assert login.startswith("user EA4SIM-10 pass ")
+            assert str(aprs.passcode("EA4SIM")) in login
+            writer.write(b"# logresp EA4SIM-10 verified, server TEST\r\n")
+            await writer.drain()
+            while line := await reader.readline():
+                sent.append(line.decode().strip())
+
+        fake = await asyncio.start_server(server, "127.0.0.1", 0)
+        port = fake.sockets[0].getsockname()[1]
+        config = Config(connection="sim", swr_web=False, callsign="EA4SIM", locator="IM77",
+                        tx_enabled=True, dstar_aprs=True, dstar_aprs_server=f"127.0.0.1:{port}",
+                        database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        sim, dstar = link.core.station.transport, link.core.dstar
+        sim.mode = 0x17
+        try:
+            await link.call("dstar.start")
+            await until(lambda: dstar.settings() is not None and dstar.my_call)
+            settings = (await link.call("dstar.dprs_settings"))["settings"]
+            assert settings["source"] == "gps" and settings["symbols"][1] == "/>"
+            assert not settings["send"]
+            # A position heard with an over: kept, placed on it
+            sim.dv_position("EA7ABC-9", 37.39, -5.98)
+            sim.dv_receive("EA7ABC", "705")
+            await until(lambda: dstar.rx_info and dstar.rx_info.get("distance") is not None)
+            sim.dv_end()
+            await until(lambda: not dstar.rx_active)
+            reports = (await link.call("dstar.dprs"))["dprs"]
+            assert reports[0]["name"] == "EA7ABC-9" and reports[0]["kind"] == "position"
+            row = (await link.call("dstar.history"))["history"][0]
+            assert row["lat"] == pytest.approx(37.39) and row["lon"] == pytest.approx(-5.98)
+            # Our beacon: a manual position, symbol 2 (car), SSID -9, a comment
+            form = {"send": True, "source": "manual", "lat": 40.4168, "lon": -3.7038,
+                    "alt": 650, "symbol": 1, "ssid": dprs.SSID_CHOICES.index("-9"),
+                    "comment": "IC-705 portable"}
+            saved = (await link.call("dstar.dprs_save", **form))["settings"]
+            assert saved["send"] and saved["source"] == "manual" and saved["symbol"] == 1
+            assert saved["lat"] == pytest.approx(40.4168, abs=1e-4)
+            assert saved["comment"] == "IC-705 portable"
+            assert (await link.call("dstar.state"))["dprs"]["send"]
+            # Our over: its position to APRS-IS
+            sim.ptt = True
+            await until(lambda: dstar.transmitting)
+            sim.ptt = False
+            await until(lambda: sent, 10)
+            assert sent[0].startswith("EA4SIM-9>API705,TCPIP*:!4025.01N/00342.23W>")
+            assert sent[0].endswith("IC-705 portable")
+        finally:
+            await link.close()
+            fake.close()
+
+    asyncio.run(scenario())
+
+
+def test_the_beacon_form():
+    from ic705suite.apps.dstar.app import beacon_form
+
+    form = beacon_form(True, "manual", "", "", "", "IM77AH", 0, 0, "x")
+    assert form["lat"] == pytest.approx(37.31, abs=0.05) and form["alt"] is None
+    assert isinstance(beacon_form(True, "manual", "95", "0", "", "", 0, 0, ""), str)
+    assert beacon_form(False, "gps", "", "", "", "", 2, 5, "c") == \
+        {"send": False, "source": "gps", "symbol": 2, "ssid": 5, "comment": "c"}

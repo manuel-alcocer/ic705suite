@@ -7,6 +7,8 @@ overs. The keys are the same in the terminal and in the window (gui.dstar):
   [ ]  choose another reflector   C  change to it (writes the TO; a short PTT registers)
   N    the MY note (/xxxx)        M  the TX message
   H    hide our own overs         Enter  an over of the history, in the on-air box
+  V    the history, the D-PRS reports heard, the weather stations
+  B    our D-PRS beacon (the radio's settings: position, symbol, SSID, comment)
   Esc  back to live, or leave
 
 The functions here (what each part shows) serve both clients; the window draws the same
@@ -20,20 +22,23 @@ import time
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal
-from textual.widgets import DataTable, Static
+from textual.containers import Horizontal, Vertical
+from textual.screen import ModalScreen
+from textual.widgets import Button, Checkbox, DataTable, Input, Label, Select, Static
 
 from ic705suite import geo
+from ic705suite.apps.dstar import dprs
 from ic705suite.apps.dstar.civ import compass_point
 from ic705suite.i18n import N_, _, render
 from ic705suite.station.links import Link
 from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.widgets import NameScreen, clock_footer, css
 
-HINT = N_("[ ] Reflector · C Change · N MY note · M TX message · H Hide mine · "
-          "Enter Show over · Esc Live / Back")
+HINT = N_("[ ] Reflector · C Change · N MY note · M TX message · V View · B D-PRS beacon · "
+          "H Hide mine · Enter Show over · Esc Live / Back")
 SHORT_HINT = N_("[ ] Reflector · C Change · Esc Back")
 INDICATORS = (("civ", "CI-V"), ("dv", "DV"), ("int", "INT"), ("rx", "RX"), ("tx", "TX"))
+VIEWS = (("history", N_("History")), ("dprs", N_("D-PRS")), ("weather", N_("Weather")))
 
 
 # ---- what each part shows (both clients) -------------------------------------------------
@@ -93,15 +98,17 @@ def clock(since: float | None, now: float | None = None) -> str:
     return f"{secs // 60:02d}:{secs % 60:02d}"
 
 
-def where(over: dict, locator: str = "") -> str:
-    """How far and which way, from [station] locator ("612 km NE 47°"), or ""."""
+def where(over: dict, home=None) -> str:
+    """How far and which way from us ("612 km NE 47°"; home: our (lat, lon), or a locator),
+    or ""."""
     if over.get("distance") is not None:
         bearing = over.get("bearing") or 0
         return f"{over['distance']:.0f} km {_(compass_point(bearing))} {bearing:.0f}°"
     lat, lon = over.get("lat"), over.get("lon")
     if lat is None or lon is None:
         return ""
-    home = geo.locator_to_latlon(locator) if locator else None
+    if isinstance(home, str):
+        home = geo.locator_to_latlon(home) if home else None
     if not home:
         return (f"{abs(lat):.2f}°{'N' if lat >= 0 else 'S'} "
                 f"{abs(lon):.2f}°{'E' if lon >= 0 else 'W'}")
@@ -135,7 +142,7 @@ def on_air(state: dict, review: dict | None = None, now: float | None = None) ->
         return {"title": "", "call": "", "lines": [], "time": ""}
     call = over.get("callsign", "") + (f" /{over['suffix']}" if over.get("suffix") else "")
     lines = [text for text in (over.get("name"), over.get("location"),
-                               where(over, state.get("locator", ""))) if text]
+                               where(over, home_of(state))) if text]
     if over.get("message"):
         lines.append(f"« {over['message']} »")
     return {"title": title, "call": call, "lines": lines, "time": time_text, "tx": tx,
@@ -149,7 +156,24 @@ def heard_here(rows: list[dict], to: str, count: int = 3) -> list[tuple[str, str
             for r in rows if to and r.get("reflector") == to][:count]
 
 
-def history_cells(row: dict, locator: str = "") -> list[str]:
+def distance_to(home):
+    """A function giving a report's distance from home (km), None when unknown."""
+    if isinstance(home, str):
+        home = geo.locator_to_latlon(home) if home else None
+
+    def km(row: dict) -> float | None:
+        if not home or row.get("lat") is None or row.get("lon") is None:
+            return None
+        return geo.distance_km(home, (row["lat"], row["lon"]))
+    return km
+
+
+def home_of(state: dict):
+    """Where we are for distances: the core's (the radio's position), else the locator."""
+    return tuple(state["home"]) if state.get("home") else state.get("locator", "")
+
+
+def history_cells(row: dict, locator="") -> list[str]:
     started = time.strftime("%d/%m %H:%M", time.localtime(row["started"]))
     if row.get("ended"):
         secs = int(row["ended"] - row["started"])
@@ -164,6 +188,34 @@ def history_columns() -> list[str]:
             _("Message")]
 
 
+def dprs_columns() -> list[str]:
+    return [_("Time"), _("Station"), _("Type"), _("Dist."), _("Details"), _("Via"),
+            _("Reflector")]
+
+
+def dprs_cells(row: dict, home="") -> list[str]:
+    import json
+
+    details = dprs.symbol_name(row.get("symbol") or "")
+    if row.get("kind") == "weather" and row.get("weather"):
+        details = dprs.weather_text(json.loads(row["weather"]))
+    return [time.strftime("%d/%m %H:%M", time.localtime(row["received"])), row["name"],
+            _(dprs.KINDS.get(row["kind"], row["kind"])), where(row, home), details,
+            row.get("via") or "", row.get("reflector") or ""]
+
+
+def weather_columns() -> list[str]:
+    return [_("Station"), _("Weather"), _("Dist."), _("Via"), _("When")]
+
+
+def weather_cells(row: dict, home="") -> list[str]:
+    import json
+
+    report = json.loads(row["weather"]) if row.get("weather") else {}
+    return [row["name"], dprs.weather_text(report), where(row, home), row.get("via") or "",
+            ago(row["received"])]
+
+
 def extra(state: dict) -> list[tuple[str, str]]:
     """D-STAR's fields in the rig's status line."""
     pieces = []
@@ -174,7 +226,88 @@ def extra(state: dict) -> list[tuple[str, str]]:
                                                   if state.get("my_note") else "")))
     if state.get("radio_mode") == "int":
         pieces.append(("", "INT"))
+    if state.get("dprs"):
+        pieces.append(("D-PRS", "ON" if state["dprs"]["send"] else "OFF"))
     return pieces
+
+
+class BeaconScreen(ModalScreen[dict | None]):
+    """Our D-PRS beacon, as the radio has it: sent with every over or not, the position
+    (the radio's GPS, or one typed: degrees, or a locator's centre), the symbol (one of the
+    four the radio keeps), the SSID and the comment. Returns the form, None on Esc."""
+
+    BINDINGS = [Binding("escape", "dismiss(None)", show=False)]
+
+    def __init__(self, settings: dict) -> None:
+        super().__init__()
+        self.settings = settings
+
+    def compose(self) -> ComposeResult:
+        s = self.settings
+        symbols = [(_("No. {n}: {name} ({code})").format(n=i + 1, name=dprs.symbol_name(code),
+                                                         code=code), i)
+                   for i, code in enumerate(s["symbols"])]
+        with Vertical(classes="modal"):
+            yield Label(_("D-PRS beacon"), classes="modal-subtitle")
+            yield Checkbox(_("Send my position with every over"), s["send"], id="send")
+            yield Select([(_("The radio's GPS"), "gps"), (_("A position typed here"), "manual")],
+                         value=s["source"], allow_blank=False, id="source")
+            yield Input("" if s["lat"] is None else f"{s['lat']:.5f}", placeholder=_("Latitude"),
+                        id="lat")
+            yield Input("" if s["lon"] is None else f"{s['lon']:.5f}",
+                        placeholder=_("Longitude (west negative)"), id="lon")
+            yield Input("" if s["alt"] is None else f"{s['alt']:g}",
+                        placeholder=_("Altitude (m, optional)"), id="alt")
+            yield Input("", placeholder=_("Or a locator (its centre)"), id="locator")
+            yield Select(symbols, value=s["symbol"], allow_blank=False, id="symbol")
+            yield Select([(name, i) for i, name in enumerate(dprs.SSID_CHOICES)],
+                         value=s["ssid"], allow_blank=False, id="ssid")
+            yield Input(s["comment"], placeholder=_("Comment"), max_length=dprs.COMMENT_LENGTH,
+                        id="comment")
+            with Horizontal(classes="modal-buttons"):
+                yield Button(_("Save"), variant="primary", id="save")
+                yield Button(_("Cancel"), id="cancel")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id != "save":
+            self.dismiss(None)
+            return
+        form = beacon_form(
+            send=self.query_one("#send", Checkbox).value,
+            source=self.query_one("#source", Select).value,
+            lat=self.query_one("#lat", Input).value, lon=self.query_one("#lon", Input).value,
+            alt=self.query_one("#alt", Input).value,
+            locator=self.query_one("#locator", Input).value,
+            symbol=self.query_one("#symbol", Select).value,
+            ssid=self.query_one("#ssid", Select).value,
+            comment=self.query_one("#comment", Input).value)
+        if isinstance(form, str):
+            self.notify(form, severity="error")
+            return
+        self.dismiss(form)
+
+
+def beacon_form(send, source, lat, lon, alt, locator, symbol, ssid, comment) -> dict | str:
+    """The beacon form as the core takes it, or why not (a message)."""
+    form = {"send": bool(send), "source": source, "symbol": int(symbol), "ssid": int(ssid),
+            "comment": comment}
+    if source != "manual":
+        return form
+    try:
+        if locator.strip():
+            from ic705suite.apps.dstar.civ import locator_to_latlon
+
+            form["lat"], form["lon"] = locator_to_latlon(locator)
+        else:
+            form["lat"] = float(lat.replace(",", "."))
+            form["lon"] = float(lon.replace(",", "."))
+        form["alt"] = float(alt.replace(",", ".")) if alt.strip() else None
+    except ValueError as exc:
+        return str(exc) if "locator" in str(exc).lower() else \
+            _("Check the latitude, longitude and altitude")
+    if not (-90 <= form["lat"] <= 90 and -180 <= form["lon"] <= 180):
+        return _("Coordinates out of range")
+    return form
 
 
 def remote(link) -> bool:
@@ -201,7 +334,9 @@ class DStarApp(App[int]):
         Binding("n", "note", show=False),
         Binding("m", "message", show=False),
         Binding("h", "hide_mine", show=False),
-        Binding("escape", "escape", show=False, priority=True),
+        Binding("v", "view", show=False),
+        Binding("b", "beacon", show=False),
+        Binding("escape", "escape", show=False),
         Binding("ctrl+q", "leave", show=False, priority=True),
     ]
 
@@ -218,6 +353,10 @@ class DStarApp(App[int]):
         self.review: dict | None = None
         self.hide_mine = False
         self.history_version = -1
+        self.dprs_version = -1
+        self.dprs_rows: list[dict] = []
+        self.weather_rows: list[dict] = []
+        self.view = "history"
         self.started_here = False
 
     def compose(self) -> ComposeResult:
@@ -236,9 +375,8 @@ class DStarApp(App[int]):
             box.border_title = title
             box.styles.width = "1fr"
         table = self.query_one("#history", DataTable)
-        table.border_title = _("History")
-        table.add_columns(*history_columns())
         table.styles.height = "1fr"
+        self._fill_view()
         self.set_interval(1.0, self._tick)
         self.link.attach(self._on_event)
         self.run_worker(self._start(), exclusive=True)
@@ -274,6 +412,9 @@ class DStarApp(App[int]):
             if event.get("history_version") != self.history_version:
                 self.history_version = event.get("history_version")
                 self.run_worker(self._load_history(), group="history", exclusive=True)
+            if event.get("dprs_version") != self.dprs_version:
+                self.dprs_version = event.get("dprs_version")
+                self.run_worker(self._load_dprs(), group="dprs", exclusive=True)
             self._show()
         elif kind == "reconnected":
             self.run_worker(self._start(), exclusive=True)
@@ -286,6 +427,19 @@ class DStarApp(App[int]):
             self.rows = reply.get("history", [])
             self._fill_history()
             self._show()
+
+    async def _load_dprs(self) -> None:
+        reply = await self.link.call("dstar.dprs")
+        weather = await self.link.call("dstar.weather")
+        if not reply.get("error"):
+            self.dprs_rows = reply.get("dprs", [])
+        if not weather.get("error"):
+            rows = weather.get("weather", [])
+            km = distance_to(home_of(self.state))
+            rows.sort(key=lambda r: km(r) if km(r) is not None else 1e9)   # the nearest first
+            self.weather_rows = rows
+        if self.view != "history":
+            self._fill_view()
 
     async def _load_reflectors(self) -> None:
         reply = await self.link.call("dstar.reflectors")
@@ -303,17 +457,40 @@ class DStarApp(App[int]):
         return self.rows
 
     def _fill_history(self) -> None:
+        self._fill_view()
+
+    def _fill_view(self) -> None:
+        """The lower table: the history, the D-PRS reports or the weather stations."""
         table = self.query_one("#history", DataTable)
         row = table.cursor_row
-        table.clear()
-        self.shown = self.shown_rows()
-        locator = self.state.get("locator", "")
-        for r in self.shown:
-            cells = history_cells(r, locator)
-            cells[1] = Text(cells[1], style="bold red" if r["direction"] == "TX" else "bold cyan")
-            table.add_row(*cells)
-        if self.shown:
-            table.move_cursor(row=min(row, len(self.shown) - 1))
+        table.clear(columns=True)
+        table.border_title = _(dict(VIEWS)[self.view])
+        home = home_of(self.state)
+        if self.view == "history":
+            table.add_columns(*history_columns())
+            self.shown = self.shown_rows()
+            for r in self.shown:
+                cells = history_cells(r, home)
+                cells[1] = Text(cells[1], style="bold red" if r["direction"] == "TX"
+                                else "bold cyan")
+                table.add_row(*cells)
+            count = len(self.shown)
+        elif self.view == "dprs":
+            table.add_columns(*dprs_columns())
+            for r in self.dprs_rows:
+                cells = dprs_cells(r, home)
+                cells[1] = Text(cells[1], style="bold yellow")
+                table.add_row(*cells)
+            count = len(self.dprs_rows)
+        else:
+            table.add_columns(*weather_columns())
+            for r in self.weather_rows:
+                cells = weather_cells(r, home)
+                cells[0] = Text(cells[0], style="bold yellow")
+                table.add_row(*cells)
+            count = len(self.weather_rows)
+        if count:
+            table.move_cursor(row=min(row, count - 1))
 
     def _show(self) -> None:
         if not self.is_running:
@@ -390,7 +567,7 @@ class DStarApp(App[int]):
             Text(" " + text[:200], style="bold red" if kind == "error" else "cyan"))
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        if 0 <= event.cursor_row < len(self.shown):
+        if self.view == "history" and 0 <= event.cursor_row < len(self.shown):
             self.review = self.shown[event.cursor_row]
             self._show_on_air()
 
@@ -464,6 +641,34 @@ class DStarApp(App[int]):
         self._fill_history()
         self._message("info", _("Our own overs hidden") if self.hide_mine else
                       _("Our own overs shown"))
+
+    def action_view(self) -> None:
+        """V: the history, the D-PRS reports heard, the weather stations, in turn."""
+        names = [name for name, _label in VIEWS]
+        self.view = names[(names.index(self.view) + 1) % len(names)]
+        self._fill_view()
+
+    def action_beacon(self) -> None:
+        self.run_worker(self._beacon(), group="tx")
+
+    async def _beacon(self) -> None:
+        """B: our D-PRS beacon, read from the radio, edited, written and confirmed."""
+        reply = await self.link.call("dstar.dprs_settings")
+        settings = reply.get("settings")
+        if not settings:
+            self._message("error", error_text(reply) if reply.get("error") else
+                          _("The radio's D-PRS settings could not be read"))
+            return
+        form = await self._beacon_form(settings)
+        if form is None:
+            return
+        reply = await self.link.call("dstar.dprs_save", **form)
+        self._message("error" if reply.get("error") else "info",
+                      error_text(reply) if reply.get("error") else
+                      _("D-PRS beacon saved in the radio and confirmed"))
+
+    async def _beacon_form(self, settings: dict) -> dict | None:
+        return await self.push_screen_wait(BeaconScreen(settings))
 
     def action_escape(self) -> None:
         if self.review is not None:

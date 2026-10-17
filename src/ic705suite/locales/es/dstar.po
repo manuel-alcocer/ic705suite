@@ -241,5 +241,138 @@ msgstr "Los 4 caracteres tras tu indicativo (/xxxx):"
 msgid "[ ] Reflector · C Change · Esc Back"
 msgstr "[ ] Reflector · C Cambiar · Esc Volver"
 
-msgid "[ ] Reflector · C Change · N MY note · M TX message · H Hide mine · Enter Show over · Esc Live / Back"
-msgstr "[ ] Reflector · C Cambiar · N Nota MY · M Mensaje TX · H Ocultar las mías · Intro Ver pasada · Esc En directo / Volver"
+
+msgid "A position typed here"
+msgstr "Una posición escrita aquí"
+
+msgid "Altitude (m)"
+msgstr "Altitud (m)"
+
+msgid "Altitude (m, optional)"
+msgstr "Altitud (m, opcional)"
+
+msgid "Check the latitude, longitude and altitude"
+msgstr "Revisa la latitud, la longitud y la altitud"
+
+msgid "Comment"
+msgstr "Comentario"
+
+msgid "Coordinates out of range"
+msgstr "Coordenadas fuera de rango"
+
+msgid "D-PRS"
+msgstr "D-PRS"
+
+msgid "D-PRS beacon"
+msgstr "Baliza D-PRS"
+
+msgid "D-PRS beacon saved in the radio and confirmed"
+msgstr "Baliza D-PRS guardada en la radio y confirmada"
+
+msgid "Details"
+msgstr "Detalles"
+
+msgid "Latitude"
+msgstr "Latitud"
+
+msgid "Longitude (west negative)"
+msgstr "Longitud (oeste negativa)"
+
+msgid "No. {n}: {name} ({code})"
+msgstr "N.º {n}: {name} ({code})"
+
+msgid "Or a locator"
+msgstr "O un locator"
+
+msgid "Or a locator (its centre)"
+msgstr "O un locator (su centro)"
+
+msgid "Reports"
+msgstr "Informes"
+
+msgid "Save"
+msgstr "Guardar"
+
+msgid "Send my position with every over"
+msgstr "Enviar mi posición con cada pasada"
+
+msgid "Symbol"
+msgstr "Símbolo"
+
+msgid "The centre of the square: an area, not your exact home"
+msgstr "El centro del cuadrado: una zona, no tu casa exacta"
+
+msgid "The radio did not accept the settings {numbers}"
+msgstr "La radio no aceptó los ajustes {numbers}"
+
+msgid "The radio's D-PRS settings could not be read"
+msgstr "No se pudieron leer los ajustes D-PRS de la radio"
+
+msgid "The radio's GPS"
+msgstr "El GPS de la radio"
+
+msgid "Weather"
+msgstr "Tiempo"
+
+msgid "When"
+msgstr "Cuándo"
+
+msgid "[ ] Reflector · C Change · N MY note · M TX message · V View · B D-PRS beacon · H Hide mine · Enter Show over · Esc Live / Back"
+msgstr "[ ] Reflector · C Cambiar · N Nota MY · M Mensaje TX · V Vista · B Baliza D-PRS · H Ocultar las mías · Intro Ver pasada · Esc En directo / Volver"
+
+msgid "calm"
+msgstr "calma"
+
+msgid "item"
+msgstr "ítem"
+
+msgid "object"
+msgstr "objeto"
+
+msgid "optional"
+msgstr "opcional"
+
+msgid "rain {mm} mm/24h"
+msgstr "lluvia {mm} mm/24h"
+
+msgid "Bicycle"
+msgstr "Bicicleta"
+
+msgid "Car"
+msgstr "Coche"
+
+msgid "House"
+msgstr "Casa"
+
+msgid "House (HF)"
+msgstr "Casa (HF)"
+
+msgid "Jeep"
+msgstr "Jeep"
+
+msgid "Motorbike"
+msgstr "Moto"
+
+msgid "Motorhome"
+msgstr "Autocaravana"
+
+msgid "Person"
+msgstr "Persona"
+
+msgid "Pick-up"
+msgstr "Pick-up"
+
+msgid "Sailboat"
+msgstr "Velero"
+
+msgid "Ship"
+msgstr "Barco"
+
+msgid "Small aircraft"
+msgstr "Avioneta"
+
+msgid "Truck"
+msgstr "Camión"
+
+msgid "Van"
+msgstr "Furgoneta"

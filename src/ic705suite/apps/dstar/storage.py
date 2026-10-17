@@ -138,6 +138,16 @@ class Storage:
             return _rows(conn.execute(sa.select(dprs).order_by(
                 dprs.c.received.desc()).limit(limit)))
 
+    def latest_weather(self, max_age: float = 24 * 3600) -> list[dict]:
+        """The latest weather report of each station heard in the last max_age seconds."""
+        since = time.time() - max_age
+        latest = sa.select(dprs.c.name, sa.func.max(dprs.c.received).label("latest")).where(
+            dprs.c.kind == "weather", dprs.c.received >= since).group_by(dprs.c.name).subquery()
+        with self.engine.connect() as conn:
+            return _rows(conn.execute(sa.select(dprs).join(latest, sa.and_(
+                dprs.c.name == latest.c.name, dprs.c.received == latest.c.latest)).where(
+                dprs.c.kind == "weather")))
+
     # ---- names --------------------------------------------------------------------------
 
     def cached_name(self, callsign: str, max_age: float = 30 * 86400) -> dict | None:

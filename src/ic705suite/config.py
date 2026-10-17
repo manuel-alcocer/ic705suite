@@ -165,6 +165,12 @@ max_power = 30
 # set on the radio (MENU > DV GW > Gateway Repeater): it cannot be read over CI-V, and a
 # reflector reached through another one is warned about
 # server = "server1.dstar.es"
+# After each over of ours, the D-PRS position the radio sent goes to APRS-IS too (aprs.fi),
+# with the beacon's symbol, SSID and comment; aprs_heard also gates the position of the
+# station on air. The server, by default rotate.aprs2.net:14580
+# aprs = false
+# aprs_heard = false
+# aprs_server = ""
 
 [qrz]
 # QRZ.com's logbook access key (on QRZ.com: your logbook > Settings > API Access Key);
@@ -286,6 +292,9 @@ class Config:
     ft8_map_grid: bool = True        # [ft8] map_grid: Maidenhead's grid on the map
     # [dstar]
     dstar_server: str = ""           # the G3 server the radio's internal gateway uses (INT)
+    dstar_aprs: bool = False         # our D-PRS beacon to APRS-IS too, after each over
+    dstar_aprs_server: str = ""      # "": rotate.aprs2.net:14580
+    dstar_aprs_heard: bool = False   # also the position of the station on air, gated
                                      # of the template on purpose (the owner's station only)
     # [qrz]
     qrz_api_key: str = ""            # QRZ.com's logbook access key (never shown)
@@ -396,7 +405,11 @@ def load_config(path: Path | None = None) -> Config:
         cfg.ft8_unattended = int(ft8.get("unattended", cfg.ft8_unattended))
         cfg.ft8_map_traffic = bool(ft8.get("map_traffic", cfg.ft8_map_traffic))
         cfg.ft8_map_grid = bool(ft8.get("map_grid", cfg.ft8_map_grid))
-        cfg.dstar_server = str(data.get("dstar", {}).get("server", cfg.dstar_server))
+        dstar = data.get("dstar", {})
+        cfg.dstar_server = str(dstar.get("server", cfg.dstar_server))
+        cfg.dstar_aprs = bool(dstar.get("aprs", cfg.dstar_aprs))
+        cfg.dstar_aprs_server = str(dstar.get("aprs_server", cfg.dstar_aprs_server))
+        cfg.dstar_aprs_heard = bool(dstar.get("aprs_heard", cfg.dstar_aprs_heard))
         qrz = data.get("qrz", {})
         cfg.qrz_api_key = str(qrz.get("api_key", cfg.qrz_api_key)).strip()
         if "bands" in qrz:

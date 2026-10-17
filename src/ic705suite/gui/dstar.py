@@ -13,28 +13,40 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
     QSplitter,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
 )
 
+from ic705suite.apps.dstar import dprs
 from ic705suite.apps.dstar.app import (
     HINT,
     SHORT_HINT,
+    VIEWS,
     DStarApp,
+    beacon_form,
+    dprs_cells,
+    dprs_columns,
     error_text,
     extra,
     heard_here,
     history_cells,
     history_columns,
+    home_of,
     indicators,
     on_air,
     reflector_info,
     warning,
+    weather_cells,
+    weather_columns,
 )
 from ic705suite.gui import theme
 from ic705suite.gui.page import Page
@@ -57,6 +69,10 @@ class DStarPage(Page):
         self.review: dict | None = None
         self.hide_mine = False
         self.history_version = -1
+        self.dprs_version = -1
+        self.dprs_rows: list[dict] = []
+        self.weather_rows: list[dict] = []
+        self.view = "history"
         self.started_here = False
         self._build()
 
@@ -118,18 +134,20 @@ class DStarPage(Page):
         top.setChildrenCollapsible(False)
         top.setSizes([620, 620])
 
-        self.history_frame = Frame(_("History"))
+        self.history_frame = Frame(_("Reports"))
         self.mine_box = QCheckBox(f"H  {_('Hide mine')}")
         self.mine_box.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.mine_box.toggled.connect(lambda on: on != self.hide_mine and self.action_hide_mine())
         self.history_frame.head.addWidget(self.mine_box)
-        self.table = self.history_frame.add(Table(0, 7), 1)
-        self.table.pass_letters = True                 # [ ] C N M H are the page's
-        self.table.setHorizontalHeaderLabels(history_columns())
-        self.table.verticalHeader().hide()
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        self.views = self.history_frame.add(QTabWidget(), 1)
+        self.views.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.table = self._table(history_columns())
+        self.dprs_table = self._table(dprs_columns())
+        self.weather_table = self._table(weather_columns())
+        for table, (_name, label) in zip((self.table, self.dprs_table, self.weather_table),
+                                         VIEWS, strict=True):
+            self.views.addTab(table, _(label))
+        self.views.currentChanged.connect(self._view_changed)
         self.table.cellClicked.connect(lambda row, _c: self._review_row(row))
         self.table.cellActivated.connect(lambda row, _c: self._review_row(row))
 
@@ -161,9 +179,26 @@ class DStarPage(Page):
     def restore_focus(self) -> None:
         self.table.setFocus()
 
+    def _table(self, columns: list[str]) -> Table:
+        table = Table(0, len(columns))
+        table.pass_letters = True                      # [ ] C N M H V B are the page's
+        table.setHorizontalHeaderLabels(columns)
+        table.verticalHeader().hide()
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        table.horizontalHeader().setStretchLastSection(True)
+        return table
+
     # The terminal's: starting, loading, and every key.
     _start = DStarApp._start
     _load_history = DStarApp._load_history
+
+    async def _load_dprs(self) -> None:
+        await DStarApp._load_dprs(self)
+        self._fill_view()
+
+    action_beacon = DStarApp.action_beacon
+    _beacon = DStarApp._beacon
 
     async def _load_reflectors(self) -> None:
         await DStarApp._load_reflectors(self)
@@ -197,6 +232,9 @@ class DStarPage(Page):
             if event.get("history_version") != self.history_version:
                 self.history_version = event.get("history_version")
                 self.run_worker(self._load_history(), group="history", exclusive=True)
+            if event.get("dprs_version") != self.dprs_version:
+                self.dprs_version = event.get("dprs_version")
+                self.run_worker(self._load_dprs(), group="dprs", exclusive=True)
             self._show()
         elif kind == "reconnected":
             self.run_worker(self._start(), group="start", exclusive=True)
@@ -275,9 +313,35 @@ class DStarPage(Page):
         self._show()
         self._fill_history()
 
+    def _fill_view(self) -> None:
+        """The D-PRS reports and the weather stations (the history fills on its own)."""
+        home = home_of(self.state)
+        for table, rows, cells in ((self.dprs_table, self.dprs_rows, dprs_cells),
+                                   (self.weather_table, self.weather_rows, weather_cells)):
+            with table.filling():
+                table.setRowCount(len(rows))
+                for i, r in enumerate(rows):
+                    for column, text in enumerate(cells(r, home)):
+                        item = QTableWidgetItem(text)
+                        if column == (1 if table is self.dprs_table else 0):
+                            item.setForeground(QColor(theme.AMBER))
+                        table.setItem(i, column, item)
+            table.resizeColumnsToContents()
+
+    def action_view(self) -> None:
+        """V: the next view, as the terminal's."""
+        self.views.setCurrentIndex((self.views.currentIndex() + 1) % self.views.count())
+
+    def _view_changed(self, index: int) -> None:
+        self.view = VIEWS[index][0]
+        self.mine_box.setVisible(self.view == "history")
+
+    async def _beacon_form(self, settings: dict) -> dict | None:
+        return await BeaconDialog.ask(self, settings)
+
     def _fill_history(self) -> None:
         self.shown = self.shown_rows()
-        locator = self.state.get("locator", "")
+        locator = home_of(self.state)
         with self.table.filling():
             self.table.setRowCount(len(self.shown))
             for i, r in enumerate(self.shown):
@@ -331,3 +395,96 @@ class DStarPage(Page):
         self.table.setFocus()
         self._message("error" if reply.get("error") else "info",
                       error_text(reply) if reply.get("error") else _("TX message written"))
+
+
+class BeaconDialog(QDialog):
+    """Our D-PRS beacon (the terminal's BeaconScreen as a dialog): sent or not, the position
+    (the radio's GPS, or typed: degrees or a locator), the symbol, the SSID, the comment."""
+
+    def __init__(self, parent, settings: dict) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(_("D-PRS beacon"))
+        self.form: dict | None = None
+        self.send = QCheckBox(_("Send my position with every over"))
+        self.send.setChecked(settings["send"])
+        self.source = QComboBox()
+        self.source.addItem(_("The radio's GPS"), "gps")
+        self.source.addItem(_("A position typed here"), "manual")
+        self.source.setCurrentIndex(1 if settings["source"] == "manual" else 0)
+        self.lat = QLineEdit("" if settings["lat"] is None else f"{settings['lat']:.5f}")
+        self.lon = QLineEdit("" if settings["lon"] is None else f"{settings['lon']:.5f}")
+        self.alt = QLineEdit("" if settings["alt"] is None else f"{settings['alt']:g}")
+        self.alt.setPlaceholderText(_("optional"))
+        self.locator = QLineEdit()
+        self.locator.setPlaceholderText("IM77AH")
+        self.locator.setToolTip(_("The centre of the square: an area, not your exact home"))
+        self.pretty = QLabel()
+        self.symbol = QComboBox()
+        for i, code in enumerate(settings["symbols"]):
+            self.symbol.addItem(_("No. {n}: {name} ({code})").format(
+                n=i + 1, name=dprs.symbol_name(code), code=code), i)
+        self.symbol.setCurrentIndex(settings["symbol"])
+        self.ssid = QComboBox()
+        self.ssid.addItems(dprs.SSID_CHOICES)
+        self.ssid.setCurrentIndex(settings["ssid"])
+        self.comment = QLineEdit(settings["comment"])
+        self.comment.setMaxLength(dprs.COMMENT_LENGTH)
+        self.problem = QLabel()
+        for field in (self.lat, self.lon):
+            field.textChanged.connect(self._pretty)
+        self.source.currentIndexChanged.connect(self._source_changed)
+        form = QFormLayout()
+        form.addRow("", self.send)
+        form.addRow(_("Position"), self.source)
+        form.addRow(_("Latitude"), self.lat)
+        form.addRow(_("Longitude (west negative)"), self.lon)
+        form.addRow("", self.pretty)
+        form.addRow(_("Altitude (m)"), self.alt)
+        form.addRow(_("Or a locator"), self.locator)
+        form.addRow(_("Symbol"), self.symbol)
+        form.addRow("SSID", self.ssid)
+        form.addRow(_("Comment"), self.comment)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save
+                                   | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self._save)
+        buttons.rejected.connect(self.reject)
+        box = QVBoxLayout(self)
+        box.addLayout(form)
+        box.addWidget(self.problem)
+        box.addWidget(buttons)
+        self._source_changed()
+        self._pretty()
+
+    @classmethod
+    async def ask(cls, parent, settings: dict) -> dict | None:
+        import asyncio
+
+        dialog = cls(parent, settings)
+        done = asyncio.get_running_loop().create_future()
+        dialog.finished.connect(lambda _r: done.done() or done.set_result(dialog.form))
+        dialog.open()
+        return await done
+
+    def _source_changed(self) -> None:
+        manual = self.source.currentData() == "manual"
+        for field in (self.lat, self.lon, self.alt, self.locator):
+            field.setEnabled(manual)
+
+    def _pretty(self) -> None:
+        try:
+            lat = float(self.lat.text().replace(",", "."))
+            lon = float(self.lon.text().replace(",", "."))
+            self.pretty.setText(dprs.format_position(lat, lon))
+        except ValueError:
+            self.pretty.setText("")
+
+    def _save(self) -> None:
+        form = beacon_form(self.send.isChecked(), self.source.currentData(), self.lat.text(),
+                           self.lon.text(), self.alt.text(), self.locator.text(),
+                           self.symbol.currentData() or 0, self.ssid.currentIndex(),
+                           self.comment.text())
+        if isinstance(form, str):
+            self.problem.setText(span(form, theme.RED, True))
+            return
+        self.form = form
+        self.accept()

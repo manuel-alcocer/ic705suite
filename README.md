@@ -198,8 +198,16 @@ set on the radio (it cannot be read over CI-V), and a reflector reached through 
 is warned about. `N` writes the MY note, `M` the TX message, `H` hides our own overs and
 Enter (a click in the window) shows an over of the history. The reflector list is the one
 shipped (`apps/dstar/default_reflectors.json`) and the operator's own (table
-`dstar_reflectors`). This is QDStar, the same author's D-STAR controller, brought into the
-suite: its D-PRS views, the reflectors' status and its own gateway over USB (EXT) follow.
+`dstar_reflectors`). `V` turns the lower part (tabs in the window) from the history to the
+**D-PRS** reports heard (positions, objects, items, weather; with the station whose over
+carried them when relayed, table `dstar_dprs`) and the **weather** stations (the latest of
+each, nearest first). `B` edits our own D-PRS beacon as the radio keeps it (menu 1A 05
+0281-0297, each item read back): sent with every over or not, the radio's GPS or a position
+typed (degrees, or a locator's centre), the symbol, SSID and comment; distances are from
+that position, else from `[station] locator`. With `[dstar] aprs = true` the position our
+over carried goes to APRS-IS too (`aprs_heard`: also the station on air's). This is QDStar,
+the same author's D-STAR controller, brought into the suite: the reflectors' status and its
+own gateway over USB (EXT) follow.
 
 ### Core on a Raspberry Pi, client here
 

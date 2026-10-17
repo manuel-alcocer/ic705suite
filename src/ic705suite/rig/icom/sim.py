@@ -35,6 +35,14 @@ DEFAULT_SETTINGS: dict[bytes, bytes] = {
     b"\x27\x1a\x00": b"\x01", b"\x27\x1d\x00": b"\x00",
     # Menu items (1A 05): DATA OFF MOD and DATA1 MOD inputs (0 MIC, 1 USB, 2 MIC+USB, 3 WLAN).
     b"\x1a\x05\x01\x18": b"\x00", b"\x1a\x05\x01\x19": b"\x01",
+    # D-PRS, our beacon (1A 05 0281-0297): internal GPS, no manual position, beacon off,
+    # symbol 1 of house, car, person, bicycle, no SSID, no comment
+    b"\x1a\x05\x02\x81": b"\x01", b"\x1a\x05\x02\x86": b"\xff" * 15,
+    b"\x1a\x05\x02\x87": b"\x00", b"\x1a\x05\x02\x89": b"\x00",
+    b"\x1a\x05\x02\x90": b"\x00", b"\x1a\x05\x02\x91": b"/-",
+    b"\x1a\x05\x02\x92": b"/>", b"\x1a\x05\x02\x93": b"/[", b"\x1a\x05\x02\x94": b"/b",
+    b"\x1a\x05\x02\x95": b"\x00", b"\x1a\x05\x02\x96": b"\x00",
+    b"\x1a\x05\x02\x97": b" " * 43,
     # The duplex offset (100 Hz units, little-endian BCD) and the repeater tones.
     b"\x0d": b"\x00\x00\x00", b"\x1b\x00": b"\x00\x08\x85", b"\x1b\x01": b"\x00\x08\x85",
 }
@@ -105,6 +113,7 @@ class SimTransport(Transport):
         self.dv_header = b"\xff"                # flags, caller, note, called, R1, R2
         self.dv_rx_message = b"\xff"            # message, caller, note
         self.dv_voice = False
+        self.dv_dprs = b"\xff"                  # the last D-PRS report heard (20 03 02)
         self.ptt = False
         self.tx_audio_bytes = 0
         self.tx_peak = 0.0                   # of full scale: the audio sent lately (the ALC)
@@ -154,6 +163,14 @@ class SimTransport(Transport):
             self.dv_rx_message = message[:20].ljust(20).encode() + call(caller) + \
                 note[:4].ljust(4).encode()
         self.dv_voice = True
+
+    def dv_position(self, name: str, lat: float, lon: float, symbol: str = "/>",
+                    kind: int = 0x00, altitude: float | None = None) -> None:
+        """A D-PRS report heard (what 20 03 02 then reads): position, object, item."""
+        from ic705suite.apps.dstar.civ import encode_position
+
+        self.dv_dprs = bytes([kind]) + name.upper()[:9].ljust(9).encode() + \
+            symbol[:2].encode() + encode_position(lat, lon, altitude)
 
     def dv_end(self) -> None:
         self.dv_voice = False
@@ -214,6 +231,8 @@ class SimTransport(Transport):
                 return body + getattr(self, stored)
             setattr(self, stored, bytes(data[1:]))
             return ok
+        if body[:2] == b"\x23\x00" and len(data) == 1:   # our GPS position: no fix here
+            return body + b"\xff" * 11
         if cmd == 0x20 and len(data) >= 2 and data[1] == 0x02:   # D-STAR: the last DV received
             if data[0] == 0x00:
                 return body + self.dv_header
@@ -222,7 +241,7 @@ class SimTransport(Transport):
             if data[0] == 0x02:
                 return body + bytes([0x40 | 0x10 if self.dv_voice else 0x00])
             if data[0] == 0x03:
-                return body + b"\xff"
+                return body + self.dv_dprs
         if body[:2] == b"\x1a\x00" and len(data) >= 5:      # memory channels
             where = bytes(data[1:5])
             if len(data) == 5:
