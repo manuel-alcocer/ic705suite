@@ -529,3 +529,12 @@ def test_a_position_saved_shows_the_curve_it_came_from(tmp_path):
     lonely = history.add({"ts": "2026-10-12 07:00:00", "band": "20m", "kind": "final",
                           "coil": 3.0})
     assert not service.entry_with_curve(lonely).get("points")          # none that day
+
+
+def test_ten_metres_sweeps_the_whole_band():
+    """28.0 to 29.7 MHz, as every band its whole width: 35 points at its 50 kHz step."""
+    from ic705suite.apps.swr.service import MAX_POINTS, SwrService
+
+    ten = next(b for b in SwrService.bands() if b["name"] == "10m")
+    assert (ten["start"], ten["end"]) == (28_000_000, 29_700_000)
+    assert (ten["end"] - ten["start"]) // ten["step"] + 1 <= MAX_POINTS

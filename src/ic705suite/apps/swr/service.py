@@ -52,7 +52,6 @@ SWR_SATURATED = 3.0
 TUNE_BANDS = [("40m", 7_074_000, 10_000), ("30m", 10_136_000, 5_000), ("20m", 14_074_000, 25_000),
               ("17m", 18_100_000, 10_000), ("15m", 21_074_000, 25_000), ("12m", 24_915_000, 10_000),
               ("10m", 28_074_000, 50_000), ("6m", 50_313_000, 50_000)]
-TEN_METRE_SWEEP_END = 29_000_000  # the whole 10 m band is too wide for one useful sweep
 
 # Photos of the antenna kept with the sweeps (the phone's camera, a file): their formats by
 # their first bytes, and the largest accepted.
@@ -780,8 +779,7 @@ class SwrService:
         out = []
         for name, target, step in TUNE_BANDS:
             band = find_band(name)
-            end = min(band.end, TEN_METRE_SWEEP_END) if name == "10m" else band.end
-            out.append({"name": name, "band": name, "start": band.start, "end": end,
+            out.append({"name": name, "band": name, "start": band.start, "end": band.end,
                         "target": target, "step": step})
         return out
 
