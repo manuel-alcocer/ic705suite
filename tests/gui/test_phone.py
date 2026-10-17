@@ -75,3 +75,24 @@ def test_the_phone_page(tmp_path, run):
             await link.close()
 
     run(scenario())
+
+
+def test_phone_opens_from_the_dashboard(tmp_path, run):
+    """Every application with a graphical page opens from the dashboard (phone was left
+    out of its list once)."""
+    from ic705suite.apps import APPS
+    from ic705suite.gui.dashboard import GUI_APPS
+    from ic705suite.gui.phone import PhonePage
+    from tests.gui.test_pages import window
+
+    assert {a.id for a in APPS if a.ready} == GUI_APPS
+
+    async def scenario():
+        win, link = await window(tmp_path)
+        try:
+            win.dashboard.action_open("phone")
+            await until(lambda: isinstance(win.page, PhonePage))
+        finally:
+            await link.close()
+
+    run(scenario())
