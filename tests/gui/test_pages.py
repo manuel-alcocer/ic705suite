@@ -296,3 +296,24 @@ def test_a_knob_keeps_the_value_turned_to(qapp, monkeypatch):
     model.hold("af", 90)
     model.set_values({"af": 30})                              # held too long: the radio's
     assert model.values["af"] == 30
+
+
+def test_the_waterfall_slides_with_the_dial(qapp):
+    """The scope centred on the dial: tuning moves its edges, and the waterfall slides with
+    them instead of starting again; another span does start again."""
+    import numpy as np
+
+    from ic705suite.gui.widgets import Scope
+
+    scope = Scope()
+    row = np.zeros(100)
+    row[50] = 1.0                                        # a carrier at 14.200 MHz
+    scope.add_frame(row, 14_190_000, 14_210_000)         # 200 Hz a point
+    scope.add_frame(np.zeros(100), 14_191_000, 14_211_000)   # tuned up 1 kHz
+    assert len(scope._rows) == 2
+    assert scope._rows[1][45] == 1.0                      # five points to the left
+    scope.add_frame(np.zeros(100), 14_191_100, 14_211_100)   # half a point: kept for later
+    scope.add_frame(np.zeros(100), 14_191_200, 14_211_200)   # now one point
+    assert scope._rows[3][44] == 1.0
+    scope.add_frame(np.zeros(100), 14_180_000, 14_220_000)   # another span
+    assert len(scope._rows) == 1

@@ -1092,6 +1092,7 @@ class Scope(QWidget):
         self.floor, self.span = 0.10, 0.75
         self._rows: deque[np.ndarray] = deque(maxlen=MAX_ROWS)
         self._edges = (0, 0)
+        self._moved = 0.0         # Hz moved but less than a point: kept for the next move
         self._image: QImage | None = None
         self.setMinimumHeight(80)
         self.setMouseTracking(True)
@@ -1101,12 +1102,37 @@ class Scope(QWidget):
 
     def add_frame(self, amplitudes: np.ndarray, start: int, end: int) -> None:
         if (start, end) != self._edges:
-            self._rows.clear()
+            old_start, old_end = self._edges
+            span_ = end - start
+            if span_ > 0 and old_end - old_start == span_ and abs(start - old_start) < span_:
+                self._shift(start - old_start, span_)     # the dial moved: same width
+            else:
+                self._rows.clear()                        # another span: start again
+                self._moved = 0.0
             self._edges = (start, end)
         self.view.start, self.view.end = start, end
         self._rows.appendleft(np.asarray(amplitudes, dtype=float))
         self._image = None
         self.update()
+
+    def _shift(self, hz: int, span_: int) -> None:
+        """The waterfall moved with the dial (the scope centred on it): each row slides by
+        as many points as the frequency moved, the new edge dark, as an SDR does."""
+        if not self._rows:
+            return
+        points = len(self._rows[0])
+        self._moved += hz * points / span_
+        step = int(round(self._moved))
+        if not step:
+            return
+        self._moved -= step
+        for i, row in enumerate(self._rows):
+            moved = np.zeros_like(row)
+            if step > 0:
+                moved[:len(row) - step] = row[step:]
+            else:
+                moved[-step:] = row[:len(row) + step]
+            self._rows[i] = moved
 
     def clear(self) -> None:
         self._rows.clear()
