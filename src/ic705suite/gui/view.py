@@ -74,6 +74,10 @@ class ViewPage(PanelKeys, Page):
         self.vfo_frame = Frame(_("Rig"))
         self.digits = self.vfo_frame.add(SevenSegment(digits_text(None)), 1)
         self.digits.wheel.connect(lambda d: self.run_worker(self.action_tune(d)))
+        self.digits.editable = True
+        self.digits.entered.connect(lambda hz: self.run_worker(self._command(f"/f {hz}")))
+        self.digits.setToolTip(_("A click: type the frequency in kHz (28.750,34), Enter tunes, "
+                                 "Esc leaves it"))
         self.vfo_label = self.vfo_frame.add(QLabel())
         self.vfo_label.setTextFormat(Qt.TextFormat.RichText)
         self.meters_frame = Frame(_("Meters"))
@@ -193,6 +197,7 @@ class ViewPage(PanelKeys, Page):
         self.rig = event
         self.status.update_rig(event)
         self.digits.set_text(digits_text(event.get("frequency")))
+        self.digits.frequency = event.get("frequency")
         self._show_vfo()
         self._show_meters()
         if not self.model.editing:

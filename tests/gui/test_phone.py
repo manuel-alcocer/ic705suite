@@ -101,3 +101,52 @@ def test_phone_opens_from_the_dashboard(tmp_path, run):
             await link.close()
 
     run(scenario())
+
+
+def test_typing_the_frequency_on_the_digits(tmp_path, run):
+    """A click on the digits: the frequency in kHz to type (dots the thousands, a comma the
+    decimals), the arrows and Backspace edit it, Enter tunes, Esc leaves it; meanwhile the
+    page's keys (Esc, the space bar's PTT) wait."""
+    from ic705suite.gui.widgets import khz_text, parse_khz
+    from tests.gui.test_pages import key, window
+
+    assert khz_text(28_750_340) == "28.750,34" and khz_text(7_150_000) == "7.150"
+    assert parse_khz("145.650") == 145_650_000 and parse_khz("28.750,34") == 28_750_340
+    assert parse_khz("14200") == 14_200_000 and parse_khz(",") is None
+
+    async def scenario():
+        win, link = await window(tmp_path, start_app="phone")
+        page = win.page
+        sim = link.core.station.transport
+        digits = page.digits
+        try:
+            await until(lambda: digits.frequency)
+            start = sim.frequency
+            click(digits)
+            assert digits.editing and digits.buffer == khz_text(start)
+            for _ in range(len(digits.buffer)):
+                await key(Qt.Key.Key_Backspace)
+            for ch in "28.750,3":
+                await key(None, text=ch)
+            await key(Qt.Key.Key_Left)
+            await key(None, text="4")                  # before the last digit: 28.750,43
+            await key(Qt.Key.Key_Space, text=" ")     # not the PTT, not typed
+            assert digits.buffer == "28.750,43" and not page.keyed
+            await key(Qt.Key.Key_Return)
+            await until(lambda: sim.frequency == 28_750_430)
+            assert not digits.editing
+            click(digits)
+            await key(None, text="9")
+            await key(Qt.Key.Key_Escape)               # as it was; the page stays open
+            assert not digits.editing and win.page is page
+            assert sim.frequency == 28_750_430
+        finally:
+            await link.close()
+
+    run(scenario())
+
+
+def click(widget) -> None:
+    from PySide6.QtTest import QTest
+
+    QTest.mouseClick(widget, Qt.MouseButton.LeftButton)

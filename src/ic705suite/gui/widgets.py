@@ -394,18 +394,107 @@ SEGMENTS = {   # a b c d e f g
 }
 
 
+def khz_text(hz: int) -> str:
+    """A frequency in kHz as it is typed here: dots for the thousands, a comma for the
+    decimals (28.750,34; 7.150)."""
+    whole, rest = divmod(int(hz), 1000)
+    text = f"{whole:,}".replace(",", ".")
+    decimals = f"{rest:03d}".rstrip("0")
+    return f"{text},{decimals}" if decimals else text
+
+
+def parse_khz(text: str) -> int | None:
+    """What was typed (kHz: dots the thousands, a comma the decimals) in Hz; None if it is
+    not a frequency."""
+    clean = text.strip().replace(".", "").replace(",", ".")
+    try:
+        hz = round(float(clean) * 1000)
+    except ValueError:
+        return None
+    return hz if hz > 0 else None
+
+
 class SevenSegment(QWidget):
-    """The frequency as on the radio's display: lit segments over faint unlit ones."""
+    """The frequency as on the radio's display: lit segments over faint unlit ones.
+
+    Editable (``entered`` connected): a click turns it into a field with the frequency in
+    kHz (28.750,34), typed with dots for the thousands and a comma for the decimals; the
+    arrows, Home and End move, Backspace and Delete erase, Enter tunes (``entered``, in Hz)
+    and Esc, or a click elsewhere, leaves it as it was."""
 
     wheel = Signal(int)
+    entered = Signal(int)
 
     def __init__(self, text: str = "", colour: str | None = None,
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.text = text
         self._colour = colour             # None: the theme's amber, whichever is in use
+        self.editable = False
+        self.editing = False
+        self.buffer = ""
+        self.cursor = 0
+        self.frequency: int | None = None   # what the field starts from
         self.setMinimumSize(QSize(260, 64))
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+    @property
+    def takes_all_keys(self) -> bool:
+        """While typed in, every key is the field's (the page's shortcuts wait)."""
+        return self.editing
+
+    def start_editing(self) -> None:
+        self.editing = True
+        self.buffer = khz_text(self.frequency) if self.frequency else ""
+        self.cursor = len(self.buffer)
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        self.setFocus()
+        self.update()
+
+    def stop_editing(self) -> None:
+        if self.editing:
+            self.editing = False
+            self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            self.update()
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if self.editable and event.button() == Qt.MouseButton.LeftButton and not self.editing:
+            self.start_editing()
+
+    def focusOutEvent(self, event) -> None:  # noqa: N802
+        super().focusOutEvent(event)
+        self.stop_editing()                    # a click elsewhere: as it was
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
+        if not self.editing:
+            super().keyPressEvent(event)
+            return
+        key, text = event.key(), event.text()
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            hz = parse_khz(self.buffer)
+            self.stop_editing()
+            if hz is not None:
+                self.entered.emit(hz)
+        elif key == Qt.Key.Key_Escape:
+            self.stop_editing()
+        elif key == Qt.Key.Key_Backspace:
+            if self.cursor:
+                self.buffer = self.buffer[:self.cursor - 1] + self.buffer[self.cursor:]
+                self.cursor -= 1
+        elif key == Qt.Key.Key_Delete:
+            self.buffer = self.buffer[:self.cursor] + self.buffer[self.cursor + 1:]
+        elif key == Qt.Key.Key_Left:
+            self.cursor = max(0, self.cursor - 1)
+        elif key == Qt.Key.Key_Right:
+            self.cursor = min(len(self.buffer), self.cursor + 1)
+        elif key == Qt.Key.Key_Home:
+            self.cursor = 0
+        elif key == Qt.Key.Key_End:
+            self.cursor = len(self.buffer)
+        elif text and (text.isdigit() or text == "." or text == "," and "," not in self.buffer):
+            self.buffer = self.buffer[:self.cursor] + text + self.buffer[self.cursor:]
+            self.cursor += 1
+        self.update()
 
     @property
     def colour(self) -> QColor:
@@ -422,9 +511,32 @@ class SevenSegment(QWidget):
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802
         self.wheel.emit(1 if event.angleDelta().y() > 0 else -1)
 
+    def _paint_field(self, painter: QPainter) -> None:
+        """Being typed in: the text in kHz, large, with its cursor and the unit."""
+        font = theme.mono(max(14.0, self.height() * 0.42), bold=True)
+        painter.setFont(font)
+        metrics = painter.fontMetrics()
+        unit = " kHz"
+        width = metrics.horizontalAdvance(self.buffer + unit)
+        x = (self.width() - width) / 2
+        y = (self.height() + metrics.ascent() - metrics.descent()) / 2
+        painter.setPen(QColor(theme.YELLOW))
+        painter.drawText(QPointF(x, y), self.buffer)
+        painter.setPen(QColor(theme.DIM))
+        painter.drawText(QPointF(x + metrics.horizontalAdvance(self.buffer), y), unit)
+        cursor_x = x + metrics.horizontalAdvance(self.buffer[:self.cursor])
+        painter.fillRect(QRectF(cursor_x, y - metrics.ascent(), 3, metrics.height()),
+                         QColor(theme.YELLOW))
+        painter.setPen(QColor(theme.YELLOW))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 6, 6)
+
     def paintEvent(self, event) -> None:  # noqa: N802
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if self.editing:
+            self._paint_field(painter)
+            return
         chars = [c for c in self.text if c != "."]
         positions, count = set(), 0             # the digits a dot follows
         for c in self.text:

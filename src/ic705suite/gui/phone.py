@@ -89,6 +89,10 @@ class PhonePage(ViewPage):
         self.vfo_frame = Frame(_("Phone"))
         self.digits = self.vfo_frame.add(SevenSegment(digits_text(None)), 1)
         self.digits.wheel.connect(lambda d: self.run_worker(self.action_tune(d)))
+        self.digits.editable = True
+        self.digits.entered.connect(lambda hz: self.run_worker(self._command(f"/f {hz}")))
+        self.digits.setToolTip(_("A click: type the frequency in kHz (28.750,34), Enter tunes, "
+                                 "Esc leaves it"))
         self.vfo_label = self.vfo_frame.add(QLabel())
         self.vfo_label.setTextFormat(Qt.TextFormat.RichText)
         self.band_buttons: dict[str, QPushButton] = {}
@@ -433,6 +437,8 @@ class PhonePage(ViewPage):
                 QApplication.activeModalWidget() is not None:
             return False
         focus = QApplication.focusWidget()
+        if getattr(focus, "takes_all_keys", False):
+            return False
         return not isinstance(focus, (QLineEdit, QAbstractSpinBox, QComboBox)) and \
             not (isinstance(focus, QAbstractItemView) and focus.state() ==
                  QAbstractItemView.State.EditingState)

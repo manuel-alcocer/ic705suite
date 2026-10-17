@@ -1875,3 +1875,6 @@ msgstr "baja"
 
 msgid "TX audio"
 msgstr "Audio TX"
+
+msgid "A click: type the frequency in kHz (28.750,34), Enter tunes, Esc leaves it"
+msgstr "Un clic: escribe la frecuencia en kHz (28.750,34); Intro sintoniza, Esc la deja como estaba"

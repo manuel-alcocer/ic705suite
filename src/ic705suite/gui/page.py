@@ -71,6 +71,8 @@ class Page(QWidget):
     # ---- keys ---------------------------------------------------------------------------
 
     def handle_key(self, event: QKeyEvent, priority: bool) -> bool:
+        if getattr(QApplication.focusWidget(), "takes_all_keys", False):
+            return False                        # a field being typed in (the digits)
         name = key_name(event)
         if self.overlay is not None and priority:
             # A screen on top (as Textual's pushed screens) has its keys first.
