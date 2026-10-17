@@ -576,7 +576,8 @@ class ControlGrid(QWidget):
 
     ROW = 24
     KNOB_ROW = 30
-    DRAG_PIXELS = 160          # a knob's whole range, dragging up or down
+    DRAG_PIXELS = 200          # a knob's whole range, dragging up or right (down or left)
+    FINE = 0.2                 # with Shift held: five times finer
 
     def __init__(self, model: PanelModel, bars: bool = True,
                  parent: QWidget | None = None) -> None:
@@ -587,7 +588,8 @@ class ControlGrid(QWidget):
         self.widgets = bars
         self._cells: list[tuple[QRectF, str]] = []
         self._values: list[tuple[QRectF, str]] = []      # where each value is drawn
-        self._drag: tuple[str, float, float] | None = None  # (id, start y, start value)
+        self._drag: tuple[str, QPointF, float] | None = None  # (id, start, start value)
+        self._fine = False
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
@@ -641,10 +643,12 @@ class ControlGrid(QWidget):
         if control is None or value is None and control["kind"] != TOGGLE:
             return
         if control["kind"] in (LEVEL, OFFSET):
-            self._drag = (control_id, point.y(), float(value))
-            self.setCursor(Qt.CursorShape.SizeVerCursor)
+            self._drag = (control_id, point, float(value))
+            self._fine = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+            self.model.dragging = control_id
+            self.setCursor(Qt.CursorShape.SizeAllCursor)
         elif control["kind"] == TOGGLE:
-            self.set_value.emit(control_id, not bool(value))
+            self._send(control_id, not bool(value))
         else:
             self._choose(control, value, event.globalPosition().toPoint())
 
@@ -658,18 +662,33 @@ class ControlGrid(QWidget):
             action.setCheckable(True)
             action.setChecked(key == value)
             action.triggered.connect(
-                lambda _c=False, k=key: self.set_value.emit(control["id"], k))
+                lambda _c=False, k=key: self._send(control["id"], k))
         menu.popup(where)
+
+    def _send(self, control_id: str, value) -> None:
+        """A value chosen here: shown until the radio has it, and sent."""
+        self.model.hold(control_id, value)
+        self.update()
+        self.set_value.emit(control_id, value)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if self._drag is None:
             return
-        control_id, start_y, start = self._drag
+        control_id, origin, start = self._drag
         control = self.model.control(control_id)
         if control is None:
             return
         span_ = control["maximum"] - control["minimum"]
-        raw = start + (start_y - event.position().y()) / self.DRAG_PIXELS * span_
+        fine = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+        if fine != self._fine:                 # Shift pressed or let go: from here on
+            self._fine = fine
+            origin, start = event.position(), float(self.model.values.get(control_id, start))
+            self._drag = (control_id, origin, start)
+        # Up or right turns it up; both count, so a round gesture works as well as a line.
+        moved = (origin.y() - event.position().y()) + (event.position().x() - origin.x())
+        if fine:
+            moved *= self.FINE
+        raw = start + moved / self.DRAG_PIXELS * span_
         step = control["step"] or 1
         value = round(round(raw / step) * step, 6)
         value = max(control["minimum"], min(control["maximum"], value))
@@ -680,12 +699,13 @@ class ControlGrid(QWidget):
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if self._drag is None:
             return
-        control_id, _y, start = self._drag
+        control_id, _origin, start = self._drag
         self._drag = None
+        self.model.dragging = None
         self.unsetCursor()
         value = self.model.values.get(control_id)
         if value is not None and value != start:
-            self.set_value.emit(control_id, value)
+            self._send(control_id, value)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if self._at(event.position()) is not None:

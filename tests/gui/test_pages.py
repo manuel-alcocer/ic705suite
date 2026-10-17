@@ -224,14 +224,14 @@ def test_front_panel_knobs_switches_and_drop_downs(tmp_path, run):
             before = bool(rig(link)["controls"].get("nb"))
             QTest.mouseClick(grid, Qt.MouseButton.LeftButton, pos=spot("nb").toPoint())
             await until(lambda: bool(rig(link)["controls"].get("nb")) is not before)
-            # The knob: dragged up 40 pixels, a quarter of its range more.
+            # The knob: dragged up 40 pixels, a fifth of its range more.
             af = rig(link)["controls"]["af"]
             start = spot("af").toPoint()
             QTest.mousePress(grid, Qt.MouseButton.LeftButton, pos=start)
             QTest.mouseMove(grid, start - QPointF(0, 40).toPoint())
             QTest.mouseRelease(grid, Qt.MouseButton.LeftButton,
                                pos=start - QPointF(0, 40).toPoint())
-            await until(lambda: rig(link)["controls"]["af"] == min(100, af + 25))
+            await until(lambda: rig(link)["controls"]["af"] == min(100, af + 20))
             # The drop-down: its list, and the one chosen set.
             QTest.mouseClick(grid, Qt.MouseButton.LeftButton, pos=spot("agc").toPoint())
             await until(lambda: any(m.isVisible() for m in grid.findChildren(QMenu)))
@@ -246,3 +246,53 @@ def test_front_panel_knobs_switches_and_drop_downs(tmp_path, run):
             await link.close()
 
     run(scenario())
+
+
+def test_a_knob_keeps_the_value_turned_to(qapp, monkeypatch):
+    """A knob dragged (up or right; Shift finer) keeps its value while the rig's state comes
+    with the old one, sends it when let go, and shows it until the radio reports it."""
+    from PySide6.QtCore import QEvent, QPoint
+    from PySide6.QtGui import QMouseEvent
+
+    from ic705suite.gui.widgets import ControlGrid
+    from ic705suite.ui import panelmodel
+    from ic705suite.ui.panelmodel import PanelModel
+
+    model = PanelModel()
+    model.set_controls([{"id": "af", "label": "AF", "group": "rx", "kind": "level",
+                         "minimum": 0, "maximum": 100, "step": 1, "unit": "%"}])
+    model.set_values({"af": 20})
+    grid = ControlGrid(model)
+    grid.resize(500, 120)
+    grid.grab()                                   # lays the knobs out
+    sent = []
+    grid.set_value.connect(lambda cid, v: sent.append((cid, v)))
+    knob = next(rect for rect, cid in grid._values if cid == "af").center()
+
+    def mouse(kind, point, button=Qt.MouseButton.LeftButton,
+              modifiers=Qt.KeyboardModifier.NoModifier):
+        grid.event(QMouseEvent(kind, QPointF(point), QPointF(point), button, button,
+                               modifiers))
+
+    mouse(QEvent.Type.MouseButtonPress, knob)
+    mouse(QEvent.Type.MouseMove, knob + QPoint(40, -40))     # up and right: +80 px
+    assert model.values["af"] == 60
+    model.set_values({"af": 20})                              # the rig's state, still old
+    assert model.values["af"] == 60
+    mouse(QEvent.Type.MouseMove, knob + QPoint(40 + 50, -40),
+          Qt.MouseButton.NoButton, Qt.KeyboardModifier.ShiftModifier)
+    assert model.values["af"] == 60                           # Shift: from here on, finer
+    mouse(QEvent.Type.MouseMove, knob + QPoint(40 + 100, -40),
+          Qt.MouseButton.NoButton, Qt.KeyboardModifier.ShiftModifier)
+    assert model.values["af"] == 65                           # 50 px x 0.2 = 10 px: +5
+    mouse(QEvent.Type.MouseButtonRelease, knob + QPoint(140, -40))
+    assert sent == [("af", 65)]
+    model.set_values({"af": 20})                              # not reported yet: kept
+    assert model.values["af"] == 65
+    model.set_values({"af": 65})                              # the radio has it
+    model.set_values({"af": 30})                              # and from now on, the radio's
+    assert model.values["af"] == 30
+    monkeypatch.setattr(panelmodel.PanelState, "HOLD", 0.0)
+    model.hold("af", 90)
+    model.set_values({"af": 30})                              # held too long: the radio's
+    assert model.values["af"] == 30

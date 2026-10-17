@@ -41,18 +41,29 @@ class PanelKeys:
     # ---- setting a value ------------------------------------------------------------------
 
     async def _set(self, control_id: str, value) -> None:
+        panel = self._panel()
+        before = panel.values.get(control_id)
+        # Shown at once and kept until the radio reports it: the wheel's next step goes on
+        # from here, not from the value the state still carries.
+        panel.hold(control_id, value)
+        panel.refresh()
         if await self._set_special(control_id, value):
             return
         try:
             reply = await self.link.call("rig.set", id=control_id, value=value)
         except LinkError as exc:
+            panel.held.pop(control_id, None)
+            panel.values[control_id] = before
+            panel.refresh()
             self._message("error", str(exc))
             return
         if reply.get("error"):
+            panel.held.pop(control_id, None)
+            panel.values[control_id] = before
+            panel.refresh()
             self._message("error", reply["error"])
             return
-        panel = self._panel()
-        panel.values[control_id] = reply.get("value")
+        panel.hold(control_id, reply.get("value"))
         panel.refresh()
         control = panel.control(control_id)
         if control:

@@ -13,6 +13,7 @@ is mixed into provides (a Textual widget, or ``PanelModel`` below with a callbac
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 
 from ic705suite.i18n import _
@@ -81,6 +82,10 @@ class PanelState:
         self.editing = False
         self.buffer = ""          # value being typed while editing
         self.original = None      # value before editing, put back on Esc
+        # A value the operator set, shown until the radio reports it (or HOLD seconds): the
+        # rig's state comes 4 times a second and would put the old one back meanwhile.
+        self.held: dict[str, tuple[object, float]] = {}
+        self.dragging: str | None = None   # a knob being turned with the mouse: its own
 
     def set_controls(self, controls: list[dict]) -> None:
         order = [g for g, _ in self.groups]
@@ -90,8 +95,24 @@ class PanelState:
             self.selected = self.controls[0]["id"]
         self.refresh(layout=True)
 
+    HOLD = 3.0
+
+    def hold(self, control_id: str, value) -> None:
+        """Keep showing `value` for this control until the radio says it too."""
+        self.held[control_id] = (value, time.monotonic() + self.HOLD)
+        self.values[control_id] = value
+
     def set_values(self, values: dict) -> None:
-        self.values = dict(values)
+        values = dict(values)
+        now = time.monotonic()
+        for control_id, (value, until) in list(self.held.items()):
+            if now > until or _same(values.get(control_id), value):
+                del self.held[control_id]
+            else:
+                values[control_id] = value
+        if self.dragging is not None and self.dragging in self.values:
+            values[self.dragging] = self.values[self.dragging]
+        self.values = values
         self.refresh()
 
     def control(self, control_id: str | None) -> dict | None:
@@ -221,3 +242,11 @@ class PanelModel(PanelState):
     def refresh(self, layout: bool = False) -> None:
         if self.on_change is not None:
             self.on_change()
+
+
+def _same(a, b) -> bool:
+    """The radio's value and the one set: equal (levels within rounding)."""
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)) and \
+            not isinstance(a, bool) and not isinstance(b, bool):
+        return abs(a - b) < 1.0
+    return a == b
