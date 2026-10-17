@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v0.25.0 (2026-10-17)
+
+### Features
+
+- **ft8**: Other stations' traffic in a quiet colour, behind a switch
+  ([`2f61cc4`](https://github.com/manuel-alcocer/ic705suite/commit/2f61cc4af1246dd6dadd4237b70f5d0709202373))
+
+- **gui**: Talk through the radio with this computer's microphone
+  ([`13a5039`](https://github.com/manuel-alcocer/ic705suite/commit/13a50393b6da27809783bee39345b06f5801afca))
+
+- **gui**: The radio's receive audio on this computer's speakers
+  ([`1a3ded0`](https://github.com/manuel-alcocer/ic705suite/commit/1a3ded0e5375d542ee4bbca2886731e907c9732b))
+
+
 ## v0.24.0 (2026-10-16)
 
 ### Bug Fixes
