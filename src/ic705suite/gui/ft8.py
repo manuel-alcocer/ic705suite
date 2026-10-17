@@ -145,9 +145,10 @@ class Ft8Page(Page):
                 self.tone_button = button
             if key == "W":
                 self.wanted_button = button
-                button.setToolTip(_("Auto CQ: a station marked CQ auto (right click, w), "
-                                    "heard with nothing under way, is called six times, "
-                                    "then a rest of two minutes, while it is heard"))
+                button.setToolTip(_("Auto CQ: the stations marked CQ auto (right click, w) "
+                                    "heard, with nothing under way, are called in turn, "
+                                    "three times each; every two of them, a rest of two "
+                                    "minutes"))
             if key == "A":
                 self.auto_button = button
                 button.setToolTip(_("Super-automatic: answers new countries first, then "
@@ -455,7 +456,9 @@ class Ft8Page(Page):
         reply = await self.link.call("ft8.worked")
         if reply.get("error"):
             return
-        self.map.set_home(reply.get("lat"), reply.get("lon"), reply.get("locator", ""))
+        # Our station by its callsign (the locator when there is none).
+        self.map.set_home(reply.get("lat"), reply.get("lon"),
+                          self.mycall or reply.get("locator", ""))
         self.map.set_worked(reply.get("grids") or {})
 
     @staticmethod
@@ -666,9 +669,12 @@ class Ft8Page(Page):
                                        if auto else "")
         wanted = self.state.get("wanted_auto") or {}
         calling = wanted.get("calling") or ""
-        self.wanted_button.setText("W  " + (_("Auto CQ: {call}").format(call=calling)
-                                            if calling else _("Auto CQ on")
-                                            if wanted.get("on") else _("Auto CQ")))
+        resting = int(wanted.get("resting") or 0)
+        self.wanted_button.setText("W  " + (
+            _("Auto CQ: {call}").format(call=calling) if calling else
+            _("Auto CQ: resting {seconds} s").format(seconds=resting)
+            if wanted.get("on") and resting else
+            _("Auto CQ on") if wanted.get("on") else _("Auto CQ")))
         self.wanted_button.setStyleSheet(f"background: {theme.BLUE}; color: #ffffff;"
                                          if wanted.get("on") else "")
         self.waterfall.set_markers(int(tx.get("freq") or 1500), int(tx.get("rx") or 0))

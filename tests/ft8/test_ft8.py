@@ -1132,19 +1132,18 @@ def test_the_lists_in_the_database(tmp_path, monkeypatch):
     asyncio.run(scenario())
 
 
-def test_auto_cq_calls_a_wanted_station_rests_and_calls_again(tmp_path, monkeypatch):
+def test_auto_cq_calls_the_wanted_stations_in_turn_with_a_rest_every_two(tmp_path,
+                                                                         monkeypatch):
     air = short_turns(monkeypatch)
-    air["says"] = "G4XYZ DL1ABC JO62"                         # busy with another station
     monkeypatch.setattr(service_module, "WANTED_CALLS", 2)
     monkeypatch.setattr(service_module, "WANTED_REST", 4.0)
-    audio = service_module.encode.audio
 
-    def deaf(*args, **kwargs):                                # it never hears us
-        sound = audio(*args, **kwargs)
-        air["says"] = "G4XYZ DL1ABC JO62"
-        return sound
+    def decode(program, wav, depth=3, timeout=30.0, band=None):  # both busy, never hear us
+        stamp = wav.stem.split("_")[1]
+        return jt9.parse(f"{stamp} -11  0.1 1200 ~  G4XYZ DL1ABC JO62\n"
+                         f"{stamp} -14  0.1 1600 ~  F5AAA VP8LDX GD18")
 
-    monkeypatch.setattr(service_module.encode, "audio", deaf)
+    monkeypatch.setattr(service_module.jt9, "decode", decode)
 
     async def scenario():
         config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
@@ -1155,13 +1154,19 @@ def test_auto_cq_calls_a_wanted_station_rests_and_calls_again(tmp_path, monkeypa
             await link.call("ft8.band", band="20m")
             await link.call("ft8.start")
             await link.call("ft8.list.add", kind="wanted", name="DL1ABC")
+            await link.call("ft8.list.add", kind="wanted", name="VP8LDX")
             assert (await link.call("ft8.wanted_auto", on=True)) == {"on": True}
-            await until(lambda: len(air["sent"]) >= 2, 15)
-            assert air["sent"][:2] == ["DL1ABC EA7KLX IM77"] * 2
-            await asyncio.sleep(2.5)                          # resting
-            assert len(air["sent"]) == 2
-            await until(lambda: len(air["sent"]) >= 3, 15)    # and again
-            assert air["sent"][2] == "DL1ABC EA7KLX IM77"
+            await until(lambda: len(air["sent"]) >= 4, 20)
+            first, second = air["sent"][0].split()[0], air["sent"][2].split()[0]
+            assert air["sent"][:4] == [f"{first} EA7KLX IM77"] * 2 + \
+                [f"{second} EA7KLX IM77"] * 2                   # a block each, in turn
+            assert {first, second} == {"DL1ABC", "VP8LDX"}
+            ft8 = link.core.ft8
+            await until(lambda: ft8.state()["wanted_auto"]["resting"] > 0, 10)
+            await asyncio.sleep(2.0)                            # two blocks: resting
+            assert len(air["sent"]) == 4
+            await until(lambda: len(air["sent"]) >= 5, 15)      # and the first again
+            assert air["sent"][4] == f"{first} EA7KLX IM77"
             await link.call("ft8.halt")
             assert not (await link.call("ft8.state"))["wanted_auto"]["on"]
         finally:

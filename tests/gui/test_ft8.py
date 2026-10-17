@@ -340,6 +340,7 @@ def test_the_map_in_the_page(tmp_path, run, monkeypatch):
         try:
             await until(lambda: page.map.home is not None)
             assert page.map.home == geo.locator_to_latlon("IM77AH")
+            assert page.map.home_label == "EA7KLX"                   # by its callsign
             await until(lambda: "EA1ABC" in page.map.heard)
             ea1 = page.map.heard["EA1ABC"]
             assert (ea1.lat, ea1.lon) == tuple(round(v, 3) for v in
