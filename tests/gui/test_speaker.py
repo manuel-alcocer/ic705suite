@@ -24,6 +24,52 @@ class FakeSpeaker:
         self.stopped = True
 
 
+class FakeMicrophone:
+    instances: list = []
+
+    def __init__(self, rate, send, gain=1.0):
+        self.rate, self.send, self.stopped = rate, send, False
+        FakeMicrophone.instances.append(self)
+
+    def start(self):
+        pass
+
+    def stop(self):
+        self.stopped = True
+
+
+def test_holding_the_microphone_button_talks_through_the_radio(tmp_path, run, monkeypatch):
+    import ic705suite.speaker
+
+    monkeypatch.setattr(ic705suite.speaker, "Microphone", FakeMicrophone)
+    FakeMicrophone.instances = []
+
+    async def scenario():
+        win, link = await window(tmp_path)
+        sim = link.core.station.transport
+        try:
+            link.core.config.tx_enabled = link.core.station.rig.tx_enabled = True
+            sim.mode = 0x01                                     # USB
+            win.mic_button.pressed.emit()
+            await until(lambda: sim.ptt)
+            assert win.mic_button.property("talking")
+            microphone = FakeMicrophone.instances[0]
+            microphone.send(b"\x00\x10" * 160)                  # what it captures
+            assert sim.tx_audio_bytes == 320
+            win.mic_button.released.emit()
+            await until(lambda: microphone.stopped and not sim.ptt)
+            assert not win.mic_button.property("talking") and win.microphone is None
+            sim.mode = 0x03                                     # CW: refused, said
+            win.mic_button.pressed.emit()
+            await until(lambda: any("in CW" in text for _kind, text in win.dashboard.messages))
+            assert not sim.ptt and win.microphone is None
+            assert not win.mic_button.property("talking")
+        finally:
+            await link.close()
+
+    run(scenario())
+
+
 def test_the_speaker_button_plays_the_receive_audio(tmp_path, run, monkeypatch):
     import ic705suite.speaker
 

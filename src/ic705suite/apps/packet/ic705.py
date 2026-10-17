@@ -288,6 +288,8 @@ class Ic705Port:
                       "--tx)"), {}
         if not self.station.connected:
             return N_("Packet cannot transmit: the IC-705 is not connected"), {}
+        if self.station.keyed_by == "voice":
+            return N_("Packet cannot transmit: a microphone is talking"), {}
         rig = self.station.rig
         try:
             data_mode, _filter = await rig.read_data_mode()

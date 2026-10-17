@@ -129,6 +129,8 @@ class MainWindow(QMainWindow):
         self._quitting = False                    # the main window is closing
         self._main_gone = False                   # it closed, windows of their own open
         self.speaker = None                       # the receive audio playing here
+        self.microphone = None                    # this computer's, while talking
+        self._ptt_down = False                    # the microphone button held
         self.setWindowTitle("ic705suite")
         self.resize(1360, 860)
         # The tabs, at the top (in the menu bar's row), over the pages they show.
@@ -219,14 +221,19 @@ class MainWindow(QMainWindow):
         self.volume_slider.sliderReleased.connect(
             lambda: save_ui(self.config, "volume", self.config.volume))
         self.volume_slider.setToolTip(_("Volume of the radio's audio"))
+        self.mic_button = QToolButton()
+        self.mic_button.pressed.connect(lambda: self.talk(True))
+        self.mic_button.released.connect(lambda: self.talk(False))
+        self.mic_button.setToolTip(_("Hold to talk through the radio with this computer's "
+                                     "microphone (SSB, AM or FM)"))
         self.theme_button = QToolButton()
         self.theme_button.clicked.connect(self.next_theme)
         self.help_button = QToolButton()
         self.help_button.setText("?")
         self.help_button.setToolTip(_("About ic705suite"))
         self.help_button.clicked.connect(self.show_about)
-        for widget in (self.speaker_button, self.volume_slider, self.theme_button,
-                       self.help_button):
+        for widget in (self.speaker_button, self.volume_slider, self.mic_button,
+                       self.theme_button, self.help_button):
             if isinstance(widget, QToolButton):
                 widget.setObjectName("cornerbutton")
                 widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)   # the keys stay with the page
@@ -249,6 +256,13 @@ class MainWindow(QMainWindow):
             _("The radio's audio on this computer: on (click: off)") if on else
             _("The radio's audio on this computer: off (click: on)"))
         self.speaker_button.setEnabled(self.link is not None)
+        self.mic_button.setIcon(app_icon("microphone", "#ffffff" if self._ptt_down
+                                         else theme.TEXT, 20))
+        self.mic_button.setEnabled(self.link is not None)
+        if self.mic_button.property("talking") != self._ptt_down:
+            self.mic_button.setProperty("talking", self._ptt_down)
+            self.mic_button.style().unpolish(self.mic_button)
+            self.mic_button.style().polish(self.mic_button)
 
     def listen(self, on: bool) -> None:
         """The speaker button: the radio's receive audio on this computer's speakers."""
@@ -283,6 +297,51 @@ class MainWindow(QMainWindow):
             return
         self.speaker = speaker
         await self.link.listen_audio(speaker.play)
+        self._show_speaker()
+
+    def talk(self, down: bool) -> None:
+        """The microphone button, held: this computer's microphone keys the radio."""
+        self._ptt_down = down
+        self._show_speaker()
+        asyncio.ensure_future(self._talk(down))
+
+    async def _talk(self, down: bool) -> None:
+        from ic705suite.speaker import Microphone, SpeakerError
+
+        if self.link is None:
+            return
+        if not down:
+            if self.microphone is not None:
+                microphone, self.microphone = self.microphone, None
+                await self.link.ptt(False)
+                microphone.stop()
+            return
+        if self.microphone is not None:
+            return
+        rate = (self.link.welcome or {}).get("audio_rate", 0)
+        try:
+            if not rate:
+                raise SpeakerError(_("no audio from the radio reaches the core"))
+            microphone = Microphone(rate, self.link.send_voice)
+            microphone.start()
+        except SpeakerError as exc:
+            self._talk_failed(_("cannot use the microphone: {error}").format(error=exc))
+            return
+        self.microphone = microphone
+        result = await self.link.ptt(True)
+        if result.get("error"):
+            if self.microphone is microphone:
+                self.microphone = None
+            microphone.stop()
+            from ic705suite.i18n import render
+
+            self._talk_failed(render(result))
+        elif not self._ptt_down and self.microphone is microphone:
+            await self._talk(False)            # let go while it was keying
+
+    def _talk_failed(self, text: str) -> None:
+        self.dashboard._message("error", text)
+        self._ptt_down = False
         self._show_speaker()
 
     def _volume_changed(self, value: int) -> None:
@@ -487,6 +546,9 @@ class MainWindow(QMainWindow):
         if self.speaker is not None:
             self.speaker.stop()
             self.speaker = None
+        if self.microphone is not None:
+            self.microphone.stop()
+            self.microphone = None
         for host in self._hosts():
             if host.page is not None:
                 host.page.stop()

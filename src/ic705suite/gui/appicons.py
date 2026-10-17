@@ -117,9 +117,18 @@ def _speaker_off(p: QPainter) -> None:
     p.drawLine(QPointF(42, 18), QPointF(31, 30))
 
 
+def _microphone(p: QPainter) -> None:
+    """Talking through the radio: a microphone on its stand."""
+    p.drawRoundedRect(QRectF(17, 5, 14, 24), 7, 7)
+    p.drawArc(QRectF(11, 13, 26, 24), 180 * 16, 180 * 16)
+    p.drawLine(QPointF(24, 37), QPointF(24, 43))
+    p.drawLine(QPointF(16, 43), QPointF(32, 43))
+
+
 DRAWINGS: dict[str, Callable[[QPainter], None]] = {
     "view": _radio, "cw": _cw, "dstar": _dstar, "swr": _antenna, "log": _logbook,
     "packet": _packet, "ft8": _ft8, "speaker": _speaker, "speaker_off": _speaker_off,
+    "microphone": _microphone,
 }
 
 

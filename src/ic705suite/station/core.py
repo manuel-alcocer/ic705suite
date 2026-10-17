@@ -37,8 +37,11 @@ Commands (client -> server):
            swr.antenna.save {name, notes, coil_sign, id?}, swr.antenna.delete {id},
            pkt.* (see apps.packet.service), ft8.* (see apps.ft8.service),
            audio.listen {on}  receive audio for this client (remote: binary frames)
-Binary frames (server -> client), while a client listens: one byte of kind, then the data.
-  AUDIO_RX  the radio's receive audio, 16-bit little-endian mono PCM at audio_rate
+           voice.ptt {on}  key the radio for this client's microphone (see station.voice)
+Binary frames, one byte of kind, then the data:
+  AUDIO_RX  (server -> client, while it listens) the radio's receive audio, 16-bit
+            little-endian mono PCM at audio_rate
+  AUDIO_TX  (client -> server, while its PTT is down) its microphone, the same format
 """
 
 from __future__ import annotations
@@ -61,6 +64,7 @@ from ic705suite.rig.base import FEATURE_AUDIO, RigError
 from ic705suite.rig.transport import Transport, TransportError
 from ic705suite.shared_logbook import core_url, for_clients, use
 from ic705suite.station.station import Station
+from ic705suite.station.voice import Voice
 
 log = logging.getLogger(__name__)
 
@@ -71,7 +75,8 @@ SKIM_INTERVAL = 1.0
 CHANNELS_INTERVAL = 2.0
 BACKLOG = 400          # text events replayed to a client that connects later
 RETRY_DELAY = 10.0     # wait between attempts to reach the radio
-AUDIO_RX = 0x01        # kind of binary frame: receive audio
+AUDIO_RX = 0x01        # kinds of binary frame: receive audio,
+AUDIO_TX = 0x02        # and a client's microphone
 
 Event = dict
 Subscriber = Callable[[Event], None]
@@ -197,6 +202,7 @@ class Core:
         self.packet = PacketService(config, self.hub, self.station)
         self.ft8 = Ft8Service(self.station, config, self.hub)
         self.lotw = LotwService(config, self.hub)
+        self.voice = Voice(self.station, config, self.hub)
         self._ticker: asyncio.Task | None = None
         self._pcm: list[PcmListener] = []
         self.started = False
@@ -297,6 +303,7 @@ class Core:
         await self.packet.stop()
         await self.ft8.stop()
         await self.lotw.stop()
+        await self.voice.stop()
         await self.session.stop()
         await self.station.stop()
 

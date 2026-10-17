@@ -1545,3 +1545,45 @@ msgstr "Abrir en una pestaña"
 
 msgid "Open in a new window"
 msgstr "Abrir en una ventana nueva"
+
+msgid "Hold to talk through the radio with this computer's microphone (SSB, AM or FM)"
+msgstr "Mantener pulsado para hablar por la emisora con el micrófono de este ordenador (SSB, AM o FM)"
+
+msgid "cannot use the microphone: {error}"
+msgstr "no se puede usar el micrófono: {error}"
+
+msgid "voice is not supported"
+msgstr "la voz no está disponible"
+
+msgid "Voice cannot transmit: transmission is off ([rig] tx_enabled, --tx)"
+msgstr "La voz no puede transmitir: la transmisión está desactivada ([rig] tx_enabled, --tx)"
+
+msgid "Voice cannot transmit: another client is talking"
+msgstr "La voz no puede transmitir: otro cliente está hablando"
+
+msgid "Voice cannot transmit: the radio is not connected"
+msgstr "La voz no puede transmitir: la emisora no está conectada"
+
+msgid "Voice cannot transmit: this connection cannot send the radio audio"
+msgstr "La voz no puede transmitir: esta conexión no puede enviar audio a la emisora"
+
+msgid "Voice cannot transmit: the radio is transmitting already"
+msgstr "La voz no puede transmitir: la emisora ya está transmitiendo"
+
+msgid "Voice cannot transmit in {mode}: SSB, AM or FM, without DATA"
+msgstr "La voz no puede transmitir en {mode}: SSB, AM o FM, sin DATA"
+
+msgid "Voice cannot transmit: the radio does not answer ({error})"
+msgstr "La voz no puede transmitir: la emisora no responde ({error})"
+
+msgid "Voice released: no audio from the microphone"
+msgstr "Voz liberada: no llega audio del micrófono"
+
+msgid "Voice released: keyed for {seconds:.0f} s, the longest"
+msgstr "Voz liberada: {seconds:.0f} s transmitiendo, el máximo"
+
+msgid "FT8 cannot transmit: a microphone is talking"
+msgstr "FT8 no puede transmitir: se está hablando por un micrófono"
+
+msgid "Packet cannot transmit: a microphone is talking"
+msgstr "Packet no puede transmitir: se está hablando por un micrófono"

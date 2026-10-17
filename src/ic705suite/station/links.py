@@ -27,6 +27,7 @@ from ic705suite.rig.transport import Transport, TransportError
 from ic705suite.shared_logbook import client_url, use
 from ic705suite.station.core import (
     AUDIO_RX,
+    AUDIO_TX,
     BACKLOG,
     DEFAULT_PORT,
     PROTOCOL_VERSION,
@@ -136,6 +137,16 @@ class Link(abc.ABC):
         Returns its sample rate, 0 when no audio reaches the core."""
         return 0
 
+    async def ptt(self, on: bool) -> dict:
+        """Key the radio for this client's microphone (send_voice), or release it:
+        {on} or {error, msgid, args}."""
+        return {"error": "voice is not supported", "msgid": N_("voice is not supported"),
+                "args": {}}
+
+    def send_voice(self, pcm: bytes) -> None:
+        """The microphone while the PTT is down: 16-bit mono PCM at audio_rate."""
+        return None                            # no voice: dropped
+
 
 class LocalLink(Link):
     """Runs the core in this process (the default, single-machine setup)."""
@@ -168,6 +179,7 @@ class LocalLink(Link):
         if self._unsubscribe:
             self._unsubscribe()
         await self.listen_audio(None)
+        await self.core.voice.release(self, tail=0)
         await self.core.stop()
         self.connected = False
         self.closed.set()
@@ -185,6 +197,12 @@ class LocalLink(Link):
         if callback is not None and self.core.audio_rate:
             self._stop_audio = self.core.listen_audio(callback)
         return self.core.audio_rate
+
+    async def ptt(self, on: bool) -> dict:
+        return await self.core.voice.ptt(on, self)
+
+    def send_voice(self, pcm: bytes) -> None:
+        self.core.voice.audio(self, pcm)
 
 
 def parse_address(address: str) -> str:
@@ -218,6 +236,8 @@ class RemoteLink(Link):
         self._call_id = 0
         self._again: asyncio.Task | None = None
         self._audio: PcmListener | None = None
+        self._voice: asyncio.Queue[bytes] | None = None     # microphone frames to send
+        self._voice_sender: asyncio.Task | None = None
 
     async def _connect(self) -> None:
         try:
@@ -303,6 +323,8 @@ class RemoteLink(Link):
         self._closing = True
         if self._again is not None:
             self._again.cancel()
+        if self._voice_sender is not None:
+            self._voice_sender.cancel()
         if self._reader:
             self._reader.cancel()
         if self._ws is not None:
@@ -346,6 +368,28 @@ class RemoteLink(Link):
             return rate                 # asked for again when it connects
         result = await self.call("audio.listen", on=callback is not None)
         return int(result.get("rate", rate) or 0)
+
+    async def ptt(self, on: bool) -> dict:
+        if self._ws is None:
+            return dict(LOST)
+        return await self.call("voice.ptt", on=on)
+
+    def send_voice(self, pcm: bytes) -> None:
+        # In order, one after another: a queue and one task sending it.
+        if self._voice is None:
+            self._voice = asyncio.Queue(100)
+        if self._voice_sender is None or self._voice_sender.done():
+            self._voice_sender = asyncio.create_task(self._send_voice())
+        with contextlib.suppress(asyncio.QueueFull):     # stalled: the core releases
+            self._voice.put_nowait(bytes([AUDIO_TX]) + pcm)
+
+    async def _send_voice(self) -> None:
+        while True:
+            frame = await self._voice.get()
+            if self._ws is None or not self.connected:
+                continue
+            with contextlib.suppress(ConnectionClosed):
+                await self._ws.send(frame)
 
 
 __all__ = ["Link", "LinkError", "LocalLink", "RemoteLink", "TransportError", "parse_address"]

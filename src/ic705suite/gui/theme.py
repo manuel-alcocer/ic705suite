@@ -239,6 +239,10 @@ QToolButton#cornerbutton:hover {{
     background: {RAISED};
     border-color: {BORDER};
 }}
+QToolButton#cornerbutton[talking="true"] {{
+    background: {RED};
+    border-color: {RED};
+}}
 QMenuBar::item:selected, QMenu::item:selected {{
     background: {SELECTED};
     color: {TEXT};

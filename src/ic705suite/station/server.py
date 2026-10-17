@@ -11,7 +11,7 @@ from websockets.asyncio.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
 
 from ic705suite.i18n import N_
-from ic705suite.station.core import AUDIO_RX, PROTOCOL_VERSION, Core
+from ic705suite.station.core import AUDIO_RX, AUDIO_TX, PROTOCOL_VERSION, Core
 
 log = logging.getLogger(__name__)
 
@@ -73,12 +73,17 @@ class CoreServer:
                 queue.put_nowait(bytes([AUDIO_RX]) + pcm)
 
         stop_audio = None
+        talker = object()                    # this connection, for the voice's PTT
         unsubscribe = self.core.subscribe(push)
         self.clients += 1
         log.info("client %s connected (%s)", peer, hello.get("client", "?"))
         sender = asyncio.create_task(self._send_loop(ws, queue, dropped))
         try:
             async for raw in ws:
+                if isinstance(raw, bytes):
+                    if raw[:1] == bytes([AUDIO_TX]):
+                        self.core.voice.audio(talker, raw[1:])
+                    continue
                 try:
                     msg = json.loads(raw)
                 except ValueError:
@@ -99,12 +104,20 @@ class CoreServer:
                     push({"type": "reply", "id": msg.get("id"),
                           "result": {"on": stop_audio is not None,
                                      "rate": self.core.audio_rate}})
+                elif msg.get("type") == "call" and msg.get("method") == "voice.ptt":
+                    on = bool((msg.get("params") or {}).get("on"))
+                    log.info("client %s: PTT %s", peer, "on" if on else "off")
+                    push({"type": "reply", "id": msg.get("id"),
+                          "result": await self.core.voice.ptt(on, talker)})
                 elif msg.get("type") == "call" and isinstance(msg.get("method"), str):
                     result = await self.core.call(msg["method"], msg.get("params") or {})
                     push({"type": "reply", "id": msg.get("id"), "result": result})
         except ConnectionClosed:
             pass
         finally:
+            if self.core.voice.talker is talker:
+                log.warning("client %s left talking: releasing the PTT", peer)
+                await self.core.voice.release(talker, tail=0)
             if stop_audio is not None:
                 stop_audio()
             unsubscribe()

@@ -37,3 +37,19 @@ def test_resampler_is_continuous_across_blocks():
 def test_pcm_to_float():
     pcm = np.array([0, 16384, -32768], "<i2").tobytes()
     assert pcm_to_float(pcm).tolist() == [0.0, 0.5, -1.0]
+
+
+def test_low_pass_keeps_the_voice_and_removes_what_would_fold_back():
+    from ic705suite.speaker import LowPass
+
+    rate = 48000
+    t = np.arange(rate) / rate
+
+    def level(freq):
+        low_pass = LowPass(rate, 0.45 * 8000)
+        tone = np.sin(2 * np.pi * freq * t).astype(np.float32)
+        out = np.concatenate([low_pass(tone[i:i + 960]) for i in range(0, rate, 960)])
+        return np.abs(out[rate // 2:]).max()
+
+    assert level(1000) > 0.9                     # the voice
+    assert level(7000) < 0.05                    # would fold back to 1 kHz at 8 kHz

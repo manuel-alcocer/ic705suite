@@ -1063,6 +1063,8 @@ class Ft8Service:
             return N_("FT8 cannot transmit: the radio is not connected"), {}
         if not self.station.transport.can_send_audio:
             return N_("FT8 cannot transmit: this connection cannot send the radio audio"), {}
+        if self.station.keyed_by == "voice":
+            return N_("FT8 cannot transmit: a microphone is talking"), {}
         rig = self.station.rig
         try:
             data_mode, _filter = await rig.read_data_mode()

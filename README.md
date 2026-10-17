@@ -162,6 +162,13 @@ from a local core or from the server (the core sends it only to the clients that
 with its volume beside it (`[ui] volume`, 0 to 100, kept when it is moved). It plays through
 PortAudio (the `sounddevice` package): its wheels bring it on Windows and macOS, on Linux it
 is the system's (`portaudio` on Arch, `libportaudio2` on Debian and Ubuntu).
+Beside it, the **microphone** button talks through the radio while it is held: this
+computer's microphone keys the radio in SSB, AM or FM (not in a data mode), with
+transmission on in the core (`[rig] tx_enabled`, as for FT8). One client talks at a time;
+the radio's DATA OFF MOD input is set to WLAN only while keyed, and put back on release
+(the radio's own microphone works again). It is released when the button is let go, the
+client leaves or its audio stops for a second, and after three minutes in any case; FT8 and
+packet do not key meanwhile. Set the level with the radio's LAN MOD level and its ALC meter.
 
 ### Core on a Raspberry Pi, client here
 

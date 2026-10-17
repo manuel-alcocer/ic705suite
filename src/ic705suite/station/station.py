@@ -78,6 +78,7 @@ class Station:
         rig.tx_enabled = config.tx_enabled
         rig.on_state = ui.status_changed
         self.connected = False
+        self.keyed_by: str | None = None   # "voice" while a client's microphone talks
         self.paused: set[str] = set()   # reasons to stop polling (a scan owns the rig)
         self._audio: list[AudioListener] = []
         self._tune: list[TuneListener] = []

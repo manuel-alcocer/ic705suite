@@ -1,19 +1,24 @@
-"""The radio's receive audio on this computer's speakers.
+"""The radio's receive audio on this computer's speakers, and its microphone for the radio.
 
 The audio comes in bursts (the radio's packets, the network's jitter) and the sound card
 takes it at its own steady pace, from a thread of its own: a jitter buffer between them
 waits for some audio before it starts playing, plays silence when it runs out (and waits
 again), and drops the oldest audio when too much piles up, so the delay stays short.
 
-PortAudio (the sounddevice package) plays it: on Windows and macOS its wheels bring the
-library, on Linux it is the system's (portaudio). Without it the speaker cannot be used,
-and the rest of the client works as ever.
+The microphone goes the other way, at the radio's rate: captured in blocks, each handed
+to the asyncio loop as 16-bit PCM for the core.
+
+PortAudio (the sounddevice package) plays and captures: on Windows and macOS its wheels
+bring the library, on Linux it is the system's (portaudio). Without it the speaker and the
+microphone cannot be used, and the rest of the client works as ever.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
+from collections.abc import Callable
 
 import numpy as np
 
@@ -83,6 +88,26 @@ class Resampler:
             self._pos -= len(samples)
         self._last = data[-1:]
         return out
+
+
+class LowPass:
+    """A windowed-sinc FIR, block after block: what is above the radio's band goes before
+    the microphone's 48 kHz are taken down to 8 kHz (else it folds back into the voice)."""
+
+    def __init__(self, rate: int, cutoff: float, taps: int = 63) -> None:
+        n = np.arange(taps) - (taps - 1) / 2
+        kernel = np.sinc(2 * cutoff / rate * n) * np.hamming(taps)
+        self.kernel = (kernel / kernel.sum()).astype(np.float32)
+        self._history = np.zeros(taps - 1, np.float32)
+
+    def __call__(self, samples: np.ndarray) -> np.ndarray:
+        data = np.concatenate((self._history, samples.astype(np.float32, copy=False)))
+        self._history = data[len(data) - len(self._history):]
+        return np.convolve(data, self.kernel, mode="valid").astype(np.float32)
+
+
+def float_to_pcm(samples: np.ndarray) -> bytes:
+    return (np.clip(samples, -1, 1) * 32767).astype("<i2").tobytes()
 
 
 def pcm_to_float(pcm: bytes) -> np.ndarray:
@@ -156,3 +181,73 @@ class Speaker:
     @property
     def playing(self) -> bool:
         return self._stream is not None
+
+
+class Microphone:
+    """Captures the default input device at `rate` and hands `send` 16-bit PCM blocks, on
+    the asyncio loop that started it; `level` is the latest block's peak (0..1)."""
+
+    BLOCK = 0.02
+
+    def __init__(self, rate: int, send: Callable[[bytes], None], gain: float = 1.0) -> None:
+        self.rate = rate
+        self.send = send
+        self.gain = gain
+        self.level = 0.0
+        self._stream = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._convert: Callable[[np.ndarray], np.ndarray] | None = None
+
+    def start(self) -> None:
+        try:
+            import sounddevice
+        except (ImportError, OSError) as exc:
+            raise SpeakerError(f"no audio input: {exc}") from None
+        self._loop = asyncio.get_running_loop()
+        try:
+            self._stream = self._open(sounddevice, self.rate)
+            self._convert = None
+        except sounddevice.PortAudioError:
+            try:
+                device_rate = int(sounddevice.query_devices(kind="input")["default_samplerate"])
+                self._stream = self._open(sounddevice, device_rate)
+            except (sounddevice.PortAudioError, ValueError) as exc:
+                raise SpeakerError(f"cannot open the microphone: {exc}") from None
+            low_pass = LowPass(device_rate, 0.45 * self.rate)
+            resample = Resampler(device_rate, self.rate)
+            self._convert = lambda samples: resample(low_pass(samples))
+        self._stream.start()
+        log.info("microphone at %d Hz on %s", self._stream.samplerate, self._stream.device)
+
+    def _open(self, sounddevice, rate: int):
+        return sounddevice.InputStream(samplerate=rate, channels=1, dtype="float32",
+                                       blocksize=int(rate * self.BLOCK),
+                                       callback=self._callback)
+
+    def _callback(self, indata, _frames, _time, _status) -> None:
+        samples = indata[:, 0].copy()
+        loop = self._loop
+        if loop is not None and not loop.is_closed():
+            try:
+                loop.call_soon_threadsafe(self._deliver, samples)
+            except RuntimeError:                 # the loop closing
+                pass
+
+    def _deliver(self, samples: np.ndarray) -> None:
+        if self._stream is None:
+            return
+        if self._convert is not None:
+            samples = self._convert(samples)
+        samples = samples * self.gain
+        self.level = float(np.abs(samples).max()) if len(samples) else 0.0
+        self.send(float_to_pcm(samples))
+
+    def stop(self) -> None:
+        if self._stream is not None:
+            stream, self._stream = self._stream, None
+            try:
+                stream.stop()
+                stream.close()
+            except Exception:
+                log.exception("closing the microphone")
+        self.level = 0.0
