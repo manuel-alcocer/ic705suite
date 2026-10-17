@@ -114,6 +114,7 @@ class SimTransport(Transport):
         self.dv_rx_message = b"\xff"            # message, caller, note
         self.dv_voice = False
         self.dv_dprs = b"\xff"                  # the last D-PRS report heard (20 03 02)
+        self.terminal_mode = False               # D-STAR Terminal Mode: no frequency told
         self.ptt = False
         self.tx_audio_bytes = 0
         self.tx_peak = 0.0                   # of full scale: the audio sent lately (the ALC)
@@ -203,6 +204,8 @@ class SimTransport(Transport):
         ok, ng = bytes([civ.OK]), bytes([civ.NG])
         cmd, data = body[0], body[1:]
         if cmd == 0x03:
+            if self.terminal_mode:
+                return ng                        # as the IC-705 in Terminal Mode
             return b"\x03" + civ.encode_frequency(self.frequency)
         if cmd == 0x05 and len(data) == 5:
             self.frequency = civ.decode_frequency(data)

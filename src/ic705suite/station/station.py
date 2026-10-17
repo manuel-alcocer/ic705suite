@@ -23,7 +23,7 @@ import numpy as np
 from ic705suite.config import Config
 from ic705suite.i18n import N_
 from ic705suite.rig import bands
-from ic705suite.rig.base import Rig, RigError, smeter_text
+from ic705suite.rig.base import CommandRejected, Rig, RigError, smeter_text
 from ic705suite.rig.transport import TransportError
 from ic705suite.ui.sysload import LOAD
 
@@ -196,7 +196,11 @@ class Station:
 
     async def _read_state(self) -> None:
         state = self.rig.state
-        state.frequency = await self.rig.read_frequency()
+        try:
+            state.frequency = await self.rig.read_frequency()
+        except CommandRejected:
+            # It answers, but will not tell: Terminal Mode (D-STAR). Connected all the same.
+            log.info("the radio refuses to tell its frequency (Terminal Mode?)")
         state.mode = await self.rig.read_mode()
         with contextlib.suppress(RigError):
             await self.rig.read_power()
@@ -268,9 +272,9 @@ class Station:
             try:
                 self.rig.state.smeter = await self.rig.read_smeter()
                 if tick % 4 == 0:
-                    freq = await self.rig.read_frequency()
+                    freq = await self._read_frequency()
                     old = self.rig.state.frequency
-                    if freq != old:
+                    if freq is not None and freq != old:
                         log.info("frequency changed on the radio: %d Hz", freq)
                         self.rig.state.frequency = freq
                         self._notify_tune(old, freq)
@@ -284,6 +288,14 @@ class Station:
                 log.debug("poll: %s", exc)
             self._check_alive()
             self.ui.status_changed()
+
+    async def _read_frequency(self) -> int | None:
+        """The radio's frequency; None while it refuses to tell (Terminal Mode), which
+        is an answer: the rest of the poll goes on."""
+        try:
+            return await self.rig.read_frequency()
+        except CommandRejected:
+            return None
 
     def _check_alive(self) -> None:
         """A session that only looks alive (see SILENT_CIV): lost, and connected again."""

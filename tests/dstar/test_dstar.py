@@ -262,3 +262,32 @@ def test_the_beacon_form():
     assert isinstance(beacon_form(True, "manual", "95", "0", "", "", 0, 0, ""), str)
     assert beacon_form(False, "gps", "", "", "", "", 2, 5, "c") == \
         {"send": False, "source": "gps", "symbol": 2, "ssid": 5, "comment": "c"}
+
+
+def test_the_core_connects_with_the_radio_in_terminal_mode(tmp_path, monkeypatch):
+    """In Terminal Mode the IC-705 refuses to tell its frequency (03 NG): it answers, so the
+    core connects all the same and D-STAR works (it would not connect at all, 2026-10-17)."""
+    monkeypatch.setattr(service_module, "FAST_POLL", 0.1)
+
+    async def scenario():
+        from ic705suite.rig.icom.sim import SimTransport
+
+        sim = SimTransport(stations=[], seed=9)
+        sim.terminal_mode = True
+        sim.mode = 0x17
+        sim.dv_tx_calls = b"/XLX214D" + b"EA4SIM Z" + b"EA4SIM G"
+        config = Config(swr_web=False, callsign="EA4SIM",
+                        database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(sim, config)
+        await asyncio.wait_for(link.connect(), 15)
+        try:
+            assert link.core.station.connected
+            assert link.core.station.rig.state.mode == "DV"
+            await link.call("dstar.start")
+            await until(lambda: link.core.dstar.radio_mode() == "int")
+            await asyncio.sleep(1.5)                       # polls refusing the frequency
+            assert link.core.station.connected
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())

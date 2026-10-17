@@ -10,7 +10,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from ic705suite import morse
-from ic705suite.rig.base import Meter, Rig, RigError, RigModel, ScopeFrame, TxDisabledError
+from ic705suite.rig.base import (
+    CommandRejected,
+    Meter,
+    Rig,
+    RigError,
+    RigModel,
+    ScopeFrame,
+    TxDisabledError,
+)
 from ic705suite.rig.controls import Control
 from ic705suite.rig.icom.controls import SPECIAL_CONTROLS
 from ic705suite.rig.icom import civ, memory
@@ -184,7 +192,7 @@ class IcomRig(Rig):
                 finally:
                     self._pending = None
                 if frame.cmd == civ.NG:
-                    raise RigError(f"radio rejected command {body.hex(' ')}")
+                    raise CommandRejected(f"radio rejected command {body.hex(' ')}")
                 return frame
             raise RigError(f"no answer to command {body.hex(' ')}") from last_error
 

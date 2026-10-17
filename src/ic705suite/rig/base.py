@@ -20,6 +20,11 @@ class RigError(Exception):
     """The radio rejected a command or did not answer."""
 
 
+class CommandRejected(RigError):
+    """The radio answered NG: it is there, but will not do that now (in Terminal Mode, for
+    one, the IC-705 refuses to tell its frequency)."""
+
+
 class TxDisabledError(RigError):
     """A command able to key the transmitter was refused: the suite is receive-only."""
 
