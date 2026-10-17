@@ -35,7 +35,12 @@ def test_the_phone_page(tmp_path, run):
         try:
             await until(lambda: page.rig.get("connected"))
             ids = [c["id"] for c in page.model.controls]
-            assert ids[:3] == ["af", "sql", "rf"] and "key_speed" not in ids and "mic" in ids
+            assert ids[:4] == ["af", "rf", "sql", "agc"] and "key_speed" not in ids
+            # Five short columns: no more than five rows in any.
+            columns = page.model.columns() if hasattr(page.model, "columns") else [
+                [c for c in page.model.controls if c["group"] == g]
+                for g, _l in page.model.visible_groups()]
+            assert len(columns) == 5 and max(len(c) for c in columns) <= 5
             page.band_buttons["40m"].click()
             await until(lambda: sim.frequency == 7_150_000 and sim.mode == 0x00)    # LSB
             await until(lambda: page.band_buttons["40m"].isChecked()

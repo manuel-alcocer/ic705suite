@@ -42,11 +42,19 @@ from ic705suite.gui.widgets import (
     Table,
 )
 from ic705suite.i18n import N_, _, render
+from ic705suite.ui.panelmodel import PanelModel
 
-# The front-panel controls a phone operator turns, in this order.
-PHONE_CONTROLS = ("af", "sql", "rf", "preamp", "att", "agc", "nb", "nr", "nr_level",
-                  "filter", "filter_width", "power", "mic", "comp", "comp_level", "tx_width",
-                  "vox", "vox_gain", "monitor", "monitor_gain")
+# The front-panel controls a phone operator turns, in five short columns of their own (the
+# rig's groups would make one nine rows tall), in this order.
+PHONE_GROUPS = (("rx", N_("Receive")), ("front", N_("Front end")), ("dsp", N_("DSP")),
+                ("tx", N_("Transmit")), ("txaudio", N_("TX audio")))
+PHONE_LAYOUT = {"af": "rx", "rf": "rx", "sql": "rx", "agc": "rx",
+                "preamp": "front", "att": "front", "filter": "front", "filter_width": "front",
+                "nb": "dsp", "nr": "dsp", "nr_level": "dsp",
+                "power": "tx", "mic": "tx", "comp": "tx", "comp_level": "tx",
+                "tx_width": "txaudio", "vox": "txaudio", "vox_gain": "txaudio",
+                "monitor": "txaudio", "monitor_gain": "txaudio"}
+PHONE_CONTROLS = tuple(PHONE_LAYOUT)
 # Each band's phone segment, and its sideband (the mode for 2 m and 70 cm: FM).
 PHONE_BANDS = (("160m", 1_850_000, "LSB"), ("80m", 3_700_000, "LSB"),
                ("60m", 5_360_000, "USB"), ("40m", 7_150_000, "LSB"),
@@ -161,6 +169,7 @@ class PhonePage(ViewPage):
 
         # The controls phone needs (the rig view's grid, with only those).
         self.panel_frame = Frame(_("Controls"))
+        self.model = PanelModel(PHONE_GROUPS)
         self.grid = self.panel_frame.add(ControlGrid(self.model))
         self.grid.request.connect(self._grid_request)
         self.grid.set_value.connect(lambda cid, value: self.run_worker(self._set(cid, value)))
@@ -249,7 +258,8 @@ class PhonePage(ViewPage):
         rig = event.get("rig", {})
         by_id = {c["id"]: c for c in rig.get("controls", [])}
         self.controls = rig.get("controls", [])
-        self.model.set_controls([by_id[cid] for cid in PHONE_CONTROLS if cid in by_id])
+        self.model.set_controls([{**by_id[cid], "group": PHONE_LAYOUT[cid]}
+                                 for cid in PHONE_CONTROLS if cid in by_id])
         self._make_meters(rig.get("meters", []))
 
     def _apply_rig(self, event: dict) -> None:
