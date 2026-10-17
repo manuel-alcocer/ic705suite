@@ -1857,3 +1857,18 @@ msgstr "{count} repetidores"
 
 msgid "{count} repeaters saved as memories"
 msgstr "{count} repetidores guardados como memorias"
+
+msgid "Tuned, and it can be centred"
+msgstr "Afinada, y se puede centrar"
+
+msgid "The SWR on the target is {swr:.2f}, but the dip sits {khz:.0f} kHz {where} it: {number} ({units}) would centre it."
+msgstr "La ROE en el objetivo es {swr:.2f}, pero el mínimo está {khz:.0f} kHz {where}: con {number} ({units}) quedaría centrada."
+
+msgid "The SWR on the target is {swr:.2f}, but the dip sits {khz:.0f} kHz {where} it: {way} the resonance a little to centre it."
+msgstr "La ROE en el objetivo es {swr:.2f}, pero el mínimo está {khz:.0f} kHz {where}: {way} un poco la resonancia para centrarla."
+
+msgid "raise"
+msgstr "sube"
+
+msgid "lower"
+msgstr "baja"

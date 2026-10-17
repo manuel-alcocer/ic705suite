@@ -414,6 +414,16 @@ function renderResult(sw) {
   if (!a.confident) {
     verdict = "Ruido sin pico claro"; cls = "warn";
     advice = "El ruido es casi plano o lo dominan emisoras: no se puede decir dónde resuena. Prueba de noche, en una banda más tranquila o haz un barrido ROE.";
+  } else if (a.tuned && a.fine) {
+    verdict = "Afinada, y se puede centrar"; cls = "ok";
+    const where = a.delta_khz < 0 ? "por debajo" : "por encima";
+    const atTarget = (a.swr_at_target ?? a.best_value).toFixed(2);
+    if (a.move) {
+      const hint = a.units ? `≈ ${a.units.toString().replace(".", ",")} división${a.units === 1 ? "" : "es"}` : "un poco";
+      advice = `La ROE en el objetivo es ${atTarget}, pero el mínimo está ${Math.abs(a.delta_khz).toFixed(0)} kHz ${where}: a un número ${a.move === "lower" ? "menor" : "mayor"} (${hint}) quedaría centrada.`;
+    } else {
+      advice = `La ROE en el objetivo es ${atTarget}, pero el mínimo está ${Math.abs(a.delta_khz).toFixed(0)} kHz ${where}: ${a.shift === "up" ? "sube" : "baja"} un poco la resonancia para centrarla.`;
+    }
   } else if (a.tuned) {
     verdict = "¡Afinada! Deja la bobina así"; cls = "ok";
   } else if (a.centered) {

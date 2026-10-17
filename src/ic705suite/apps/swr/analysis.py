@@ -29,12 +29,17 @@ class Analysis:
     bw_20: tuple[int, int] | None
     swr_at_target: float | None = None
     shift: str = ""           # "", "up" or "down": where the resonance has to go
+    fine: bool = False        # tuned on the target, but the dip sits off it (move, units say
+                              # where to centre it)
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
 TUNED_SWR = 1.5
+# SWR readings this close to the lowest one are the same dip: the IC-705's meter reads 1.00
+# over a broad stretch, whose middle is the resonance (not its first point).
+FLAT_SWR = 0.015
 
 
 def _value_at(freqs: list[int], values: list[float], hz: int) -> float | None:
@@ -150,8 +155,13 @@ def analyze(kind: str, freqs: list[int], values: list[float], target: int,
         return None
     if kind == "swr":
         i = min(range(len(values)), key=values.__getitem__)
-        resonance = _vertex(freqs, values, i)
         best = values[i]
+        lo, hi = _flat_run(values, i)
+        if hi - lo >= 2:                         # a flat dip: its middle
+            resonance = (freqs[lo] + freqs[hi]) / 2
+            i = lo if lo == 0 else hi if hi == len(freqs) - 1 else (lo + hi) // 2
+        else:
+            resonance = _vertex(freqs, values, i)
     else:
         smooth = _smooth(values)
         i = max(range(len(smooth)), key=smooth.__getitem__)
@@ -170,7 +180,10 @@ def analyze(kind: str, freqs: list[int], values: list[float], target: int,
         centered = tuned = True
     move = shift = ""
     slope = khz_per_unit(history, band, coil_sign, default_slopes)
-    if confident and not centered:
+    # Good on the target, the dip well off it (twice the tolerance: not a few kHz of a
+    # broad dip): still say where to centre it.
+    fine = tuned and confident and not at_edge and abs(delta) > 2 * tolerance_hz(target)
+    if confident and (not centered or fine):
         # Resonance below the target -> raise frequency -> the sign tells which way the number
         # goes (the antenna's, or the one its history shows).
         raise_freq = delta < 0
@@ -180,7 +193,7 @@ def analyze(kind: str, freqs: list[int], values: list[float], target: int,
             move = "higher" if (raise_freq == (sign > 0)) else "lower"
     units = None
     # From the sweep edge the true distance is unknown: give a direction only.
-    if slope and confident and not centered and not at_edge:
+    if slope and confident and (not centered or fine) and not at_edge:
         units = round(abs(delta / 1000 / slope) * 4) / 4  # quarter-unit resolution
     bw_15 = _range_below(freqs, values, 1.5, i) if kind == "swr" else None
     bw_20 = _range_below(freqs, values, 2.0, i) if kind == "swr" else None
@@ -189,4 +202,15 @@ def analyze(kind: str, freqs: list[int], values: list[float], target: int,
     if at_target is not None:
         result.swr_at_target = round(at_target, 2)
     result.shift = shift
+    result.fine = fine
     return result
+
+
+def _flat_run(values: list[float], i: int) -> tuple[int, int]:
+    """The points around the lowest (i) that read the same as it, within FLAT_SWR."""
+    lo = hi = i
+    while lo > 0 and values[lo - 1] <= values[i] + FLAT_SWR:
+        lo -= 1
+    while hi < len(values) - 1 and values[hi + 1] <= values[i] + FLAT_SWR:
+        hi += 1
+    return lo, hi

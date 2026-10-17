@@ -67,6 +67,22 @@ def advice(sweep: dict) -> tuple[str, str, str]:
         verdict, style = _("Noise without a clear peak"), "bold yellow"
         text = _("The noise is almost flat or stations dominate it: the resonance cannot be "
                  "told. Try at night, on a quieter band, or make an SWR sweep.")
+    elif a["tuned"] and a.get("fine"):
+        verdict, style = _("Tuned, and it can be centred"), "bold green"
+        where = _("below") if a["delta_khz"] < 0 else _("above")
+        if a["move"]:
+            units = _("about {units} divisions").format(units=a["units"]) if a["units"] \
+                else _("a little")
+            number = _("a lower number") if a["move"] == "lower" else _("a higher number")
+            text = _("The SWR on the target is {swr:.2f}, but the dip sits {khz:.0f} kHz "
+                     "{where} it: {number} ({units}) would centre it.").format(
+                swr=a.get("swr_at_target") or a["best_value"], khz=abs(a["delta_khz"]),
+                where=where, number=number, units=units)
+        else:
+            text = _("The SWR on the target is {swr:.2f}, but the dip sits {khz:.0f} kHz "
+                     "{where} it: {way} the resonance a little to centre it.").format(
+                swr=a.get("swr_at_target") or a["best_value"], khz=abs(a["delta_khz"]),
+                where=where, way=_("raise") if a.get("shift") == "up" else _("lower"))
     elif a["tuned"]:
         verdict, style, text = _("Tuned! Leave the coil there"), "bold green", ""
     elif a["centered"]:
