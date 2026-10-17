@@ -65,7 +65,7 @@ def test_a_click_chooses_and_a_double_click_answers(qapp):
 
 def test_arrows_the_way_each_call_goes(qapp):
     """Our call goes out to the station we call; a station calling us comes in: each has
-    its path, and the frames run only while there are arrows and the map is shown."""
+    its path, and the frames run only while something moves and the map is shown."""
     view = ft8map.MapView()
     view.resize(900, 450)
     view.mycall = "EA7KLX"
@@ -91,6 +91,9 @@ def test_arrows_the_way_each_call_goes(qapp):
     view.heard["DL1ABC"].seen -= ft8map.CALLING_FOR + 1       # its call went by
     view.set_them("")
     assert view.paths() == []
+    view.grab()
+    assert view._frames.isActive()                            # the others' dashes run
+    view.heard["F5ABC"].seen -= ft8map.CALLING_FOR + 1
     view.grab()
     assert not view._frames.isActive()
     view.hide()
@@ -148,8 +151,11 @@ def test_the_calls_between_other_stations_quiet_under_ours(qapp):
     assert paths["G4XYZ"] == ((51.5, -0.1), (48.8, 2.3))
     assert paths["K4YYL"][1] != (35.0, -84.0)                         # R6AO's country
     assert [call for call, _outward in view.paths()] == ["DL1ABC"]
+    assert view.moving()                                              # their dashes run
+    view.heard["DL1ABC"].seen = time.time() - ft8map.CALLING_FOR - 1
+    assert not view.paths() and view.moving()                         # theirs alone too
     view.heard["G4XYZ"].seen = time.time() - ft8map.CALLING_FOR - 1   # gone by
     assert "G4XYZ" not in {call for _s, _e, call in view.traffic_paths()}
     view.set_traffic(False)
     view.repaint()                                                    # drawn without them
-    assert not view.traffic
+    assert not view.traffic and not view.moving()

@@ -52,6 +52,7 @@ NIGHT = QColor(0, 0, 0, 95)
 GRID = QColor(255, 255, 255, 38)
 GRID_LABEL = QColor(255, 255, 255, 70)
 TRAFFIC = QColor(170, 190, 215, 105)  # calls between other stations: there, not in the way
+TRAFFIC_DASH = (4.0, 4.0)    # their dashes and gaps, in pen widths, running the call's way
 WORKED = QColor(240, 160, 40, 120)
 CONFIRMED = QColor(70, 210, 120, 140)
 
@@ -210,6 +211,7 @@ class MapView(QWidget):
 
     def set_traffic(self, on: bool) -> None:
         self.traffic = on
+        self._animate()
         self.update()
 
     def traffic_paths(self, now: float | None = None) -> list[tuple[tuple, tuple, str]]:
@@ -243,9 +245,13 @@ class MapView(QWidget):
         done = self._done.get(heard.call)
         return done is not None and heard.seen <= done
 
+    def moving(self, now: float | None = None) -> bool:
+        """Something to animate: our paths' arrows, the others' calls' dashes."""
+        return bool(self.paths(now)) or (self.traffic and bool(self.traffic_paths(now)))
+
     def _animate(self) -> None:
-        """Frames only while there are arrows to move and the map is shown."""
-        wanted = bool(self.paths()) and self.isVisible()
+        """Frames only while there is something moving and the map is shown."""
+        wanted = self.moving() and self.isVisible()
         if wanted and not self._frames.isActive():
             self._frames.start()
         elif not wanted and self._frames.isActive():
@@ -299,8 +305,8 @@ class MapView(QWidget):
         self._draw_heard(painter)
         self._draw_key(painter)
         painter.end()
-        if not self.paths(now) and self._frames.isActive():
-            self._frames.stop()                  # the calls to us went by
+        if not self.moving(now) and self._frames.isActive():
+            self._frames.stop()                  # the calls went by
 
     def _still(self) -> QPixmap:
         """The land, the squares worked, the night and the grid: drawn again only when the
@@ -414,10 +420,16 @@ class MapView(QWidget):
         return pieces
 
     def _draw_traffic(self, painter: QPainter, now: float) -> None:
-        """The calls between other stations: thin, faint, still, an arrow halfway."""
+        """The calls between other stations: thin, faint, dashes running from the caller
+        to the station called, an arrow halfway."""
+        pen = QPen(TRAFFIC, 1.2, Qt.PenStyle.CustomDashLine)
+        pen.setDashPattern(list(TRAFFIC_DASH))
+        period = sum(TRAFFIC_DASH)
+        # The offset in pen widths; lower values move the dashes along the path.
+        pen.setDashOffset(period - (now * ARROW_SPEED / pen.widthF()) % period)
         for start, end, _call in self.traffic_paths(now):
             pieces = self._pieces(geo.great_circle(start, end, steps=32))
-            painter.setPen(QPen(TRAFFIC, 1.2))
+            painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             for piece in pieces:
                 path = QPainterPath(piece[0])
