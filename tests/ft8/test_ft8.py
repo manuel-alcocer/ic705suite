@@ -1041,3 +1041,47 @@ def test_a_caller_to_our_cq_is_answered_in_the_next_turn(tmp_path, monkeypatch):
             await link.close()
 
     asyncio.run(scenario())
+
+
+def test_with_nobody_connected_it_stops_transmitting_and_goes_on_decoding(tmp_path,
+                                                                          monkeypatch):
+    air = short_turns(monkeypatch)
+    air["says"] = "G4XYZ F5ABC JN12"
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, ft8_unattended=10,
+                        database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        ft8 = link.core.ft8
+        try:
+            assert link.core.clients == 1 and ft8.state()["unattended"] == 10
+            await link.call("ft8.start")
+            await link.call("ft8.cq")
+            assert ft8.sending
+            ft8.watch_clients(1, now=0)
+            ft8.watch_clients(0, now=100)                   # the last client left
+            ft8.watch_clients(0, now=100 + 9 * 60)
+            assert ft8.sending                              # within the 10 minutes
+            ft8.watch_clients(0, now=100 + 10 * 60)
+            await until(lambda: not ft8.sending)
+            assert ft8.on and not link.core.station.transport.ptt     # still decoding
+            assert any("nobody connected" in e.get("msgid", "") for e in link.core.hub.backlog)
+            # Changed by a client until a restart; 0, no limit.
+            assert await link.call("ft8.unattended", minutes=0) == {"minutes": 0}
+            await link.call("ft8.cq")
+            ft8.watch_clients(0, now=0)
+            ft8.watch_clients(0, now=10 ** 6)
+            await asyncio.sleep(0.1)
+            assert ft8.sending
+            # Someone back: the count starts again when they leave.
+            await link.call("ft8.unattended", minutes=10)
+            ft8.watch_clients(1, now=10 ** 6 + 1)
+            ft8.watch_clients(0, now=10 ** 6 + 2)
+            ft8.watch_clients(0, now=10 ** 6 + 60)
+            assert ft8.sending
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())

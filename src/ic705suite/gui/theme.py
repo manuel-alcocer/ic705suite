@@ -258,6 +258,14 @@ QMenu::item {{
 """
 
 
+def quiet() -> str:
+    """Halfway between the text and DIM: there and easy to read, but not in the way (the
+    FT8 messages between other stations)."""
+    a, b = QColor(TEXT), QColor(DIM)
+    return QColor((a.red() + b.red()) // 2, (a.green() + b.green()) // 2,
+                  (a.blue() + b.blue()) // 2).name()
+
+
 def mono(size: float = 10, bold: bool = False) -> QFont:
     """The system's fixed-width font (numbers line up, as in the terminal)."""
     font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)

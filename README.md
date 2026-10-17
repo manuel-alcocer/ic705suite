@@ -323,6 +323,13 @@ own link, keying it by CI-V, only with `tx_enabled` and the radio in a data mode
 MOD input set to WLAN). What we send shows in yellow. `[station] locator` is the grid sent
 (asked by `--configure`).
 
+With the core on a server (the Raspberry Pi), FT8 goes on there when the clients close:
+decoding, a QSO under way, CQ, the super-automatic mode; a client opened later finds it as
+it was, with the cycles it decoded meanwhile. With no client connected for `[ft8]
+unattended` minutes (10 by default, 0 without a limit) it stops transmitting and goes on
+decoding; the **Alone** box changes that until the core restarts. The messages between
+other stations show in a quieter grey; **Only the CQs** (C) hides them.
+
 In the graphical client the **waterfall** sits above the lists, as WSJT-X's Wide Graph:
 0-3200 Hz, a row every quarter of a second, a dashed line and the time at each cycle, our
 transmit frequency in red and the station we work in green. The call of each station

@@ -76,6 +76,7 @@ class CoreServer:
         talker = object()                    # this connection, for the voice's PTT
         unsubscribe = self.core.subscribe(push)
         self.clients += 1
+        self.core.clients += 1
         log.info("client %s connected (%s)", peer, hello.get("client", "?"))
         sender = asyncio.create_task(self._send_loop(ws, queue, dropped))
         try:
@@ -123,6 +124,7 @@ class CoreServer:
             unsubscribe()
             sender.cancel()
             self.clients -= 1
+            self.core.clients -= 1
             log.info("client %s disconnected", peer)
 
     @staticmethod

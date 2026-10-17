@@ -188,6 +188,10 @@ class Ft8Service:
         self._worked_now: set[tuple[str, str]] = set()   # (call, band) logged since it started
         self.auto = Auto()                       # the super-automatic mode (auto.py)
         self._drop_them = False                  # the station called works another: next
+        # Nobody connected: it goes on decoding, and transmits for this long at most
+        # ([ft8] unattended minutes, 0 without a limit; a client changes it until a restart).
+        self.unattended = max(0, int(config.ft8_unattended))
+        self._alone_since: float | None = None   # when the last client left
 
     # ---- life ---------------------------------------------------------------------------------
 
@@ -623,6 +627,28 @@ class Ft8Service:
         self.tx_on = True
         self._touch()
         return message
+
+    @property
+    def sending(self) -> bool:
+        """Anything that transmits under way: a QSO, CQ, the tone, the super-automatic."""
+        return self.tx_on or self.transmitting or self.toning or self.auto.on
+
+    def watch_clients(self, clients: int, now: float | None = None) -> None:
+        """The core's clients, every moment: with nobody connected for `unattended`
+        minutes, transmitting stops (decoding goes on)."""
+        now = time.monotonic() if now is None else now
+        if clients > 0:
+            self._alone_since = None
+            return
+        if self._alone_since is None:
+            self._alone_since = now
+            return
+        if self.unattended and self.sending and \
+                now - self._alone_since >= self.unattended * 60:
+            self._alone_since = now               # said once per stretch
+            self.hub.info(N_("FT8: nobody connected for {minutes} min: transmission stopped, "
+                             "still decoding"), minutes=self.unattended)
+            self._background(self.halt())
 
     async def halt(self) -> None:
         """Stop transmitting now (and the QSO, or the tone, and the super-automatic mode)."""
@@ -1114,7 +1140,7 @@ class Ft8Service:
                        "level": self.tx_level, "last": self.last_sent,
                        "tone": self.toning},
                 "auto": self.auto_state(), "ignore": self.ignore_state(),
-                "dupes": self.allow_dupes}
+                "dupes": self.allow_dupes, "unattended": self.unattended}
 
     async def call(self, method: str, params: dict) -> dict:
         try:
@@ -1168,6 +1194,10 @@ class Ft8Service:
             elif method == "waterfall":
                 self._wf_until = time.monotonic() + min(60.0, float(params.get("seconds", 15)))
                 return {"low": waterfall.LOW, "high": waterfall.HIGH, "step": waterfall.STEP}
+            elif method == "unattended":
+                self.unattended = max(0, min(24 * 60, int(params["minutes"])))
+                self._touch()
+                return {"minutes": self.unattended}
             elif method == "level":
                 self.tx_level = clamp_level(params["level"])
                 self._save_settings()

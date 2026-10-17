@@ -162,6 +162,7 @@ class LocalLink(Link):
         # Subscribe first so connection progress messages reach the UI.
         self._dispatch(self.core.welcome())
         self._unsubscribe = self.core.hub.subscribe(self._dispatch)
+        self.core.clients += 1                 # this program: someone is in front of it
         try:
             # Until the radio appears: the applications that do not need it work meanwhile.
             await self.core.start(retry_forever=True)

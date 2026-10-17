@@ -1588,14 +1588,23 @@ msgstr "FT8 no puede transmitir: se está hablando por un micrófono"
 msgid "Packet cannot transmit: a microphone is talking"
 msgstr "Packet no puede transmitir: se está hablando por un micrófono"
 
-msgid "Others' traffic"
-msgstr "Tráfico de otros"
+msgid "Only the CQs and what is sent to you; without it, the messages between other stations too, in a quieter colour (C)"
+msgstr "Solo los CQ y lo que te envían a ti; sin marcar, también los mensajes entre otras estaciones, en un color más suave (C)"
 
-msgid "The messages between other stations, in a quiet colour; without them, only the CQs and what is sent to you (C)"
-msgstr "Los mensajes entre otras estaciones, en un color apagado; sin ellos, solo los CQ y lo que te envían a ti (C)"
+msgid "Alone"
+msgstr "Sin nadie"
 
-msgid "Others' traffic hidden: the CQs and what is sent to you"
-msgstr "Tráfico de otros oculto: los CQ y lo que te envían a ti"
+msgid "With no client connected for this long, the core stops transmitting (the super-automatic mode, CQ, a QSO) and goes on decoding; until it restarts, then [ft8] unattended again"
+msgstr "Si no hay ningún cliente conectado durante este tiempo, el núcleo deja de transmitir (superautomático, CQ, un QSO) y sigue decodificando; hasta que se reinicie, y entonces vuelve a [ft8] unattended"
 
-msgid "Others' traffic shown, dimmed"
-msgstr "Tráfico de otros visible, en color apagado"
+msgid "no limit"
+msgstr "sin límite"
+
+msgid "Alone, transmitting for {minutes} min at most"
+msgstr "Sin nadie conectado, transmite {minutes} min como máximo"
+
+msgid "Alone, transmitting without a limit"
+msgstr "Sin nadie conectado, transmite sin límite"
+
+msgid "FT8: nobody connected for {minutes} min: transmission stopped, still decoding"
+msgstr "FT8: nadie conectado durante {minutes} min: transmisión parada, sigue decodificando"

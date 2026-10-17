@@ -151,6 +151,10 @@ max_power = 30
 # The messages between other stations in the band activity, in a quiet colour (false:
 # only the CQs and what is sent to you); the graphical client's box keeps it here
 # others = true
+# FT8 goes on in the core when the clients close (the super-automatic mode, CQ, a QSO);
+# with no client connected for this many minutes it stops transmitting and goes on
+# decoding (0: no limit). A client changes it until the core restarts
+# unattended = 10
 
 [qrz]
 # QRZ.com's logbook access key (on QRZ.com: your logbook > Settings > API Access Key);
@@ -267,6 +271,7 @@ class Config:
     ft8_setup: str = ""              # the logbook's setup FT8 QSOs go with ("": by radio)
     ft8_auto: bool = False           # [ft8] super_auto: the super-automatic mode, left out
     ft8_others: bool = True          # [ft8] others: messages between other stations, dimmed
+    ft8_unattended: int = 10         # [ft8] unattended: minutes transmitting with no client
                                      # of the template on purpose (the owner's station only)
     # [qrz]
     qrz_api_key: str = ""            # QRZ.com's logbook access key (never shown)
@@ -374,6 +379,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.ft8_setup = str(ft8.get("setup", cfg.ft8_setup))
         cfg.ft8_auto = bool(ft8.get("super_auto", cfg.ft8_auto))
         cfg.ft8_others = bool(ft8.get("others", cfg.ft8_others))
+        cfg.ft8_unattended = int(ft8.get("unattended", cfg.ft8_unattended))
         qrz = data.get("qrz", {})
         cfg.qrz_api_key = str(qrz.get("api_key", cfg.qrz_api_key)).strip()
         if "bands" in qrz:

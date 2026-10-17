@@ -80,6 +80,27 @@ def test_remote_client_listens_to_the_receive_audio():
     asyncio.run(scenario())
 
 
+def test_the_core_counts_its_clients():
+    async def scenario():
+        core, stop, task, port = await start_server(Config(), SimTransport(stations=[], seed=5))
+        link = RemoteLink(f"127.0.0.1:{port}", "secret")
+        try:
+            assert core.clients == 0
+            await link.connect()
+            await asyncio.sleep(0.1)
+            assert core.clients == 1
+            await link.close()
+            await asyncio.sleep(0.2)
+            assert core.clients == 0
+        finally:
+            await link.close()
+            stop.set()
+            await task
+            await core.stop()
+
+    asyncio.run(scenario())
+
+
 def test_wrong_token_is_rejected():
     async def scenario():
         core, stop, task, port = await start_server(Config(), SimTransport(stations=[], seed=2))

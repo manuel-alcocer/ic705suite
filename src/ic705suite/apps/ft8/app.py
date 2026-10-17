@@ -44,7 +44,7 @@ STYLE_ME = "bold white on dark_red"
 STYLE_DOUBT = "dim italic"
 STYLE_TX = "bold yellow"
 STYLE_HEADING = "dim"
-STYLE_OTHERS = "dim"           # messages between other stations: there, not in the way
+STYLE_OTHERS = "grey66"        # messages between other stations: there, not in the way
 # The marks of what is heard against the logbook (worked.py), as GridTracker and JTAlert.
 STYLE_NEW_DXCC = "bold magenta"
 STYLE_NEW_BAND = "magenta"
@@ -159,11 +159,6 @@ def rows(cycles: list[dict], cq_only: bool, mycall: str,
                                                 where(d), mark(d, ignore)[0]],
                             kind_style(d, mycall) or STYLE_OTHERS))
     return out
-
-
-def others_said(cq_only: bool) -> str:
-    return _("Others' traffic hidden: the CQs and what is sent to you") if cq_only else \
-        _("Others' traffic shown, dimmed")
 
 
 def conversation(cycles: list[dict], mycall: str, them: str) -> list[tuple]:
@@ -647,7 +642,8 @@ class Ft8App(App[int]):
     def action_cq_only(self) -> None:
         self.cq_only = not self.cq_only
         self._fill()
-        self._message("info", others_said(self.cq_only))
+        self._message("info", _("Only the CQs (and what is sent to you)") if self.cq_only
+                      else _("Every message"))
 
     def action_toggle(self) -> None:
         self.run_worker(self._toggle(), group="toggle", exclusive=True)
@@ -669,8 +665,9 @@ class Ft8App(App[int]):
         self.run_worker(self._leave(), exclusive=True, group="leave")
 
     async def _leave(self) -> None:
-        if self.started_here:
-            # jt9 takes a good share of a small machine: decode only while someone looks.
+        if self.started_here and getattr(self.link, "core", None) is not None:
+            # jt9 takes a good share of a small machine: decode only while someone looks;
+            # a server's core goes on (the super-automatic mode, CQ, decoding).
             await self.link.call("ft8.stop")
         if self.owns_link:
             await self.link.close()

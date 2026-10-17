@@ -52,7 +52,6 @@ from ic705suite.apps.ft8.app import (
     extra,
     mark,
     merge,
-    others_said,
     power_percent,
     power_step,
     qso_status,
@@ -72,6 +71,11 @@ from ic705suite.rig import bands
 from ic705suite.station.links import Link
 
 MESSAGE_CHARS = 22             # the longest FT8 message (<PJ4/K1ABC> W9XYZ RR73)
+
+
+def remote(link) -> bool:
+    """The core runs elsewhere (a server), not in this program."""
+    return getattr(link, "core", None) is None
 
 
 class Ft8Page(Page):
@@ -105,12 +109,13 @@ class Ft8Page(Page):
         self.toggle_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.toggle_button.clicked.connect(self.action_toggle)
         controls.addWidget(self.toggle_button)
-        self.cq_box = QCheckBox(_("Others' traffic"))
-        self.cq_box.setChecked(not self.cq_only)
+        self.cq_box = QCheckBox(_("Only the CQs"))
+        self.cq_box.setChecked(self.cq_only)
         self.cq_box.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.cq_box.setToolTip(_("The messages between other stations, in a quiet colour; "
-                                 "without them, only the CQs and what is sent to you (C)"))
-        self.cq_box.toggled.connect(lambda on: on == self.cq_only and self.action_cq_only())
+        self.cq_box.setToolTip(_("Only the CQs and what is sent to you; without it, the "
+                                 "messages between other stations too, in a quieter colour "
+                                 "(C)"))
+        self.cq_box.toggled.connect(lambda on: on != self.cq_only and self.action_cq_only())
         controls.addWidget(self.cq_box)
         self.dupes_box = QCheckBox(_("Dupes"))
         self.dupes_box.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -279,6 +284,19 @@ class Ft8Page(Page):
         self.power_spin.valueChanged.connect(lambda v: self._changed(
             "power", v, lambda: self.run_worker(self._power(
                 v * 100 / self._max_watts()), group="power", exclusive=True)))
+        self.unattended_spin = spin(QSpinBox(), _("Alone"), _(
+            "With no client connected for this long, the core stops transmitting (the "
+            "super-automatic mode, CQ, a QSO) and goes on decoding; until it restarts, then "
+            "[ft8] unattended again"))
+        self.unattended_spin.setRange(0, 240)
+        self.unattended_spin.setSingleStep(5)
+        self.unattended_spin.setSuffix(" min")
+        self.unattended_spin.setSpecialValueText(_("no limit"))
+        self.unattended_spin.valueChanged.connect(lambda v: self._changed(
+            "unattended", v, lambda: self.run_worker(self._call(
+                _("Alone, transmitting for {minutes} min at most") if v else
+                _("Alone, transmitting without a limit"), "ft8.unattended", minutes=v),
+                group="unattended")))
         row.addSpacing(12)
         row.addWidget(QLabel("ALC"))
         self.alc_bar = QProgressBar()
@@ -447,8 +465,10 @@ class Ft8Page(Page):
             return QColor("#ffffff"), QColor("#8b1a1a"), True
         if style == STYLE_CQ:
             return QColor(theme.GREEN), None, True
-        if style in (STYLE_DOUBT, STYLE_HEADING, STYLE_OTHERS):
+        if style == STYLE_DOUBT or style == STYLE_HEADING:
             return QColor(theme.DIM), None, False
+        if style == STYLE_OTHERS:
+            return QColor(theme.quiet()), None, False
         if style == STYLE_TX:
             return QColor(theme.YELLOW), None, True
         return None, None, False
@@ -533,6 +553,8 @@ class Ft8Page(Page):
             self._show(self.freq_spin, "freq", int(tx["freq"]))
         if tx.get("level") is not None:
             self._show(self.level_spin, "level", round(float(tx["level"]) * 100))
+        if self.state.get("unattended") is not None:
+            self._show(self.unattended_spin, "unattended", int(self.state["unattended"]))
         self.power_spin.setMaximum(self._max_watts())
         percent = power_percent(self.rig)
         if percent is not None:
@@ -771,11 +793,12 @@ class Ft8Page(Page):
 
     def action_cq_only(self) -> None:
         self.cq_only = not self.cq_only
-        self.cq_box.setChecked(not self.cq_only)
+        self.cq_box.setChecked(self.cq_only)
         self.config.ft8_others = not self.cq_only
         remember(self.config, "ft8", "others", self.config.ft8_others)
         self._fill()
-        self._message("info", others_said(self.cq_only))
+        self._message("info", _("Only the CQs (and what is sent to you)") if self.cq_only
+                      else _("Every message"))
 
     def action_toggle(self) -> None:
         self.run_worker(self._toggle(), group="toggle", exclusive=True)
@@ -798,7 +821,8 @@ class Ft8Page(Page):
 
     async def _leave(self) -> None:
         self.timer.stop()
-        if self.started_here:
+        # A core of its own (the server's) goes on: the super-automatic mode, CQ, decoding.
+        if self.started_here and not remote(self.link):
             await self.link.call("ft8.stop")
         if self.owns_link:
             await self.link.close()

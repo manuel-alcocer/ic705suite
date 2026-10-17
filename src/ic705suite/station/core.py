@@ -205,6 +205,7 @@ class Core:
         self.voice = Voice(self.station, config, self.hub)
         self._ticker: asyncio.Task | None = None
         self._pcm: list[PcmListener] = []
+        self.clients = 0                       # connected to it (the server's, a local one)
         self.started = False
 
     def welcome(self) -> Event:
@@ -376,5 +377,6 @@ class Core:
                     self.hub.emit({"type": "swr", **self.swr.state()})
                 if self.packet.changed():
                     self.hub.emit({"type": "pkt", **self.packet.state()})
+                self.ft8.watch_clients(self.clients)
                 if self.ft8.changed():
                     self.hub.emit({"type": "ft8", **self.ft8.state()})
