@@ -44,6 +44,7 @@ STYLE_ME = "bold white on dark_red"
 STYLE_DOUBT = "dim italic"
 STYLE_TX = "bold yellow"
 STYLE_HEADING = "dim"
+STYLE_OTHERS = "dim"           # messages between other stations: there, not in the way
 # The marks of what is heard against the logbook (worked.py), as GridTracker and JTAlert.
 STYLE_NEW_DXCC = "bold magenta"
 STYLE_NEW_BAND = "magenta"
@@ -156,8 +157,13 @@ def rows(cycles: list[dict], cq_only: bool, mycall: str,
                                                 str(d["freq"]), d["message"],
                                                 _(d["country"]) if d.get("country") else "",
                                                 where(d), mark(d, ignore)[0]],
-                            kind_style(d, mycall)))
+                            kind_style(d, mycall) or STYLE_OTHERS))
     return out
+
+
+def others_said(cq_only: bool) -> str:
+    return _("Others' traffic hidden: the CQs and what is sent to you") if cq_only else \
+        _("Others' traffic shown, dimmed")
 
 
 def conversation(cycles: list[dict], mycall: str, them: str) -> list[tuple]:
@@ -334,7 +340,7 @@ class Ft8App(App[int]):
         self.rig: dict = {}
         self.cycles: list[dict] = []         # oldest first, as decoded (passes merged)
         self.lines: list[tuple] = []         # what each row of the table shows
-        self.cq_only = False
+        self.cq_only = config is not None and not config.ft8_others
         self.started_here = False
         self.mycall = ""
         self.completed = ""                  # the call of the last QSO completed
@@ -437,9 +443,10 @@ class Ft8App(App[int]):
             table.add_row(Text(stamp, style=STYLE_HEADING if style == STYLE_HEADING else ""),
                           Text(snr, justify="right"), Text(dt, justify="right"),
                           Text(freq, justify="right"), Text(message, style=style),
-                          Text(country), Text(place, style="dim"),
-                          Text(tag, style=mark(decode, self.state.get("ignore"))[1]
-                               if decode else ""))
+                          Text(country, style=STYLE_OTHERS if style == STYLE_OTHERS else ""),
+                          Text(place, style="dim"),
+                          Text(tag, style=STYLE_OTHERS if style == STYLE_OTHERS else
+                               mark(decode, self.state.get("ignore"))[1] if decode else ""))
         if table.row_count:
             table.move_cursor(row=table.row_count - 1 if at_end or not keep_end
                               else min(row, table.row_count - 1))
@@ -640,8 +647,7 @@ class Ft8App(App[int]):
     def action_cq_only(self) -> None:
         self.cq_only = not self.cq_only
         self._fill()
-        self._message("info", _("Only the CQs (and what is sent to you)") if self.cq_only
-                      else _("Every message"))
+        self._message("info", others_said(self.cq_only))
 
     def action_toggle(self) -> None:
         self.run_worker(self._toggle(), group="toggle", exclusive=True)

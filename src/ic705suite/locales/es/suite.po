@@ -1587,3 +1587,15 @@ msgstr "FT8 no puede transmitir: se está hablando por un micrófono"
 
 msgid "Packet cannot transmit: a microphone is talking"
 msgstr "Packet no puede transmitir: se está hablando por un micrófono"
+
+msgid "Others' traffic"
+msgstr "Tráfico de otros"
+
+msgid "The messages between other stations, in a quiet colour; without them, only the CQs and what is sent to you (C)"
+msgstr "Los mensajes entre otras estaciones, en un color apagado; sin ellos, solo los CQ y lo que te envían a ti (C)"
+
+msgid "Others' traffic hidden: the CQs and what is sent to you"
+msgstr "Tráfico de otros oculto: los CQ y lo que te envían a ti"
+
+msgid "Others' traffic shown, dimmed"
+msgstr "Tráfico de otros visible, en color apagado"

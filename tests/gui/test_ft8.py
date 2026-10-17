@@ -1,10 +1,12 @@
 """FT8 in the window: the same keys as the terminal, and the mouse (band list, Stop/Start,
-CQ only)."""
+the other stations' traffic)."""
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 
 from ic705suite.apps.ft8 import service as service_module
 from ic705suite.config import Config
+from ic705suite.gui import theme
 from ic705suite.station.links import LocalLink
 from tests.ft8.test_ft8 import fake_jt9
 from tests.gui.test_pages import key, until
@@ -34,12 +36,18 @@ def test_band_activity_in_the_window(tmp_path, run, monkeypatch):
             assert page.table.item(row, 4).font().bold()                 # sent to us
             assert link.core.ft8.on and page.toggle_button.text().endswith("Stop")
 
-            await key(Qt.Key.Key_C)                                       # CQ only
-            assert page.cq_box.isChecked()
+            # Between other stations: shown, quiet (the theme's dim colour, not bold).
+            row = messages.index("G4XYZ F5ABC JN12")
+            item = page.table.item(row, 4)
+            assert item.foreground().color().name() == QColor(theme.DIM).name()
+            assert not item.font().bold() and page.cq_box.isChecked()
+            await key(Qt.Key.Key_C)                                       # hidden
+            assert not page.cq_box.isChecked() and page.cq_only
+            assert not config.ft8_others
             shown = {page.table.item(r, 4).text() for r in range(page.table.rowCount())}
-            assert "G4XYZ F5ABC JN12" not in shown
-            page.cq_box.setChecked(False)                                 # the mouse
-            assert not page.cq_only
+            assert "G4XYZ F5ABC JN12" not in shown and "EA7KLX DL1ABC -12" in shown
+            page.cq_box.setChecked(True)                                  # the mouse
+            assert not page.cq_only and config.ft8_others
 
             sim = link.core.station.transport
             band = service_module.bands.band_for(sim.frequency).name

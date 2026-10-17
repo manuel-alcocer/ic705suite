@@ -358,6 +358,21 @@ def save(path: Path, text: str) -> None:
     tmp.replace(path)
 
 
+def remember(config, section: str, key: str, value: object) -> None:
+    """[section] key in the configuration file the suite read, the rest of it as it is
+    (no file: nothing), for a choice made in a client (the theme, the volume...)."""
+    import logging
+
+    path = config.source
+    if path is None or not path.exists():
+        return
+    try:
+        save(path, set_values(path.read_text(encoding="utf-8"), {(section, key): value}))
+    except (OSError, ValueError) as exc:
+        logging.getLogger(__name__).warning("cannot save [%s] %s in %s: %s", section, key,
+                                            path, exc)
+
+
 def run(path: Path | None = None, language: str | None = None) -> int:
     """ic705suite --configure: needs a terminal to ask at."""
     if not sys.stdin.isatty():

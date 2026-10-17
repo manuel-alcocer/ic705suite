@@ -148,6 +148,9 @@ max_power = 30
 # The logbook's setup (radio and antennas) the QSOs go with; by default the first setup
 # whose radio for the band is the one FT8 uses
 # setup = "IC-705 HF casa"
+# The messages between other stations in the band activity, in a quiet colour (false:
+# only the CQs and what is sent to you); the graphical client's box keeps it here
+# others = true
 
 [qrz]
 # QRZ.com's logbook access key (on QRZ.com: your logbook > Settings > API Access Key);
@@ -263,6 +266,7 @@ class Config:
     ft8_level: float = 0.5
     ft8_setup: str = ""              # the logbook's setup FT8 QSOs go with ("": by radio)
     ft8_auto: bool = False           # [ft8] super_auto: the super-automatic mode, left out
+    ft8_others: bool = True          # [ft8] others: messages between other stations, dimmed
                                      # of the template on purpose (the owner's station only)
     # [qrz]
     qrz_api_key: str = ""            # QRZ.com's logbook access key (never shown)
@@ -369,6 +373,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.ft8_level = float(ft8.get("level", cfg.ft8_level))
         cfg.ft8_setup = str(ft8.get("setup", cfg.ft8_setup))
         cfg.ft8_auto = bool(ft8.get("super_auto", cfg.ft8_auto))
+        cfg.ft8_others = bool(ft8.get("others", cfg.ft8_others))
         qrz = data.get("qrz", {})
         cfg.qrz_api_key = str(qrz.get("api_key", cfg.qrz_api_key)).strip()
         if "bands" in qrz:

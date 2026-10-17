@@ -45,12 +45,14 @@ from ic705suite.apps.ft8.app import (
     STYLE_NEW_BAND,
     STYLE_NEW_DXCC,
     STYLE_NEW_GRID,
+    STYLE_OTHERS,
     STYLE_TX,
     Ft8App,
     conversation,
     extra,
     mark,
     merge,
+    others_said,
     power_percent,
     power_step,
     qso_status,
@@ -59,6 +61,7 @@ from ic705suite.apps.ft8.app import (
     watts,
 )
 from ic705suite.apps.ft8.waterfall import decode as waterfall_levels
+from ic705suite.configure import remember
 from ic705suite.gui import theme
 from ic705suite.gui.ft8map import MapView
 from ic705suite.gui.page import Page
@@ -82,7 +85,7 @@ class Ft8Page(Page):
         self.rig: dict = {}
         self.cycles: list[dict] = []
         self.lines: list[tuple] = []
-        self.cq_only = False
+        self.cq_only = not config.ft8_others
         self.started_here = False
         self.mycall = ""
         self._build()
@@ -102,9 +105,12 @@ class Ft8Page(Page):
         self.toggle_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.toggle_button.clicked.connect(self.action_toggle)
         controls.addWidget(self.toggle_button)
-        self.cq_box = QCheckBox(_("Only the CQs"))
+        self.cq_box = QCheckBox(_("Others' traffic"))
+        self.cq_box.setChecked(not self.cq_only)
         self.cq_box.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.cq_box.toggled.connect(lambda on: on != self.cq_only and self.action_cq_only())
+        self.cq_box.setToolTip(_("The messages between other stations, in a quiet colour; "
+                                 "without them, only the CQs and what is sent to you (C)"))
+        self.cq_box.toggled.connect(lambda on: on == self.cq_only and self.action_cq_only())
         controls.addWidget(self.cq_box)
         self.dupes_box = QCheckBox(_("Dupes"))
         self.dupes_box.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -441,7 +447,7 @@ class Ft8Page(Page):
             return QColor("#ffffff"), QColor("#8b1a1a"), True
         if style == STYLE_CQ:
             return QColor(theme.GREEN), None, True
-        if style == STYLE_DOUBT or style == STYLE_HEADING:
+        if style in (STYLE_DOUBT, STYLE_HEADING, STYLE_OTHERS):
             return QColor(theme.DIM), None, False
         if style == STYLE_TX:
             return QColor(theme.YELLOW), None, True
@@ -473,6 +479,8 @@ class Ft8Page(Page):
                 colour, strong = fg, bold
                 if column == 6:                              # how far: quiet
                     colour, strong = QColor(theme.DIM), False
+                elif style == STYLE_OTHERS:                  # all of it quiet
+                    pass
                 elif column == 7 and decode is not None:     # the logbook's mark
                     colour, strong = self._mark_colour(
                         mark(decode, self.state.get("ignore"))[1])
@@ -763,10 +771,11 @@ class Ft8Page(Page):
 
     def action_cq_only(self) -> None:
         self.cq_only = not self.cq_only
-        self.cq_box.setChecked(self.cq_only)
+        self.cq_box.setChecked(not self.cq_only)
+        self.config.ft8_others = not self.cq_only
+        remember(self.config, "ft8", "others", self.config.ft8_others)
         self._fill()
-        self._message("info", _("Only the CQs (and what is sent to you)") if self.cq_only
-                      else _("Every message"))
+        self._message("info", others_said(self.cq_only))
 
     def action_toggle(self) -> None:
         self.run_worker(self._toggle(), group="toggle", exclusive=True)

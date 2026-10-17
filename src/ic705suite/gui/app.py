@@ -37,15 +37,9 @@ log = logging.getLogger(__name__)
 
 def save_ui(config: Config, key: str, value: object) -> None:
     """[ui] `key` in the configuration file, the rest of it as it is (no file: nothing)."""
-    from ic705suite.configure import save, set_values
+    from ic705suite.configure import remember
 
-    path = config.source
-    if path is None or not path.exists():
-        return
-    try:
-        save(path, set_values(path.read_text(encoding="utf-8"), {("ui", key): value}))
-    except (OSError, ValueError) as exc:
-        log.warning("cannot save the %s in %s: %s", key, path, exc)
+    remember(config, "ui", key, value)
 
 
 def save_theme(config: Config) -> None:
