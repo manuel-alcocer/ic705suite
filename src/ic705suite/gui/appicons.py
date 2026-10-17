@@ -98,9 +98,28 @@ def _ft8(p: QPainter) -> None:
         p.drawLine(QPointF(x, 40), QPointF(x, top))
 
 
+def _speaker_box(p: QPainter) -> None:
+    p.drawPolygon(QPolygonF([QPointF(6, 18), QPointF(14, 18), QPointF(25, 8), QPointF(25, 40),
+                             QPointF(14, 30), QPointF(6, 30)]))
+
+
+def _speaker(p: QPainter) -> None:
+    """The receive audio on the speakers: a loudspeaker and its sound."""
+    _speaker_box(p)
+    for radius in (8.0, 15.0):
+        p.drawArc(QRectF(25 - radius, 24 - radius, 2 * radius, 2 * radius), -50 * 16, 100 * 16)
+
+
+def _speaker_off(p: QPainter) -> None:
+    """The speakers silent: the loudspeaker, crossed out."""
+    _speaker_box(p)
+    p.drawLine(QPointF(31, 18), QPointF(42, 30))
+    p.drawLine(QPointF(42, 18), QPointF(31, 30))
+
+
 DRAWINGS: dict[str, Callable[[QPainter], None]] = {
     "view": _radio, "cw": _cw, "dstar": _dstar, "swr": _antenna, "log": _logbook,
-    "packet": _packet, "ft8": _ft8,
+    "packet": _packet, "ft8": _ft8, "speaker": _speaker, "speaker_off": _speaker_off,
 }
 
 

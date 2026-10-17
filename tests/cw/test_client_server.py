@@ -53,6 +53,33 @@ def test_remote_client_receives_events_and_runs_commands():
     asyncio.run(scenario())
 
 
+def test_remote_client_listens_to_the_receive_audio():
+    async def scenario():
+        sim = SimTransport(stations=[SimStation(7_012_000, "CQ", 25, 0.3)], seed=4)
+        core, stop, task, port = await start_server(Config(), sim)
+        link = RemoteLink(f"127.0.0.1:{port}", "secret")
+        chunks: list[bytes] = []
+        try:
+            await link.connect()
+            assert link.welcome["audio_rate"] == sim.sample_rate
+            assert await link.listen_audio(chunks.append) == sim.sample_rate
+            await asyncio.sleep(1.0)
+            received = sum(len(c) for c in chunks) // 2           # 16-bit samples
+            assert 0.5 * sim.sample_rate < received < 1.5 * sim.sample_rate
+            await link.listen_audio(None)
+            await asyncio.sleep(0.3)
+            count = len(chunks)
+            await asyncio.sleep(0.5)
+            assert len(chunks) == count and not core._pcm          # stopped at the core too
+        finally:
+            await link.close()
+            stop.set()
+            await task
+            await core.stop()
+
+    asyncio.run(scenario())
+
+
 def test_wrong_token_is_rejected():
     async def scenario():
         core, stop, task, port = await start_server(Config(), SimTransport(stations=[], seed=2))

@@ -11,12 +11,15 @@ from websockets.asyncio.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
 
 from ic705suite.i18n import N_
-from ic705suite.station.core import PROTOCOL_VERSION, Core
+from ic705suite.station.core import AUDIO_RX, PROTOCOL_VERSION, Core
 
 log = logging.getLogger(__name__)
 
 HELLO_TIMEOUT = 10.0
 CLIENT_QUEUE = 1000  # events buffered for a slow client before it is dropped
+# Audio frames are skipped, not queued, past this many messages waiting for a client: late
+# audio is of no use, and it must not get a slow client dropped.
+AUDIO_QUEUE = 50
 LOCAL_HOSTS = ("127.0.0.1", "::1", "localhost")
 
 
@@ -56,7 +59,7 @@ class CoreServer:
                                       "text": f"protocol version {PROTOCOL_VERSION} required"}))
             return
 
-        queue: asyncio.Queue[str] = asyncio.Queue(CLIENT_QUEUE)
+        queue: asyncio.Queue[str | bytes] = asyncio.Queue(CLIENT_QUEUE)
         dropped = asyncio.Event()
 
         def push(event: dict) -> None:
@@ -65,6 +68,11 @@ class CoreServer:
             except asyncio.QueueFull:
                 dropped.set()
 
+        def push_audio(pcm: bytes) -> None:
+            if queue.qsize() < AUDIO_QUEUE:
+                queue.put_nowait(bytes([AUDIO_RX]) + pcm)
+
+        stop_audio = None
         unsubscribe = self.core.subscribe(push)
         self.clients += 1
         log.info("client %s connected (%s)", peer, hello.get("client", "?"))
@@ -79,19 +87,33 @@ class CoreServer:
                     app = msg.get("app") if msg.get("app") in ("cw", "rig") else "cw"
                     log.info("client %s (%s): %s", peer, app, msg["line"])
                     await self.core.command(msg["line"], app)
+                elif msg.get("type") == "call" and msg.get("method") == "audio.listen":
+                    # The client's own: the audio goes to this connection.
+                    on = bool((msg.get("params") or {}).get("on"))
+                    if on and stop_audio is None and self.core.audio_rate:
+                        stop_audio = self.core.listen_audio(push_audio)
+                        log.info("client %s listens to the receive audio", peer)
+                    elif not on and stop_audio is not None:
+                        stop_audio()
+                        stop_audio = None
+                    push({"type": "reply", "id": msg.get("id"),
+                          "result": {"on": stop_audio is not None,
+                                     "rate": self.core.audio_rate}})
                 elif msg.get("type") == "call" and isinstance(msg.get("method"), str):
                     result = await self.core.call(msg["method"], msg.get("params") or {})
                     push({"type": "reply", "id": msg.get("id"), "result": result})
         except ConnectionClosed:
             pass
         finally:
+            if stop_audio is not None:
+                stop_audio()
             unsubscribe()
             sender.cancel()
             self.clients -= 1
             log.info("client %s disconnected", peer)
 
     @staticmethod
-    async def _send_loop(ws: ServerConnection, queue: asyncio.Queue[str],
+    async def _send_loop(ws: ServerConnection, queue: asyncio.Queue[str | bytes],
                          dropped: asyncio.Event) -> None:
         try:
             while not dropped.is_set():

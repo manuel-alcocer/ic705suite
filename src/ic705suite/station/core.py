@@ -6,7 +6,8 @@ that returns an answer. The same contract serves in-process clients and remote o
 WebSocket, so the core can run next to the radio (e.g. on a Raspberry Pi).
 
 Events (server -> client), by "type":
-  welcome  {version, server, rig: {...}, apps, tx_enabled, callsign, macros}  first message
+  welcome  {version, server, rig: {...}, apps, tx_enabled, callsign, macros, audio_rate}
+           first message; audio_rate: receive audio's sample rate (0: none reaches the core)
   rig      {connected, model, frequency, mode, smeter...}   see Station.snapshot (4 per s)
   state    {...}  CW engine snapshot (decoder, skimmer, playback), see snapshot()  (4 per s)
   skim     {channels: [{index, frequency, tone, callsign, wpm, snr_db, text}]}  (1 per s)
@@ -34,7 +35,10 @@ Commands (client -> server):
            swr.state, swr.bands, swr.history {band}, swr.sweep {...}, swr.stop,
            swr.remote {on}, swr.final {coil, band?, note?}, swr.antennas, swr.antenna.select {id},
            swr.antenna.save {name, notes, coil_sign, id?}, swr.antenna.delete {id},
-           pkt.* (see apps.packet.service), ft8.* (see apps.ft8.service)
+           pkt.* (see apps.packet.service), ft8.* (see apps.ft8.service),
+           audio.listen {on}  receive audio for this client (remote: binary frames)
+Binary frames (server -> client), while a client listens: one byte of kind, then the data.
+  AUDIO_RX  the radio's receive audio, 16-bit little-endian mono PCM at audio_rate
 """
 
 from __future__ import annotations
@@ -45,13 +49,15 @@ import logging
 from collections import deque
 from collections.abc import Callable
 
+import numpy as np
+
 from ic705suite import __version__
 from ic705suite.apps.cw.session import Session
 from ic705suite.config import Config
 from ic705suite.i18n import N_
 from ic705suite.lotw import LotwService
 from ic705suite.rig import open_rig
-from ic705suite.rig.base import RigError
+from ic705suite.rig.base import FEATURE_AUDIO, RigError
 from ic705suite.rig.transport import Transport, TransportError
 from ic705suite.shared_logbook import core_url, for_clients, use
 from ic705suite.station.station import Station
@@ -65,9 +71,11 @@ SKIM_INTERVAL = 1.0
 CHANNELS_INTERVAL = 2.0
 BACKLOG = 400          # text events replayed to a client that connects later
 RETRY_DELAY = 10.0     # wait between attempts to reach the radio
+AUDIO_RX = 0x01        # kind of binary frame: receive audio
 
 Event = dict
 Subscriber = Callable[[Event], None]
+PcmListener = Callable[[bytes], None]   # 16-bit little-endian mono PCM
 
 
 class EventHub:
@@ -190,6 +198,7 @@ class Core:
         self.ft8 = Ft8Service(self.station, config, self.hub)
         self.lotw = LotwService(config, self.hub)
         self._ticker: asyncio.Task | None = None
+        self._pcm: list[PcmListener] = []
         self.started = False
 
     def welcome(self) -> Event:
@@ -204,7 +213,37 @@ class Core:
                 "apps": catalog(model), "tx_enabled": self.config.tx_enabled,
                 "callsign": self.config.callsign, "macros": dict(self.config.macros),
                 "swr_port": self.swr.port, "swr_url": self.swr.url,
-                "logbook": for_clients(self.config)}
+                "logbook": for_clients(self.config), "audio_rate": self.audio_rate}
+
+    # ---- receive audio for the clients (the computer's speakers) -------------------------
+
+    @property
+    def audio_rate(self) -> int:
+        """Sample rate of the receive audio; 0 when no audio reaches the core."""
+        if self.config.connection == "none" or FEATURE_AUDIO not in self.station.model.features:
+            return 0
+        return self.station.sample_rate
+
+    def listen_audio(self, callback: PcmListener) -> Callable[[], None]:
+        """Hand the receive audio to `callback` as 16-bit PCM; returns how to stop."""
+        if not self._pcm:
+            self.station.add_audio_listener(self._to_pcm)
+        self._pcm.append(callback)
+
+        def stop() -> None:
+            if callback in self._pcm:
+                self._pcm.remove(callback)
+                if not self._pcm:
+                    self.station.remove_audio_listener(self._to_pcm)
+        return stop
+
+    def _to_pcm(self, samples: np.ndarray) -> None:
+        pcm = (np.clip(samples, -1, 1) * 32767).astype("<i2").tobytes()
+        for callback in list(self._pcm):
+            try:
+                callback(pcm)
+            except Exception:
+                log.exception("audio listener failed")
 
     def subscribe(self, callback: Subscriber, replay: bool = True) -> Callable[[], None]:
         """Register a client; it first gets welcome, the text backlog and the current state."""

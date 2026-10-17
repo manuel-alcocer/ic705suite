@@ -15,7 +15,7 @@ import contextlib
 import logging
 import sys
 
-from PySide6.QtCore import QEvent, QObject, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QSignalBlocker, Qt, QTimer
 from PySide6.QtGui import QIcon, QKeyEvent, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -35,17 +35,21 @@ from ic705suite.station.links import Link
 log = logging.getLogger(__name__)
 
 
-def save_theme(config: Config) -> None:
-    """[ui] theme in the configuration file, the rest of it as it is (no file: nothing)."""
+def save_ui(config: Config, key: str, value: object) -> None:
+    """[ui] `key` in the configuration file, the rest of it as it is (no file: nothing)."""
     from ic705suite.configure import save, set_values
 
     path = config.source
     if path is None or not path.exists():
         return
     try:
-        save(path, set_values(path.read_text(encoding="utf-8"), {("ui", "theme"): config.theme}))
+        save(path, set_values(path.read_text(encoding="utf-8"), {("ui", key): value}))
     except (OSError, ValueError) as exc:
-        log.warning("cannot save the theme in %s: %s", path, exc)
+        log.warning("cannot save the %s in %s: %s", key, path, exc)
+
+
+def save_theme(config: Config) -> None:
+    save_ui(config, "theme", config.theme)
 
 
 PROJECT_URL = "https://github.com/manuel-alcocer/ic705suite"
@@ -124,6 +128,7 @@ class MainWindow(QMainWindow):
         self.finished = asyncio.get_event_loop().create_future()
         self._quitting = False                    # the main window is closing
         self._main_gone = False                   # it closed, windows of their own open
+        self.speaker = None                       # the receive audio playing here
         self.setWindowTitle("ic705suite")
         self.resize(1360, 860)
         # The tabs, at the top (in the menu bar's row), over the pages they show.
@@ -186,12 +191,13 @@ class MainWindow(QMainWindow):
         self.tab_bar.addTab(title)
         self._fit_tabs()
 
-    # ---- the corner of the menu bar: the theme and the help ------------------------------
+    # ---- the corner of the menu bar: the speaker, the theme and the help -----------------
 
     def _corner_buttons(self) -> None:
-        """Two buttons instead of menus: the theme (sun, moon or auto: a click goes to the
-        next one) and ? for About, which has the project's and the help's links."""
-        from PySide6.QtWidgets import QHBoxLayout, QToolButton, QWidget
+        """Buttons instead of menus: the speaker (the radio's audio here) and its volume,
+        the theme (sun, moon or auto: a click goes to the next one) and ? for About, which
+        has the project's and the help's links."""
+        from PySide6.QtWidgets import QHBoxLayout, QSlider, QToolButton, QWidget
 
         bar = self.menuBar()
         bar.setNativeMenuBar(False)     # macOS: the corner stays in the window
@@ -201,23 +207,88 @@ class MainWindow(QMainWindow):
         row = QHBoxLayout(corner)
         row.setContentsMargins(0, 0, 6, 0)
         row.setSpacing(2)
+        self.speaker_button = QToolButton()
+        self.speaker_button.setCheckable(True)
+        self.speaker_button.toggled.connect(self.listen)
+        self.volume_slider = QSlider(Qt.Orientation.Horizontal)
+        self.volume_slider.setRange(0, 100)
+        self.volume_slider.setValue(self.config.volume)
+        self.volume_slider.setFixedWidth(80)
+        self.volume_slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.volume_slider.valueChanged.connect(self._volume_changed)
+        self.volume_slider.sliderReleased.connect(
+            lambda: save_ui(self.config, "volume", self.config.volume))
+        self.volume_slider.setToolTip(_("Volume of the radio's audio"))
         self.theme_button = QToolButton()
         self.theme_button.clicked.connect(self.next_theme)
         self.help_button = QToolButton()
         self.help_button.setText("?")
         self.help_button.setToolTip(_("About ic705suite"))
         self.help_button.clicked.connect(self.show_about)
-        for button in (self.theme_button, self.help_button):
-            button.setObjectName("cornerbutton")
-            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)   # the keys stay with the page
-            button.setAutoRaise(True)
-            row.addWidget(button)
+        for widget in (self.speaker_button, self.volume_slider, self.theme_button,
+                       self.help_button):
+            if isinstance(widget, QToolButton):
+                widget.setObjectName("cornerbutton")
+                widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)   # the keys stay with the page
+                widget.setAutoRaise(True)
+            row.addWidget(widget)
         bar.setCornerWidget(corner, Qt.Corner.TopRightCorner)
         self._show_theme()
+        self._show_speaker()
         # Auto follows the desktop while the window is open.
         with contextlib.suppress(AttributeError):
             QApplication.instance().styleHints().colorSchemeChanged.connect(
                 lambda _scheme: self.config.theme == "auto" and self.set_theme("auto", save=False))
+
+    def _show_speaker(self) -> None:
+        from ic705suite.gui.appicons import app_icon
+
+        on = self.speaker_button.isChecked()
+        self.speaker_button.setIcon(app_icon("speaker" if on else "speaker_off", theme.TEXT, 20))
+        self.speaker_button.setToolTip(
+            _("The radio's audio on this computer: on (click: off)") if on else
+            _("The radio's audio on this computer: off (click: on)"))
+        self.speaker_button.setEnabled(self.link is not None)
+
+    def listen(self, on: bool) -> None:
+        """The speaker button: the radio's receive audio on this computer's speakers."""
+        asyncio.ensure_future(self._listen(on))
+
+    async def _listen(self, on: bool) -> None:
+        from ic705suite.speaker import Speaker, SpeakerError
+
+        if self.link is None:
+            return
+        if not on:
+            if self.speaker is not None:
+                await self.link.listen_audio(None)
+                self.speaker.stop()
+                self.speaker = None
+            self._show_speaker()
+            return
+        if self.speaker is not None:
+            return
+        rate = (self.link.welcome or {}).get("audio_rate", 0)
+        try:
+            if not rate:
+                raise SpeakerError(_("no audio from the radio reaches the core"))
+            speaker = Speaker(rate, self.config.volume / 100)
+            speaker.start()
+        except SpeakerError as exc:
+            self.dashboard._message("error", _("cannot play the radio's audio: {error}")
+                                    .format(error=exc))
+            with QSignalBlocker(self.speaker_button):
+                self.speaker_button.setChecked(False)
+            self._show_speaker()
+            return
+        self.speaker = speaker
+        await self.link.listen_audio(speaker.play)
+        self._show_speaker()
+
+    def _volume_changed(self, value: int) -> None:
+        self.config.volume = value
+        if self.speaker is not None:
+            self.speaker.volume = value / 100
 
     def _show_theme(self) -> None:
         name = self.config.theme or "auto"
@@ -239,6 +310,7 @@ class MainWindow(QMainWindow):
         self.config.theme = name
         theme.switch(name)
         self._show_theme()
+        self._show_speaker()
         for host in self._hosts():
             for index in range(host.count()):
                 page = host.widget(index)
@@ -412,6 +484,9 @@ class MainWindow(QMainWindow):
 
     def _finish(self) -> None:
         QApplication.instance().removeEventFilter(self)
+        if self.speaker is not None:
+            self.speaker.stop()
+            self.speaker = None
         for host in self._hosts():
             if host.page is not None:
                 host.page.stop()

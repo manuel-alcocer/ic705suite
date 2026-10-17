@@ -187,6 +187,9 @@ max_power = 30
 # key): "tab" (a tab in the main window, after the dashboard's) or "window" (a window of
 # its own); a right click on the icon offers both
 # open_apps = "tab"
+# The volume of the radio's audio on this computer's speakers (the graphical client's
+# speaker button), 0 to 100
+# volume = 80
 
 [server]
 # ic705suite --serve: address to listen on and the token clients must present
@@ -285,6 +288,7 @@ class Config:
     glyphs: str = "auto"
     theme: str = "auto"              # the graphical client: dark, light or auto
     open_apps: str = "tab"           # the graphical client opens applications: tab, window
+    volume: int = 80                 # the receive audio on the speakers, 0..100
     listen: str = "127.0.0.1:7373"
     server_token: str = ""
     connect: str = ""
@@ -330,6 +334,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.open_apps = str(data.get("ui", {}).get("open_apps", cfg.open_apps)).lower()
         if cfg.open_apps not in OPEN_APPS:
             cfg.open_apps = "tab"
+        cfg.volume = max(0, min(100, int(data.get("ui", {}).get("volume", cfg.volume))))
         chans = data.get("channels", {})
         cfg.channels_db = str(chans.get("database", cfg.channels_db))
         cfg.channel_audio = bool(chans.get("audio", cfg.channel_audio))

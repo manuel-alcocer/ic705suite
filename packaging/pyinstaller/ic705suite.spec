@@ -32,7 +32,8 @@ hiddenimports = (
     + collect_submodules("sqlalchemy.dialects.postgresql")
     # PostgreSQL, the recommended database: bundled when the build environment
     # has the postgres extra (uv sync --extra postgres), with its own libpq.
-    # soundfile and psycopg bring their libraries through PyInstaller's hooks.
+    # soundfile and psycopg bring their libraries through PyInstaller's hooks, and so does
+    # sounddevice (PortAudio) on Windows; on Linux it uses the system's libportaudio.
     + ["psycopg", "psycopg_binary"]
 )
 

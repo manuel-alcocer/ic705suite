@@ -676,6 +676,21 @@ msgstr "Cerrar"
 msgid "Theme: {now} (click: {next})"
 msgstr "Tema: {now} (clic: {next})"
 
+msgid "The radio's audio on this computer: on (click: off)"
+msgstr "El audio de la emisora en este ordenador: activado (clic: desactivar)"
+
+msgid "The radio's audio on this computer: off (click: on)"
+msgstr "El audio de la emisora en este ordenador: desactivado (clic: activar)"
+
+msgid "Volume of the radio's audio"
+msgstr "Volumen del audio de la emisora"
+
+msgid "cannot play the radio's audio: {error}"
+msgstr "no se puede reproducir el audio de la emisora: {error}"
+
+msgid "no audio from the radio reaches the core"
+msgstr "no llega audio de la emisora al núcleo"
+
 msgid "Dark"
 msgstr "Oscuro"
 

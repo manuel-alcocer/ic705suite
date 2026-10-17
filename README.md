@@ -157,6 +157,11 @@ top right of the window (light, dark, auto: each click goes to the next), which 
 once and keeps it in the configuration file; the waterfalls stay dark. Beside it, **?** opens
 About, with the links to the project page and the help; every status line ends with the
 suite's version.
+The **loudspeaker** button there plays the radio's receive audio on this computer's speakers,
+from a local core or from the server (the core sends it only to the clients that listen),
+with its volume beside it (`[ui] volume`, 0 to 100, kept when it is moved). It plays through
+PortAudio (the `sounddevice` package): its wheels bring it on Windows and macOS, on Linux it
+is the system's (`portaudio` on Arch, `libportaudio2` on Debian and Ubuntu).
 
 ### Core on a Raspberry Pi, client here
 

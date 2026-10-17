@@ -25,7 +25,14 @@ from ic705suite.config import Config
 from ic705suite.i18n import N_
 from ic705suite.rig.transport import Transport, TransportError
 from ic705suite.shared_logbook import client_url, use
-from ic705suite.station.core import BACKLOG, DEFAULT_PORT, PROTOCOL_VERSION, Core
+from ic705suite.station.core import (
+    AUDIO_RX,
+    BACKLOG,
+    DEFAULT_PORT,
+    PROTOCOL_VERSION,
+    Core,
+    PcmListener,
+)
 from ic705suite.ui.sysload import set_core
 
 log = logging.getLogger(__name__)
@@ -124,6 +131,11 @@ class Link(abc.ABC):
     async def call(self, method: str, **params) -> dict:
         """Ask the core something and wait for the answer (channels, save_channel...)."""
 
+    async def listen_audio(self, callback: PcmListener | None) -> int:
+        """Hand the radio's receive audio (16-bit mono PCM) to `callback`, or stop with None.
+        Returns its sample rate, 0 when no audio reaches the core."""
+        return 0
+
 
 class LocalLink(Link):
     """Runs the core in this process (the default, single-machine setup)."""
@@ -133,6 +145,7 @@ class LocalLink(Link):
         self.core = Core(transport, config)
         self.description = f"local ({self.core.station.transport.name})"
         self._unsubscribe: Callable[[], None] | None = None
+        self._stop_audio: Callable[[], None] | None = None
 
     async def _connect(self) -> None:
         # Subscribe first so connection progress messages reach the UI.
@@ -154,6 +167,7 @@ class LocalLink(Link):
                 await self._connecting
         if self._unsubscribe:
             self._unsubscribe()
+        await self.listen_audio(None)
         await self.core.stop()
         self.connected = False
         self.closed.set()
@@ -163,6 +177,14 @@ class LocalLink(Link):
 
     async def call(self, method: str, **params) -> dict:
         return await self.core.call(method, params)
+
+    async def listen_audio(self, callback: PcmListener | None) -> int:
+        if self._stop_audio is not None:
+            self._stop_audio()
+            self._stop_audio = None
+        if callback is not None and self.core.audio_rate:
+            self._stop_audio = self.core.listen_audio(callback)
+        return self.core.audio_rate
 
 
 def parse_address(address: str) -> str:
@@ -195,6 +217,7 @@ class RemoteLink(Link):
         self._calls: dict[int, asyncio.Future] = {}
         self._call_id = 0
         self._again: asyncio.Task | None = None
+        self._audio: PcmListener | None = None
 
     async def _connect(self) -> None:
         try:
@@ -215,10 +238,17 @@ class RemoteLink(Link):
             use(client_url(first["logbook"], urlparse(self.uri).hostname or "localhost"))
         self._dispatch(first)
         self._reader = asyncio.create_task(self._read())
+        if self._audio is not None:      # listening before: on this connection too
+            await self._ws.send(json.dumps({"type": "call", "id": 0, "method": "audio.listen",
+                                            "params": {"on": True}}))
 
     async def _read(self) -> None:
         try:
             async for raw in self._ws:
+                if isinstance(raw, bytes):
+                    if raw[:1] == bytes([AUDIO_RX]) and self._audio is not None:
+                        self._audio(raw[1:])
+                    continue
                 try:
                     event = json.loads(raw)
                 except ValueError:
@@ -308,6 +338,14 @@ class RemoteLink(Link):
         except TimeoutError:
             self._calls.pop(call_id, None)
             raise LinkError(f"no answer from the server to {method}") from None
+
+    async def listen_audio(self, callback: PcmListener | None) -> int:
+        self._audio = callback
+        rate = (self.welcome or {}).get("audio_rate", 0)
+        if self._ws is None or not self.connected:
+            return rate                 # asked for again when it connects
+        result = await self.call("audio.listen", on=callback is not None)
+        return int(result.get("rate", rate) or 0)
 
 
 __all__ = ["Link", "LinkError", "LocalLink", "RemoteLink", "TransportError", "parse_address"]
