@@ -1245,3 +1245,46 @@ def test_auto_cq_calls_only_who_asks_and_leaves_who_works_another(tmp_path, monk
             await link.close()
 
     asyncio.run(scenario())
+
+
+def test_auto_cq_leaves_a_station_that_turns_to_another_mid_qso(tmp_path, monkeypatch):
+    """7Q6M, 2026-10-17: it answered us with our report, did not hear our R-report and
+    went on to another station; we kept sending R for two minutes. Now it is left at once
+    (Auto CQ's block ends there)."""
+    air = short_turns(monkeypatch)
+    monkeypatch.setattr(service_module, "WANTED_CALLS", 3)
+    air["says"] = "CQ 7Q6M KH74"
+    audio = service_module.encode.audio
+
+    def dx(program, message, frequency, rate=12_000):
+        sound = audio(program, message, frequency, rate)
+        if message == "7Q6M EA7KLX IM77":
+            air["says"] = "EA7KLX 7Q6M -12"                 # our report: answered
+        elif message.startswith("7Q6M EA7KLX R"):
+            air["says"] = "HA8IH 7Q6M -07"                  # our R not heard: the next
+        return sound
+
+    monkeypatch.setattr(service_module.encode, "audio", dx)
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        ft8 = link.core.ft8
+        try:
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            await link.call("ft8.list.add", kind="wanted", name="7Q6M")
+            await link.call("ft8.wanted_auto", on=True)
+            await until(lambda: any(m.startswith("7Q6M EA7KLX R") for m in air["sent"]), 20)
+            await until(lambda: ft8._wanted_blocks == 1 or ft8._wanted_cq_due
+                        or ft8._wanted_cq, 10)
+            await asyncio.sleep(3)
+            r_sent = [m for m in air["sent"] if m.startswith("7Q6M EA7KLX R")]
+            assert len(r_sent) == 1                          # left after it turned away
+            assert not ft8.logged                            # no QSO: not logged
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())

@@ -526,12 +526,16 @@ class Ft8Service:
             return
         if parity(start) == self.tx_parity:
             return
+        them = base(self.qso.them) if self.qso.them else ""
+        # Something of theirs for us in this turn: still ours, whatever else they send.
+        for_us = bool(them) and any(base(e.get("sender") or "") == them and self.qso._for_me(e)
+                                    for e in entries)
         for entry in entries:
-            if self.qso.them and base(entry.get("sender") or "") == base(self.qso.them):
+            if them and base(entry.get("sender") or "") == them:
                 # Where they are now, whatever they say (a CQ too): the narrow pass at
                 # second 13 looks there.
                 self.their_freq = entry["freq"]
-                if self._busy(entry):
+                if not for_us and self._busy(entry):
                     self._drop_them = True
                     self.hub.info(N_("FT8 auto: {call} is working {other}; on to the next"),
                                   call=self.qso.them, other=entry.get("to") or "?")
@@ -550,10 +554,13 @@ class Ft8Service:
             self._finished()
 
     def _busy(self, entry: dict) -> bool:
-        """In the auto mode or Auto CQ, the station we call (it was calling CQ) answers
-        another: it will not hear us now."""
+        """In the automatic modes (super-automatic, Auto CQ and its CQs), the station we
+        work turns to another before the QSO is complete: while we call it (tx1), after it
+        answered our CQ (tx2), or after its report (tx3, our R-report not heard). It will
+        not hear us now."""
         to = entry.get("to") or ""
-        return (self.auto.on or bool(self._wanted_call)) and self.qso.step == "tx1" \
+        automatic = self.auto.on or bool(self._wanted_call) or self._wanted_cq
+        return automatic and self.qso.step in ("tx1", "tx2", "tx3") \
             and entry.get("kind") == "call" and bool(to) and not to.startswith("<") \
             and base(to) != base(self.qso.mycall)
 
