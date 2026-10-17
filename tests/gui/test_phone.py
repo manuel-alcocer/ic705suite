@@ -150,3 +150,75 @@ def click(widget) -> None:
     from PySide6.QtTest import QTest
 
     QTest.mouseClick(widget, Qt.MouseButton.LeftButton)
+
+
+def test_cb_mode(tmp_path, run):
+    """CB mode: to channel 19 in FM, its two digits between down and up (round from 40 to
+    1; a double click types one), the dial still tunes between them ("--"), and off goes
+    back to where the dial was; the rig view has it too."""
+    from PySide6.QtTest import QTest
+
+    from ic705suite.rig import cb
+    from tests.gui.test_pages import key, window
+
+    assert len(cb.CHANNELS) == 40 and cb.channel_frequency(19) == 27_185_000
+    assert cb.channel_for(27_255_000) == 23 and cb.channel_for(27_185_100) is None
+
+    async def scenario():
+        win, link = await window(tmp_path, start_app="phone")
+        page = win.page
+        sim = link.core.station.transport
+        try:
+            page.band_buttons["40m"].click()
+            await until(lambda: sim.frequency == 7_150_000 and sim.mode == 0x00)
+            await until(lambda: page.rig.get("frequency") == 7_150_000)
+            assert not page.cb_button.isChecked() and not page.cb_up.isEnabled()
+            page.cb_button.click()
+            await until(lambda: sim.frequency == 27_185_000 and sim.mode == 0x05)   # FM
+            await until(lambda: page.cb_button.isChecked() and page.cb_display.text == "19")
+            page.cb_up.click()
+            page.cb_up.click()                                     # quickly: 19, 20, 21
+            await until(lambda: sim.frequency == cb.channel_frequency(21))
+            assert page.cb_display.text == "21"
+            await page.go_channel(1)
+            page.cb_down.click()                                   # round: 1 -> 40
+            await until(lambda: sim.frequency == cb.channel_frequency(40))
+            # A double click: the channel typed, Enter; Esc leaves it.
+            QTest.mouseDClick(page.cb_display, Qt.MouseButton.LeftButton)
+            assert page.cb_display.editing
+            await key(None, text="9")
+            await key(Qt.Key.Key_Return)
+            await until(lambda: page.rig.get("frequency") == 27_065_000)    # channel 9
+            QTest.mouseDClick(page.cb_display, Qt.MouseButton.LeftButton)
+            await key(None, text="4")
+            await key(None, text="5")                              # 45: no such channel
+            await key(Qt.Key.Key_Return)
+            QTest.mouseDClick(page.cb_display, Qt.MouseButton.LeftButton)
+            await key(None, text="3")
+            await key(Qt.Key.Key_Escape)                           # as it was, page open
+            assert not page.cb_display.editing and win.page is page
+            assert sim.frequency == 27_065_000
+            await page.action_tune(1)
+            await until(lambda: page.rig.get("frequency") == 27_065_100)
+            assert page.cb_button.isChecked() and page.cb_display.text == "--"
+            page.cb_button.click()
+            await until(lambda: sim.frequency == 7_150_000 and sim.mode == 0x00)
+            await until(lambda: not page.cb_button.isChecked())
+            page.cb_button.click()                    # the channel last used there
+            await until(lambda: sim.frequency == 27_065_000)
+        finally:
+            await link.close()
+
+    run(scenario())
+
+    async def rig_view():
+        win, link = await window(tmp_path, start_app="view")
+        page = win.page
+        sim = link.core.station.transport
+        try:
+            page.cb_button.click()
+            await until(lambda: sim.frequency == 27_185_000 and page.cb_button.isChecked())
+        finally:
+            await link.close()
+
+    run(rig_view())

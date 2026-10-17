@@ -126,6 +126,7 @@ class PhonePage(ViewPage):
         modes_row.addWidget(step)
         modes_row.addStretch(1)
         self.vfo_frame.body.addLayout(modes_row)
+        self.vfo_frame.body.addLayout(self._make_cb_row())
 
         self.meters_frame = Frame(_("Meters"))
         self.meters_box = QVBoxLayout()

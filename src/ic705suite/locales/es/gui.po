@@ -32,3 +32,12 @@ msgstr "editar"
 
 msgid "delete"
 msgstr "borrar"
+
+msgid "CB Mode"
+msgstr "Modo CB"
+
+msgid "To the 27 MHz Citizens Band, on the channel last used there; again, back to where the dial was"
+msgstr "A la Banda Ciudadana de 27 MHz, en el último canal usado; otra vez, de vuelta a donde estaba el dial"
+
+msgid "The CB channel (-- between channels); a double click: type one, 1 to 40, Enter tunes, Esc leaves it"
+msgstr "El canal de CB (-- entre canales); doble clic: escribe uno, del 1 al 40; Intro sintoniza, Esc lo deja como estaba"

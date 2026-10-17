@@ -9,10 +9,17 @@ of the rig, and the rig command line. The keys are the terminal view's; the mous
 from __future__ import annotations
 
 import base64
+import time
 
 import numpy as np
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QVBoxLayout
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+)
 
 from ic705suite.apps.view.app import (
     HINT,
@@ -26,6 +33,7 @@ from ic705suite.gui import theme
 from ic705suite.gui.page import Page
 from ic705suite.gui.widgets import (
     SMETER_SCALE,
+    ChannelDisplay,
     ControlGrid,
     Footer,
     Frame,
@@ -40,6 +48,7 @@ from ic705suite.gui.widgets import (
     span,
 )
 from ic705suite.i18n import _, render
+from ic705suite.rig import cb
 from ic705suite.station.links import Link, LinkError
 from ic705suite.ui.panelkeys import PanelKeys
 from ic705suite.ui.panelmodel import PanelModel, format_value
@@ -65,6 +74,11 @@ class ViewPage(PanelKeys, Page):
         self.meter_defs: list[dict] = []
         self.meters: dict[str, Meter] = {}
         self.model = PanelModel()
+        self.cb_channel = cb.CALLING_CHANNEL    # CB mode: the channel and mode last used there,
+        self.cb_mode = cb.DEFAULT_MODE
+        self.cb_return: tuple[int, str | None] | None = None    # and where the dial was before
+        self._cb_wanted: tuple[int, float] | None = None   # a channel chosen, until the radio
+                                                           # reports it (3 s at most)
         self._build()
         self.scope_timer = QTimer(self, interval=int(SCOPE_KEEPALIVE * 1000),
                                   timeout=lambda: self.run_worker(self._keep_scope()))
@@ -80,6 +94,7 @@ class ViewPage(PanelKeys, Page):
                                  "Esc leaves it"))
         self.vfo_label = self.vfo_frame.add(QLabel())
         self.vfo_label.setTextFormat(Qt.TextFormat.RichText)
+        self.vfo_frame.body.addLayout(self._make_cb_row())
         self.meters_frame = Frame(_("Meters"))
         self.meters_box = QVBoxLayout()
         self.meters_box.setSpacing(2)
@@ -122,6 +137,42 @@ class ViewPage(PanelKeys, Page):
         for widget in (self.digits, self.vfo_label, self.scope, self.status, self.footer):
             widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._show_vfo()
+
+    def _make_cb_row(self) -> QHBoxLayout:
+        """The CB mode button and the channel: two digits between down and up (a double click
+        types one); the dial still tunes between channels."""
+        self.cb_button = QPushButton(_("CB Mode"))
+        self.cb_button.setCheckable(True)
+        self.cb_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.cb_button.setToolTip(_("To the 27 MHz Citizens Band, on the channel last used "
+                                    "there; again, back to where the dial was"))
+        self.cb_button.clicked.connect(lambda on: self.run_worker(self.action_cb(on)))
+        self.cb_down = QPushButton("▼")
+        self.cb_up = QPushButton("▲")
+        for button, step in ((self.cb_down, -1), (self.cb_up, 1)):
+            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            button.setFixedWidth(40)
+            button.setAutoRepeat(True)              # held: channel after channel
+            button.setAutoRepeatDelay(500)
+            button.setAutoRepeatInterval(250)
+            button.clicked.connect(lambda _c=False, s=step: self.run_worker(
+                self.step_channel(s)))
+        self.cb_display = ChannelDisplay(1, len(cb.CHANNELS))
+        self.cb_display.editable = True
+        self.cb_display.chosen.connect(lambda channel: self.run_worker(
+            self.go_channel(channel)))
+        self.cb_display.setToolTip(_("The CB channel (-- between channels); a double click: "
+                                     "type one, 1 to 40, Enter tunes, Esc leaves it"))
+        row = QHBoxLayout()
+        row.setSpacing(3)
+        row.addWidget(self.cb_button)
+        row.addSpacing(8)
+        row.addWidget(self.cb_down)
+        row.addWidget(self.cb_display)
+        row.addWidget(self.cb_up)
+        row.addStretch(1)
+        self._show_cb()
+        return row
 
     def _make_meters(self, meters: list[dict]) -> None:
         while self.meters_box.count():
@@ -200,6 +251,7 @@ class ViewPage(PanelKeys, Page):
         self.digits.frequency = event.get("frequency")
         self._show_vfo()
         self._show_meters()
+        self._show_cb()
         if not self.model.editing:
             self.model.set_values(event.get("controls", {}))
         self.scope.view.dial = event.get("frequency")
@@ -253,6 +305,28 @@ class ViewPage(PanelKeys, Page):
             second.append(badge("LOCK", "#ffffff", theme.RED))
         gap = "&nbsp;" * 4
         self.vfo_label.setText(gap.join(first) + "<br>" + gap.join(second))
+
+    def _show_cb(self) -> None:
+        """CB mode is the dial on eleven metres; the selector shows its channel (none between
+        channels) and, out of CB mode, the one it would go back to."""
+        frequency = self.rig.get("frequency")
+        on = cb.in_cb(frequency)
+        if on and self.rig.get("mode") in cb.MODES:
+            self.cb_mode = self.rig["mode"]          # the radio's own, really on 27 MHz
+        wanted = self._cb_wanted
+        if wanted is not None:
+            if frequency == cb.channel_frequency(wanted[0]) or time.monotonic() > wanted[1]:
+                self._cb_wanted = None
+            else:
+                frequency, on = cb.channel_frequency(wanted[0]), True   # the one chosen
+        if on:
+            self.cb_channel = cb.channel_for(frequency) or self.cb_channel
+        channel = cb.channel_for(frequency) if on else self.cb_channel
+        self.cb_button.setChecked(on)
+        for widget in (self.cb_down, self.cb_up, self.cb_display):
+            widget.setEnabled(on)
+        if not self.cb_display.editing:
+            self.cb_display.set_channel(channel, dim=not on)
 
     def _show_meters(self) -> None:
         values = self.rig.get("meters", {})
@@ -330,6 +404,36 @@ class ViewPage(PanelKeys, Page):
     def action_step(self) -> None:
         self.step = next_step(self.step)
         self._show_vfo()
+
+    async def action_cb(self, on: bool) -> None:
+        """CB mode on: to the channel and mode last used there (19, FM at first); off: back
+        to where the dial was before it (or to 10 m)."""
+        frequency = self.rig.get("frequency")
+        if on:
+            if frequency and not cb.in_cb(frequency):
+                self.cb_return = (frequency, self.rig.get("mode"))
+            await self.go_channel(self.cb_channel)
+            await self._command(f"/mode {self.cb_mode}")
+            return
+        back, self.cb_return = self.cb_return, None
+        if back is None:
+            await self._command("/b 10")
+            return
+        await self._command(f"/f {back[0]}")
+        if back[1]:
+            await self._command(f"/mode {back[1]}")
+
+    async def go_channel(self, channel: int) -> None:
+        self.cb_channel = channel
+        self._cb_wanted = (channel, time.monotonic() + 3.0)
+        self._show_cb()                             # at once; the radio's state follows
+        await self._command(f"/f {cb.channel_frequency(channel)}")
+
+    async def step_channel(self, step: int) -> None:
+        """Down or up a channel, round from 40 to 1 (between channels: from the last one)."""
+        current = self._cb_wanted[0] if self._cb_wanted else \
+            cb.channel_for(self.rig.get("frequency")) or self.cb_channel
+        await self.go_channel((current - 1 + step) % len(cb.CHANNELS) + 1)
 
     async def action_mode(self) -> None:
         await self._command(f"/mode {next_mode(self.rig.get('mode'))}")

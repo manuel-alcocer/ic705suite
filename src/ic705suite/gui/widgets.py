@@ -537,9 +537,12 @@ class SevenSegment(QWidget):
         if self.editing:
             self._paint_field(painter)
             return
-        chars = [c for c in self.text if c != "."]
+        self._paint_segments(painter, self.text, self.colour)
+
+    def _paint_segments(self, painter: QPainter, text: str, colour: QColor) -> None:
+        chars = [c for c in text if c != "."]
         positions, count = set(), 0             # the digits a dot follows
-        for c in self.text:
+        for c in text:
             if c == ".":
                 positions.add(count - 1)
             else:
@@ -549,15 +552,15 @@ class SevenSegment(QWidget):
         width = min(self.width() / (n + 0.4), height * 0.62)
         thick = max(3.0, width * 0.16)
         x = (self.width() - width * n) / 2
-        dim = QColor(self.colour)
+        dim = QColor(colour)
         dim.setAlpha(28)
         for i, ch in enumerate(chars):
             lit = SEGMENTS.get(ch, "")
             for seg in "abcdefg":
                 self._segment(painter, x + i * width, 4, width * 0.82, height, thick, seg,
-                              self.colour if seg in lit else dim)
+                              colour if seg in lit else dim)
             if i in positions:
-                painter.setBrush(self.colour)
+                painter.setBrush(colour)
                 painter.setPen(Qt.PenStyle.NoPen)
                 painter.drawEllipse(QPointF(x + i * width + width * 0.9, 4 + height - thick / 2),
                                     thick * 0.55, thick * 0.55)
@@ -593,6 +596,70 @@ class SevenSegment(QWidget):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(colour)
         p.drawPath(path)
+
+
+class ChannelDisplay(SevenSegment):
+    """A channel on two seven-segment digits ("--" between channels). A double click types
+    one (first to last): Enter chooses it (``chosen``), Esc leaves it."""
+
+    chosen = Signal(int)
+
+    def __init__(self, first: int = 1, last: int = 40, parent: QWidget | None = None) -> None:
+        super().__init__("--", parent=parent)
+        self.first, self.last = first, last
+        self.channel: int | None = None
+        self.dim = False                       # not in use now: its last channel, faint
+        self.setMinimumSize(QSize(64, 40))
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.setFixedSize(QSize(78, 46))
+
+    def sizeHint(self) -> QSize:  # noqa: N802
+        return QSize(78, 46)
+
+    def set_channel(self, channel: int | None, dim: bool = False) -> None:
+        self.channel, self.dim = channel, dim
+        self.set_text(f"{channel:02d}" if channel else "--")
+        self.update()
+
+    @property
+    def colour(self) -> QColor:
+        colour = QColor(self._colour or theme.AMBER)
+        if self.dim:
+            colour.setAlpha(90)
+        return colour
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        pass                                   # a double click types a channel
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if self.editable:
+            self.start_editing()
+            self.buffer, self.cursor = "", 0
+            self.update()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
+        if not self.editing:
+            super().keyPressEvent(event)
+            return
+        key, text = event.key(), event.text()
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            channel = int(self.buffer) if self.buffer else 0
+            self.stop_editing()
+            if self.first <= channel <= self.last:
+                self.chosen.emit(channel)
+        elif key == Qt.Key.Key_Escape:
+            self.stop_editing()
+        elif key == Qt.Key.Key_Backspace:
+            self.buffer = self.buffer[:-1]
+        elif text.isdigit() and len(self.buffer) < 2:
+            self.buffer += text
+        self.update()
+
+    def _paint_field(self, painter: QPainter) -> None:
+        self._paint_segments(painter, self.buffer.rjust(2, "-"), QColor(theme.YELLOW))
+        painter.setPen(QColor(theme.YELLOW))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 5, 5)
 
 
 # ---- meters ---------------------------------------------------------------------------------
