@@ -1693,20 +1693,8 @@ msgstr "Cuadrícula"
 msgid "Maidenhead's fields and squares, with their names; without them the map is cleaner (the squares worked stay)"
 msgstr "Los campos y cuadrados Maidenhead, con sus nombres; sin ellos el mapa se ve más limpio (los cuadrados trabajados se mantienen)"
 
-msgid "Auto CQ: the stations marked CQ auto (right click, w) heard, with nothing under way, are called in turn, three times each; every two of them, a rest of two minutes"
-msgstr "Auto CQ: las estaciones marcadas como CQ auto (clic derecho, w) que se oigan, sin nada en curso, se llaman por turnos, tres veces cada una; cada dos, un descanso de dos minutos"
-
-msgid "Auto CQ on: the wanted stations heard are called in turn, three times each, a rest every two (W or H stops it)"
-msgstr "Auto CQ activo: las estaciones marcadas que se oigan se llaman por turnos, tres veces cada una, con un descanso cada dos (W o H lo paran)"
-
 msgid "FT8 Auto CQ: calling {call}, wanted ({count} times, then the next one)"
 msgstr "FT8 Auto CQ: llamando a {call}, marcada ({count} veces, luego la siguiente)"
-
-msgid "FT8 Auto CQ: resting {seconds:.0f} s"
-msgstr "FT8 Auto CQ: descansando {seconds:.0f} s"
-
-msgid "Auto CQ: resting {seconds} s"
-msgstr "Auto CQ: descanso {seconds} s"
 
 msgid "3 min at most"
 msgstr "3 min como máximo"
@@ -1878,3 +1866,18 @@ msgstr "Audio TX"
 
 msgid "A click: type the frequency in kHz (28.750,34), Enter tunes, Esc leaves it"
 msgstr "Un clic: escribe la frecuencia en kHz (28.750,34); Intro sintoniza, Esc la deja como estaba"
+
+msgid "Auto CQ: calling CQ"
+msgstr "Auto CQ: llamando CQ"
+
+msgid "FT8 Auto CQ: calling CQ ({count} times) for others to call us"
+msgstr "FT8 Auto CQ: llamando CQ ({count} veces) para que otros nos llamen"
+
+msgid "FT8 Auto CQ: nobody answered {count} CQs; calling the wanted stations again"
+msgstr "FT8 Auto CQ: nadie contestó a {count} CQ; de nuevo a las estaciones marcadas"
+
+msgid "Auto CQ: the stations marked CQ auto (right click, w) that call CQ, with nothing under way, are called in turn, three times each (one that answers another is left for the next); every two of them, three CQs of ours for others to call us"
+msgstr "Auto CQ: las estaciones marcadas como CQ auto (clic derecho, w) que llamen CQ, sin nada en curso, se llaman por turnos, tres veces cada una (si una contesta a otra, se pasa a la siguiente); cada dos, tres CQ nuestros para que otros nos llamen"
+
+msgid "Auto CQ on: the wanted stations that call CQ are called in turn, three times each, and three CQs of ours every two (W or H stops it)"
+msgstr "Auto CQ activo: las estaciones marcadas que llamen CQ se llaman por turnos, tres veces cada una, y cada dos, tres CQ nuestros (W o H lo paran)"

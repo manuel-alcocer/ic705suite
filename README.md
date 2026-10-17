@@ -347,10 +347,11 @@ other stations show in a quieter grey; **Only the CQs** (C) hides them.
 A right click on a station (its line in the band activity or the QSO, its dot on the map,
 its call on the waterfall) offers: ignore it (I) or its country (Shift+I), so the automatic
 modes leave it, and **CQ auto** (w), the stations wanted. With **Auto CQ** on (W), the
-wanted stations heard in the last three minutes, with nothing under way, are called in
-turn, three times each (the one called longest ago first), with a rest of two minutes after
-every two of them; it goes before the super-automatic mode, and a station worked on a band
-is not called there again. The lists live in the
+wanted stations heard in the last three minutes calling CQ (or CQ DX, or calling us), with
+nothing under way, are called in turn, three times each (the one called longest ago first;
+one that answers another station meanwhile is left at once for the next), and after every
+two of them three CQs of ours give others their chance to call us; it goes before the
+super-automatic mode, and a station worked on a band is not called there again. The lists live in the
 suite's database (table `ft8_lists`; the ignored ones of older versions are taken in from
 FT8's settings file) and the **Lists** tab, beside the waterfall and the map, shows them in a
 table: filtered by list, the name and the note edited in place, rows added and removed.

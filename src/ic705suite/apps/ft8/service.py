@@ -94,7 +94,7 @@ LONGEST_KEY = 16.0         # the PTT watchdog while a message goes out
 CQ_TURNS = 20              # CQs with nobody answering (5 minutes): stop
 WANTED_CALLS = 3           # Auto CQ: calls to a wanted station in a row (a block), then
 WANTED_BLOCKS = 2          # the next one heard; after this many blocks,
-WANTED_REST = 120.0        # this rest (seconds) for all of them;
+WANTED_CQS = 3             # our own CQs, for others to call us;
 WANTED_HEARD = 180.0       # a wanted station is called while it was heard this lately
 WORKED_EVERY = 60.0        # seconds between readings of the worked index (the logbook)
 TONE_SECONDS = 10.0        # the tune tone, unless asked otherwise
@@ -177,7 +177,8 @@ class Ft8Service:
         self._wanted_call = ""                    # the wanted station being called
         self._wanted_called: dict[str, float] = {}   # call -> when its last block ended
         self._wanted_blocks = 0                   # blocks since the last rest
-        self._wanted_rest_until = 0.0             # resting until then
+        self._wanted_cq_due = False               # our CQs come next
+        self._wanted_cq = False                   # our CQs under way (Auto CQ's)
         self._wanted_done: set[tuple[str, str]] = set()   # (call, band) worked by it
         self.lists = None
         self._open_lists()
@@ -534,7 +535,10 @@ class Ft8Service:
                     self._drop_them = True
                     self.hub.info(N_("FT8 auto: {call} is working {other}; on to the next"),
                                   call=self.qso.them, other=entry.get("to") or "?")
-                    self.auto.missed_one(self.qso.them, time.time())
+                    # Auto CQ's block ends here (the next wanted station); else the
+                    # super-automatic mode's miss.
+                    if not self._wanted_finished(self.qso.them, False):
+                        self.auto.missed_one(self.qso.them, time.time())
                     break
             if self.qso.step == "cq" and (self.auto.on and self.ignored(entry)
                                           or self.dupe(entry)):
@@ -546,10 +550,10 @@ class Ft8Service:
             self._finished()
 
     def _busy(self, entry: dict) -> bool:
-        """In the auto mode, the station we call (it was calling CQ) answers another: it
-        will not hear us now."""
+        """In the auto mode or Auto CQ, the station we call (it was calling CQ) answers
+        another: it will not hear us now."""
         to = entry.get("to") or ""
-        return self.auto.on and not self._wanted_call and self.qso.step == "tx1" \
+        return (self.auto.on or bool(self._wanted_call)) and self.qso.step == "tx1" \
             and entry.get("kind") == "call" and bool(to) and not to.startswith("<") \
             and base(to) != base(self.qso.mycall)
 
@@ -738,6 +742,7 @@ class Ft8Service:
             self.wanted_auto = False
             self.hub.info(N_("FT8: Auto CQ off"))
         self._wanted_call = ""
+        self._wanted_cq = self._wanted_cq_due = False
         await self._stop_tx()
 
     async def _stop_tx(self) -> None:
@@ -801,6 +806,7 @@ class Ft8Service:
 
     def _finished(self) -> None:
         them = self.qso.them
+        self._wanted_cq = False                   # our CQs answered: that QSO ended
         if self._wanted_finished(them, self.qso.complete):
             pass                                  # not the super-automatic mode's to count
         elif self.auto.on:
@@ -873,7 +879,7 @@ class Ft8Service:
         if on:
             self._check_tx()
             if not self.wanted_auto:
-                self._wanted_blocks, self._wanted_rest_until = 0, 0.0
+                self._wanted_blocks, self._wanted_cq_due = 0, False
         self.wanted_auto = on
         self._touch()
         return {"on": on}
@@ -881,8 +887,8 @@ class Ft8Service:
     def _wanted_pick(self, start: float, now: float) -> tuple[dict, float] | None:
         """The wanted station to call now, with the cycle it was last heard in: heard in
         the last WANTED_HEARD seconds, not ignored, not worked here (dupes); in turn, the
-        one called longest ago first (never called, before any). None while resting."""
-        if not self.wanted or now < self._wanted_rest_until:
+        one called longest ago first (never called, before any)."""
+        if not self.wanted:
             return None
         band = bands.band_for(self.station.rig.state.frequency or 0)
         band_name = band.name if band else ""
@@ -892,17 +898,26 @@ class Ft8Service:
                 continue
             for d in cycle["decodes"]:
                 call = base(d.get("sender") or "")
-                if call in self.wanted and d.get("kind") in ("cq", "call"):
-                    latest[call] = (d, cycle["start"])
+                if call in self.wanted and d.get("kind") != "tx":
+                    latest[call] = (d, cycle["start"])    # what it said last, whatever
         turn = sorted(latest.items(),
                       key=lambda item: (self._wanted_called.get(item[0], 0.0), -item[1][1]))
         for call, (d, heard) in turn:
-            if (call, band_name) in self._wanted_done:
+            if (call, band_name) in self._wanted_done or not self._wanted_open(d):
                 continue
             if self.ignored(d) or self.dupe(d):
                 continue
             return d, heard
         return None
+
+    def _wanted_open(self, decode: dict) -> bool:
+        """Its last message asks for a contact: a CQ (or CQ DX), or a call to us; one to
+        another station means it is busy."""
+        if decode.get("kind") == "cq":
+            return (decode.get("cq_to") or "") in ("", "DX")
+        mine = base(self.config.callsign or "")
+        return decode.get("kind") == "call" and bool(mine) and \
+            base(decode.get("to") or "") == mine
 
     async def _wanted_turn(self, start: float) -> None:
         """A cycle decoded: with Auto CQ on and nothing under way, a wanted station heard
@@ -910,6 +925,18 @@ class Ft8Service:
         if not self.wanted_auto or self.tx_on or self.transmitting or self.toning:
             return
         if self._late_until and start <= self._late_until:
+            return
+        if self._wanted_cq_due:                   # after the blocks: our own CQs
+            self._wanted_cq_due = False
+            try:
+                await self.call_cq()
+            except Ft8Error as exc:
+                self.wanted_auto = False
+                self.hub.error(N_("FT8: Auto CQ off: {error}"), error=str(exc))
+                return
+            self._wanted_cq = True
+            self.hub.info(N_("FT8 Auto CQ: calling CQ ({count} times) for others to call us"),
+                          count=WANTED_CQS)
             return
         pick = self._wanted_pick(start, time.time())
         if pick is None:
@@ -940,8 +967,7 @@ class Ft8Service:
         self._wanted_blocks += 1
         if self._wanted_blocks >= WANTED_BLOCKS:
             self._wanted_blocks = 0
-            self._wanted_rest_until = now + WANTED_REST
-            self.hub.info(N_("FT8 Auto CQ: resting {seconds:.0f} s"), seconds=WANTED_REST)
+            self._wanted_cq_due = True            # our CQs, for others to call us
         return True
 
     # ---- the super-automatic mode ---------------------------------------------------------------
@@ -1031,6 +1057,12 @@ class Ft8Service:
                     0.0, start + START + min(EARLY_WAIT, LATE / 2) - time.time()))
         if qso.step == "cq":
             self.cq_turns += 1
+            if self._wanted_cq and self.cq_turns > WANTED_CQS:
+                self.hub.info(N_("FT8 Auto CQ: nobody answered {count} CQs; calling the "
+                                 "wanted stations again"), count=WANTED_CQS)
+                self._wanted_cq = False
+                await self._stop_tx()
+                return
             if self.auto.on and self.cq_turns > CQS:
                 self.hub.info(N_("FT8 auto: nobody answered {count} CQs; answering again"),
                               count=CQS)
@@ -1307,9 +1339,7 @@ class Ft8Service:
                 "dupes": self.allow_dupes, "unattended": self.unattended,
                 "wanted_auto": {"on": self.wanted_auto, "calling": self._wanted_call,
                                 "calls": WANTED_CALLS, "blocks": WANTED_BLOCKS,
-                                "rest": WANTED_REST,
-                                "resting": max(0, round(self._wanted_rest_until
-                                                        - time.time()))}}
+                                "cqs": WANTED_CQS, "calling_cq": self._wanted_cq}}
 
     async def call(self, method: str, params: dict) -> dict:
         try:

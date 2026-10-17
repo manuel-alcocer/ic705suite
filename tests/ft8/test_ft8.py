@@ -1132,16 +1132,16 @@ def test_the_lists_in_the_database(tmp_path, monkeypatch):
     asyncio.run(scenario())
 
 
-def test_auto_cq_calls_the_wanted_stations_in_turn_with_a_rest_every_two(tmp_path,
-                                                                         monkeypatch):
+def test_auto_cq_calls_the_wanted_stations_in_turn_and_our_cqs_every_two(tmp_path,
+                                                                              monkeypatch):
     air = short_turns(monkeypatch)
     monkeypatch.setattr(service_module, "WANTED_CALLS", 2)
-    monkeypatch.setattr(service_module, "WANTED_REST", 4.0)
+    monkeypatch.setattr(service_module, "WANTED_CQS", 2)
 
-    def decode(program, wav, depth=3, timeout=30.0, band=None):  # both busy, never hear us
+    def decode(program, wav, depth=3, timeout=30.0, band=None):  # both calling CQ, deaf to us
         stamp = wav.stem.split("_")[1]
-        return jt9.parse(f"{stamp} -11  0.1 1200 ~  G4XYZ DL1ABC JO62\n"
-                         f"{stamp} -14  0.1 1600 ~  F5AAA VP8LDX GD18")
+        return jt9.parse(f"{stamp} -11  0.1 1200 ~  CQ DL1ABC JO62\n"
+                         f"{stamp} -14  0.1 1600 ~  CQ DX VP8LDX GD18")
 
     monkeypatch.setattr(service_module.jt9, "decode", decode)
 
@@ -1161,12 +1161,10 @@ def test_auto_cq_calls_the_wanted_stations_in_turn_with_a_rest_every_two(tmp_pat
             assert air["sent"][:4] == [f"{first} EA7KLX IM77"] * 2 + \
                 [f"{second} EA7KLX IM77"] * 2                   # a block each, in turn
             assert {first, second} == {"DL1ABC", "VP8LDX"}
-            ft8 = link.core.ft8
-            await until(lambda: ft8.state()["wanted_auto"]["resting"] > 0, 10)
-            await asyncio.sleep(2.0)                            # two blocks: resting
-            assert len(air["sent"]) == 4
-            await until(lambda: len(air["sent"]) >= 5, 15)      # and the first again
-            assert air["sent"][4] == f"{first} EA7KLX IM77"
+            # Two blocks: then our own CQs (nobody answers), then the first one again.
+            await until(lambda: len(air["sent"]) >= 7, 30)
+            assert air["sent"][4:6] == ["CQ EA7KLX IM77"] * 2
+            assert air["sent"][6] == f"{first} EA7KLX IM77"
             await link.call("ft8.halt")
             assert not (await link.call("ft8.state"))["wanted_auto"]["on"]
         finally:
@@ -1195,6 +1193,54 @@ def test_auto_cq_works_a_wanted_station_once(tmp_path, monkeypatch):
             await asyncio.sleep(3)
             assert len(air["sent"]) <= count + 1               # its 73 at most: not again
             assert ("DL1ABC", "20m") in ft8._wanted_done
+        finally:
+            await link.close()
+
+    asyncio.run(scenario())
+
+
+def test_auto_cq_calls_only_who_asks_and_leaves_who_works_another(tmp_path, monkeypatch):
+    """A wanted station is called only after a CQ (or CQ DX), not while it works someone
+    else nor after a CQ for others (CQ NA); called, and answering another, it is left at
+    once for the next one."""
+    air = short_turns(monkeypatch)
+    monkeypatch.setattr(service_module, "WANTED_CALLS", 3)
+    said = {"DL1ABC": "CQ NA DL1ABC JO62", "VP8LDX": "F5AAA VP8LDX GD18",
+            "K1ABC": "CQ DX K1ABC FN42"}
+
+    def decode(program, wav, depth=3, timeout=30.0, band=None):
+        stamp = wav.stem.split("_")[1]
+        return jt9.parse("\n".join(f"{stamp} -12  0.1 {1000 + 300 * i} ~  {text}"
+                                    for i, text in enumerate(said.values())))
+
+    audio = service_module.encode.audio
+
+    def heard(*args, **kwargs):
+        sound = audio(*args, **kwargs)
+        if air["sent"][-1].startswith("K1ABC "):
+            said["K1ABC"] = "EA1AAA K1ABC -05"            # it answers another station
+            said["VP8LDX"] = "CQ VP8LDX GD18"             # and this one calls CQ now
+        return sound
+
+    monkeypatch.setattr(service_module.jt9, "decode", decode)
+    monkeypatch.setattr(service_module.encode, "audio", heard)
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA7KLX", locator="IM77",
+                        tx_enabled=True, database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        await link.connect()
+        try:
+            await link.call("ft8.band", band="20m")
+            await link.call("ft8.start")
+            for call in said:
+                await link.call("ft8.list.add", kind="wanted", name=call)
+            await link.call("ft8.wanted_auto", on=True)
+            await until(lambda: any(m.startswith("VP8LDX ") for m in air["sent"]), 20)
+            to = [m.split()[0] for m in air["sent"]]
+            assert to[0] == "K1ABC" and "DL1ABC" not in to       # CQ DX yes; CQ NA no
+            assert to.count("K1ABC") == 1                        # left after it answered
+            assert air["sent"][-1] == "VP8LDX EA7KLX IM77"       # busy before; CQ now
         finally:
             await link.close()
 

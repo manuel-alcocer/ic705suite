@@ -602,9 +602,9 @@ class Ft8App(App[int]):
     def action_wanted_auto(self) -> None:
         """Auto CQ (W): the wanted stations called when they are heard, or not."""
         on = not (self.state.get("wanted_auto") or {}).get("on")
-        self.run_worker(self._call(_("Auto CQ on: the wanted stations heard are called in "
-                                     "turn, three times each, a rest every two (W or H "
-                                     "stops it)") if on else
+        self.run_worker(self._call(_("Auto CQ on: the wanted stations that call CQ are "
+                                     "called in turn, three times each, and three CQs of "
+                                     "ours every two (W or H stops it)") if on else
                                    _("Auto CQ off"), "ft8.wanted_auto", on=on), group="tx")
 
     def action_auto(self) -> None:

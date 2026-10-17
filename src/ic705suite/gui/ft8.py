@@ -146,9 +146,10 @@ class Ft8Page(Page):
             if key == "W":
                 self.wanted_button = button
                 button.setToolTip(_("Auto CQ: the stations marked CQ auto (right click, w) "
-                                    "heard, with nothing under way, are called in turn, "
-                                    "three times each; every two of them, a rest of two "
-                                    "minutes"))
+                                    "that call CQ, with nothing under way, are called in "
+                                    "turn, three times each (one that answers another is "
+                                    "left for the next); every two of them, three CQs of "
+                                    "ours for others to call us"))
             if key == "A":
                 self.auto_button = button
                 button.setToolTip(_("Super-automatic: answers new countries first, then "
@@ -669,11 +670,9 @@ class Ft8Page(Page):
                                        if auto else "")
         wanted = self.state.get("wanted_auto") or {}
         calling = wanted.get("calling") or ""
-        resting = int(wanted.get("resting") or 0)
         self.wanted_button.setText("W  " + (
             _("Auto CQ: {call}").format(call=calling) if calling else
-            _("Auto CQ: resting {seconds} s").format(seconds=resting)
-            if wanted.get("on") and resting else
+            _("Auto CQ: calling CQ") if wanted.get("on") and wanted.get("calling_cq") else
             _("Auto CQ on") if wanted.get("on") else _("Auto CQ")))
         self.wanted_button.setStyleSheet(f"background: {theme.BLUE}; color: #ffffff;"
                                          if wanted.get("on") else "")
