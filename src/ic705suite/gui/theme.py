@@ -171,6 +171,12 @@ QPushButton:hover {{
 QPushButton:default, QPushButton:focus {{
     border: 1px solid {FOCUS};
 }}
+QPushButton:checked {{
+    background: {SELECTED};
+    border: 1px solid {FOCUS};
+    color: {TEXT};
+    font-weight: bold;
+}}
 QScrollBar:vertical, QScrollBar:horizontal {{
     background: {PANEL};
     width: 10px;

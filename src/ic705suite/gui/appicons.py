@@ -128,7 +128,7 @@ def _microphone(p: QPainter) -> None:
 DRAWINGS: dict[str, Callable[[QPainter], None]] = {
     "view": _radio, "cw": _cw, "dstar": _dstar, "swr": _antenna, "log": _logbook,
     "packet": _packet, "ft8": _ft8, "speaker": _speaker, "speaker_off": _speaker_off,
-    "microphone": _microphone,
+    "microphone": _microphone, "phone": _microphone,
 }
 
 

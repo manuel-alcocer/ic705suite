@@ -170,6 +170,20 @@ the radio's DATA OFF MOD input is set to WLAN only while keyed, and put back on 
 client leaves or its audio stops for a second, and after three minutes in any case; FT8 and
 packet do not key meanwhile. Set the level with the radio's LAN MOD level and its ALC meter.
 
+**Phone** (F10, graphical client only; in the terminal it opens the rig view) gathers what
+a phone operator needs: the digits, the meters and the scope; buttons for the bands (each at
+its phone segment, or where it was left in the session), LSB, USB, AM and FM, and FIL1-3;
+the controls phone needs (AF, SQL, RF, P.AMP, ATT, AGC, NB, NR, the filter, PWR, MIC, COMP,
+VOX, MON); a big **PTT** with the computer's microphone (as the corner button) or the
+radio's own (the PTT only keys it; DATA OFF MOD is set to MIC while keyed if it was not),
+worked with the space bar held, the space bar pressed to talk and again to stop, or the
+mouse only; the **memories**, the suite's (a table in its database: name, frequency, mode,
+filter, and for FM repeaters the duplex, offset and tone; the current frequency saved as
+one; hamrlog's repeaters, FM and D-STAR up to 70 cm, imported) and the radio's (a group of
+the IC-705's 100 x 100 channels read, one written from the current frequency or a suite's
+memory, one cleared), a double click tuning to any of them; and the quick log with today's
+contacts. The radio's memory layout is the one wfview reads (CI-V 1A 00).
+
 ### Core on a Raspberry Pi, client here
 
 ```sh

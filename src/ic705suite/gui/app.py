@@ -454,6 +454,10 @@ class MainWindow(QMainWindow):
             from ic705suite.gui.view import ViewPage
 
             return ViewPage(host, self.link, self.config, owns_link=standalone)
+        if app_id == "phone":
+            from ic705suite.gui.phone import PhonePage
+
+            return PhonePage(host, self.link, self.config, owns_link=standalone)
         if app_id == "packet":
             from ic705suite.gui.packet import PacketPage
             from ic705suite.launcher import packet_link

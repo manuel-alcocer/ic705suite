@@ -13,7 +13,7 @@ from ic705suite import morse
 from ic705suite.rig.base import Meter, Rig, RigError, RigModel, ScopeFrame, TxDisabledError
 from ic705suite.rig.controls import Control
 from ic705suite.rig.icom.controls import SPECIAL_CONTROLS
-from ic705suite.rig.icom import civ
+from ic705suite.rig.icom import civ, memory
 from ic705suite.rig.transport import Transport, TransportError
 
 log = logging.getLogger(__name__)
@@ -326,6 +326,63 @@ class IcomRig(Rig):
 
     async def set_mode_raw(self, code: int, filter_number: int | None = None) -> None:
         await self.transact(bytes([0x06, code]) + (bytes([filter_number]) if filter_number else b""))
+
+    # ---- memory channels (rig.icom.memory) --------------------------------------------------
+
+    memory_layout = (memory.GROUPS, memory.CHANNELS)
+
+    async def read_memory(self, group: int, channel: int) -> dict | None:
+        where = b"\x1a\x00" + memory.address(group, channel)
+        frame = await self.transact(where, where)
+        found = memory.decode(frame.body[2:])[2]
+        if found is None:
+            return None
+        return {**found.as_dict(), "mode": MODES.get(found.mode, f"0x{found.mode:02X}")}
+
+    async def write_memory(self, group: int, channel: int, data: dict | None) -> None:
+        found = None
+        if data is not None:
+            found = memory.Memory.from_dict({**data, "mode": self._mode_code(data["mode"])})
+        await self.transact(b"\x1a\x00" + memory.encode(group, channel, found))
+
+    @staticmethod
+    def _mode_code(mode: object) -> int:
+        if isinstance(mode, int):
+            return mode
+        if str(mode).upper() not in MODE_CODES:
+            raise RigError(f"unknown mode {mode}")
+        return MODE_CODES[str(mode).upper()]
+
+    async def apply_memory(self, data: dict) -> list[str]:
+        problems: list[str] = []
+        filter_number = int(data.get("filter") or 0) or None
+        await self.set_frequency(int(data["frequency"]))
+        mode = str(data.get("mode") or self.state.mode or "USB").upper()
+        await self.set_mode(mode, filter_number)
+        if data.get("data") or mode in ("USB", "LSB", "AM", "FM"):
+            try:
+                await self.set_data_mode(int(bool(data.get("data"))), filter_number or 1)
+            except RigError as exc:
+                problems.append(f"data mode: {exc}")
+        if mode != "FM":
+            return problems
+        duplex = memory.DUPLEX_CODES.get(data.get("duplex") or "", 0)
+        tone_mode = data.get("tone_mode") or ""
+        steps = [("duplex", bytes([0x0F, 0x10 + duplex]))]
+        if duplex and data.get("offset"):
+            steps.append(("offset", b"\x0d" + memory._offset_bytes(int(data["offset"]))))
+        if data.get("tone"):
+            steps.append(("tone", b"\x1b\x00" + memory._tone_bytes(float(data["tone"]))))
+        if data.get("tsql"):
+            steps.append(("tone squelch", b"\x1b\x01" + memory._tone_bytes(float(data["tsql"]))))
+        steps.append(("tone", b"\x16\x42" + bytes([int(tone_mode == "tone")])))
+        steps.append(("tone squelch", b"\x16\x43" + bytes([int(tone_mode == "tsql")])))
+        for what, body in steps:
+            try:
+                await self.transact(body)
+            except RigError as exc:
+                problems.append(f"{what}: {exc}")
+        return problems
 
     async def read_data_mode(self) -> tuple[int, int]:
         frame = await self.transact(b"\x1a\x06", b"\x1a\x06")

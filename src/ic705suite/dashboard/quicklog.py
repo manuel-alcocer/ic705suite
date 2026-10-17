@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 LOG_MODES = {"CW": "CW", "CW-R": "CW", "USB": "USB", "LSB": "LSB", "AM": "AM", "FM": "FM",
              "WFM": "FM", "RTTY": "RTTY", "RTTY-R": "RTTY", "DV": "DSTAR"}
 TODAY_LIMIT = 2000      # contacts looked at to find today's
+IC705_TOP = 470_000_000     # Hz: the IC-705 goes up to 70 cm
 
 
 class LogUnavailable(Exception):
@@ -70,6 +71,31 @@ def log_line(line: str, rig: dict) -> tuple[object | None, str]:
     except ServiceError as exc:
         return None, str(exc)
     return row, "; ".join(parsed.warnings)
+
+
+def repeaters(text: str = "") -> list[dict]:
+    """hamrlog's repeaters the IC-705 can work (FM and D-STAR), as memory channels: the
+    output to listen on, the duplex and offset to the input, the tone that opens it."""
+    _logbook()
+    from ic705suite.apps.log.core.services import RepeaterService
+
+    rows = RepeaterService.search(text, limit=500) if text.strip() else \
+        RepeaterService.list_all()
+    out = []
+    for r in rows:
+        mode = (r.mode or "FM").upper().replace("-", "")
+        mode = "DV" if mode in ("DSTAR", "DV") else "FM" if mode in ("FM", "NFM", "") else ""
+        if not mode or not r.output_hz or r.output_hz > IC705_TOP:
+            continue                         # digital ones it cannot work, 23 cm
+        tone = r.ctcss_tx.strip() if r.ctcss_tx else ""
+        out.append({"name": " ".join(x for x in (r.callsign, r.channel) if x)[:80],
+                    "frequency": r.output_hz, "mode": mode, "filter": 1,
+                    "duplex": "-" if r.shift_hz < 0 else "+" if r.shift_hz > 0 else "",
+                    "offset": abs(r.shift_hz or 0),
+                    "tone_mode": "tone" if tone and mode == "FM" else "",
+                    "tone": float(tone) if tone.replace(".", "", 1).isdigit() else 88.5,
+                    "note": " · ".join(x for x in (r.qth, r.name) if x)})
+    return out
 
 
 def today_contacts() -> list:

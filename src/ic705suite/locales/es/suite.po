@@ -1707,3 +1707,153 @@ msgstr "FT8 Auto CQ: descansando {seconds:.0f} s"
 
 msgid "Auto CQ: resting {seconds} s"
 msgstr "Auto CQ: descanso {seconds} s"
+
+msgid "3 min at most"
+msgstr "3 min como máximo"
+
+msgid "A name for {frequency} {mode}"
+msgstr "Un nombre para {frequency} {mode}"
+
+msgid "Channel"
+msgstr "Canal"
+
+msgid "Channel {channel} of group {group} has a memory: write over it?"
+msgstr "El canal {channel} del grupo {group} tiene una memoria: ¿escribir encima?"
+
+msgid "Clear"
+msgstr "Borrar"
+
+msgid "Clear the radio's channel {channel} of group {group}?"
+msgstr "¿Borrar el canal {channel} del grupo {group} de la radio?"
+
+msgid "Controls"
+msgstr "Controles"
+
+msgid "Delete the memory {name} ({frequency})?"
+msgstr "¿Borrar la memoria {name} ({frequency})?"
+
+msgid "Frequency"
+msgstr "Frecuencia"
+
+msgid "Group"
+msgstr "Grupo"
+
+msgid "Group {group}: {count} memories"
+msgstr "Grupo {group}: {count} memorias"
+
+msgid "How the PTT is worked: the space bar held down, the space bar pressed once to talk and again to stop, or only the button with the mouse"
+msgstr "Cómo se maneja el PTT: la barra espaciadora mantenida, la barra espaciadora pulsada una vez para hablar y otra para parar, o solo el botón con el ratón"
+
+msgid "Into the suite's"
+msgstr "A las de la suite"
+
+msgid "Memories"
+msgstr "Memorias"
+
+msgid "Microphone"
+msgstr "Micrófono"
+
+msgid "Mouse only"
+msgstr "Solo ratón"
+
+msgid "No frequency to save: the radio is not connected"
+msgstr "No hay frecuencia que guardar: la radio no está conectada"
+
+msgid "PC microphone"
+msgstr "Micro del PC"
+
+msgid "PTT"
+msgstr "PTT"
+
+msgid "PTT key"
+msgstr "Tecla PTT"
+
+msgid "Phone"
+msgstr "Fonía"
+
+msgid "Radio"
+msgstr "Radio"
+
+msgid "Radio microphone"
+msgstr "Micro de la radio"
+
+msgid "Read"
+msgstr "Leer"
+
+msgid "Reading the radio's group {group}…"
+msgstr "Leyendo el grupo {group} de la radio…"
+
+msgid "Repeater"
+msgstr "Repetidor"
+
+msgid "Repeaters from the logbook"
+msgstr "Repetidores del diario"
+
+msgid "Repeaters…"
+msgstr "Repetidores…"
+
+msgid "Save the current one"
+msgstr "Guardar la actual"
+
+msgid "Save the rows chosen"
+msgstr "Guardar las filas elegidas"
+
+msgid "Search: callsign, channel, place, locator (Enter)"
+msgstr "Buscar: indicativo, canal, lugar, locator (Intro)"
+
+msgid "Space PTT · Esc Back"
+msgstr "Espacio PTT · Esc Volver"
+
+msgid "Space PTT · PgUp/PgDn Tune · F2 Step · F3 Mode · F4/F5 Band · F6 Filter · / command · Esc Back"
+msgstr "Espacio PTT · RePág/AvPág Sintonizar · F2 Paso · F3 Modo · F4/F5 Banda · F6 Filtro · / comando · Esc Volver"
+
+msgid "Space held"
+msgstr "Espacio mantenido"
+
+msgid "Space toggles"
+msgstr "Espacio alterna"
+
+msgid "Suite"
+msgstr "Suite"
+
+msgid "Talk: PTT with the computer's or the radio's microphone, bands, modes, memories and the quick log (in the terminal, the rig view)"
+msgstr "Hablar: PTT con el micro del ordenador o el de la radio, bandas, modos, memorias y el log rápido (en el terminal, la vista del equipo)"
+
+msgid "The computer's microphone goes to the radio over the network; with the radio's, the PTT only keys it"
+msgstr "El micro del ordenador llega a la radio por la red; con el de la radio, el PTT solo la pone en transmisión"
+
+msgid "The frequency and mode now (or the suite's memory chosen in its tab) into that channel of the radio"
+msgstr "La frecuencia y el modo actuales (o la memoria de la suite elegida en su pestaña) en ese canal de la radio"
+
+msgid "Tune"
+msgstr "Sintonizar"
+
+msgid "Tuned to {name}"
+msgstr "Sintonizado en {name}"
+
+msgid "Voice released: the client holding the PTT went quiet"
+msgstr "Voz liberada: el cliente que mantenía el PTT dejó de responder"
+
+msgid "Write"
+msgstr "Escribir"
+
+msgid "Write the current one"
+msgstr "Escribir la actual"
+
+msgid "Written into the radio's channel {group}/{channel}"
+msgstr "Escrita en el canal {group}/{channel} de la radio"
+
+msgid "memory tuned, but not all of it: {error}"
+msgstr "memoria sintonizada, pero no del todo: {error}"
+
+msgid "receiving"
+msgstr "recibiendo"
+
+msgid "the radio is transmitting"
+msgstr "la radio está transmitiendo"
+
+msgid "{count} repeaters"
+msgstr "{count} repetidores"
+
+msgid "{count} repeaters saved as memories"
+msgstr "{count} repetidores guardados como memorias"

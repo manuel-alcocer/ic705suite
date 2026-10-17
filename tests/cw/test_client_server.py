@@ -205,3 +205,37 @@ def test_the_client_survives_the_core_going_away():
             await core.stop()
 
     asyncio.run(scenario())
+
+
+def test_memory_channels_over_the_network(tmp_path):
+    async def scenario():
+        sim = SimTransport(stations=[], seed=6)
+        config = Config(database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        core, stop, task, port = await start_server(config, sim)
+        link = RemoteLink(f"127.0.0.1:{port}", "secret")
+        try:
+            await link.connect()
+            saved = await link.call("memory.save", name="ED7ZAB", frequency=145_650_000,
+                                    mode="FM", duplex="-", offset=600_000, tone_mode="tone",
+                                    tone=88.5)
+            assert saved["memory"]["id"] and len(saved["memories"]) == 1
+            assert (await link.call("memory.save", name="no frequency"))["error"]
+            assert (await link.call("memory.tune", **saved["memory"]))["problems"] == []
+            assert sim.frequency == 145_650_000 and sim.settings[b"\x0f"] == b"\x11"
+            written = await link.call("rig.memory.write", group=0, channel=5,
+                                      memory=saved["memory"])
+            assert written["memory"]["name"] == "ED7ZAB"
+            radio = await link.call("rig.memories", group=0)
+            assert [(m["channel"], m["frequency"]) for m in radio["memories"]] == \
+                [(5, 145_650_000)]
+            await link.call("rig.memory.write", group=0, channel=5, memory=None)
+            assert (await link.call("rig.memories", group=0))["memories"] == []
+            gone = await link.call("memory.delete", id=saved["memory"]["id"])
+            assert gone["memories"] == []
+        finally:
+            await link.close()
+            stop.set()
+            await task
+            await core.stop()
+
+    asyncio.run(scenario())

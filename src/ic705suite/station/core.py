@@ -37,7 +37,11 @@ Commands (client -> server):
            swr.antenna.save {name, notes, coil_sign, id?}, swr.antenna.delete {id},
            pkt.* (see apps.packet.service), ft8.* (see apps.ft8.service),
            audio.listen {on}  receive audio for this client (remote: binary frames)
-           voice.ptt {on}  key the radio for this client's microphone (see station.voice)
+           voice.ptt {on, source}  key the radio for this client's microphone, or for the
+           radio's own (source "radio"; see station.voice)
+           memories, memory.save {id?, name, frequency, mode...}, memory.delete {id}
+           (the suite's memory channels, station.memories), memory.tune {frequency, mode...},
+           rig.memories {group}, rig.memory.write {group, channel, memory} (the radio's)
 Binary frames, one byte of kind, then the data:
   AUDIO_RX  (server -> client, while it listens) the radio's receive audio, 16-bit
             little-endian mono PCM at audio_rate
@@ -203,6 +207,7 @@ class Core:
         self.ft8 = Ft8Service(self.station, config, self.hub)
         self.lotw = LotwService(config, self.hub)
         self.voice = Voice(self.station, config, self.hub)
+        self._memories = None                  # station.memories, opened when first asked
         self._ticker: asyncio.Task | None = None
         self._pcm: list[PcmListener] = []
         self.clients = 0                       # connected to it (the server's, a local one)
@@ -326,6 +331,8 @@ class Core:
                 return {"scope": await self.station.scope_watch(float(params.get("seconds", 15)))}
             except (RigError, TransportError) as exc:
                 return {"error": str(exc)}
+        if method.startswith(("memor", "rig.memor")):
+            return await self._memory_call(method, params)
         if method == "channels":
             return session.list_channels()
         if method == "transcript":
@@ -348,6 +355,58 @@ class Core:
             return await self.lotw.call(method[5:], params)
         if method.startswith("ft8."):
             return await self.ft8.call(method[4:], params)
+        return {"error": f"unknown method {method}"}
+
+    # ---- memory channels: the suite's (database) and the radio's --------------------------
+
+    def _memory_table(self):
+        from ic705suite.station.memories import Memories
+
+        if self._memories is None:
+            self._memories = Memories(self.config.database_url or None)
+        return self._memories
+
+    async def _memory_call(self, method: str, params: dict) -> dict:
+        from ic705suite.station.memories import MemoryError_
+
+        rig = self.station.rig
+        try:
+            if method == "memories":
+                return {"memories": await asyncio.to_thread(self._memory_table().entries)}
+            if method == "memory.save":
+                saved = await asyncio.to_thread(self._memory_table().save, params)
+                return {"memory": saved,
+                        "memories": await asyncio.to_thread(self._memory_table().entries)}
+            if method == "memory.delete":
+                await asyncio.to_thread(self._memory_table().delete, int(params["id"]))
+                return {"memories": await asyncio.to_thread(self._memory_table().entries)}
+            if method == "memory.tune":
+                problems = await rig.apply_memory(params)
+                for problem in problems:
+                    self.hub.error(N_("memory tuned, but not all of it: {error}"), error=problem)
+                return {"tuned": True, "problems": problems}
+            if method == "rig.memories":
+                if rig.memory_layout is None:
+                    return {"error": "this radio has no memory channels here"}
+                group = int(params.get("group", 0))
+                found = []
+                for channel in range(rig.memory_layout[1]):
+                    memory = await rig.read_memory(group, channel)
+                    if memory is not None:
+                        found.append({"group": group, "channel": channel, **memory})
+                return {"group": group, "channels": rig.memory_layout[1], "memories": found}
+            if method == "rig.memory.write":
+                group, channel = int(params["group"]), int(params["channel"])
+                await rig.write_memory(group, channel, params.get("memory"))
+                return {"group": group, "channel": channel,
+                        "memory": await rig.read_memory(group, channel)}
+        except (MemoryError_, ValueError, KeyError) as exc:
+            return {"error": str(exc)}
+        except (RigError, TransportError) as exc:
+            return {"error": str(exc)}
+        except Exception as exc:  # noqa: BLE001 - the database: said, not a crash
+            log.warning("memory call %s failed: %s", method, exc)
+            return {"error": str(exc)}
         return {"error": f"unknown method {method}"}
 
     async def command(self, line: str, app: str = "cw") -> None:

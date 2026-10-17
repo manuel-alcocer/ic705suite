@@ -53,7 +53,7 @@ async def run_app(app_id: str, link: Link | None, config: Config, scp: set[str] 
         from ic705suite.apps.cw.tui import CwApp
 
         return await CwApp(link, scp=scp, owns_link=standalone).run_async(mouse=False) or 0
-    if app_id == "view":
+    if app_id in ("view", "phone"):            # phone: a graphical page; here, the view
         from ic705suite.apps.view.app import ViewApp
 
         return await ViewApp(link, owns_link=standalone).run_async(mouse=False) or 0

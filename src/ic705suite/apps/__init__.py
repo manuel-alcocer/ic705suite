@@ -43,6 +43,9 @@ APPS = (
             None, True),
     AppInfo("ft8", "F8", N_("FT8"),
             N_("The band's activity, decoded every 15 s (WSJT-X's jt9)"), FEATURE_AUDIO, True),
+    AppInfo("phone", "F10", N_("Phone"),
+            N_("Talk: PTT with the computer's or the radio's microphone, bands, modes, "
+               "memories and the quick log (in the terminal, the rig view)"), None, True),
 )
 BY_ID = {app.id: app for app in APPS}
 

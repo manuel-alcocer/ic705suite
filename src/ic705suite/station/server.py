@@ -106,10 +106,13 @@ class CoreServer:
                           "result": {"on": stop_audio is not None,
                                      "rate": self.core.audio_rate}})
                 elif msg.get("type") == "call" and msg.get("method") == "voice.ptt":
-                    on = bool((msg.get("params") or {}).get("on"))
-                    log.info("client %s: PTT %s", peer, "on" if on else "off")
+                    params = msg.get("params") or {}
+                    on = bool(params.get("on"))
+                    source = "radio" if params.get("source") == "radio" else "pc"
+                    if self.core.voice.talker is not talker or not on:
+                        log.info("client %s: PTT %s (%s)", peer, "on" if on else "off", source)
                     push({"type": "reply", "id": msg.get("id"),
-                          "result": await self.core.voice.ptt(on, talker)})
+                          "result": await self.core.voice.ptt(on, talker, source)})
                 elif msg.get("type") == "call" and isinstance(msg.get("method"), str):
                     result = await self.core.call(msg["method"], msg.get("params") or {})
                     push({"type": "reply", "id": msg.get("id"), "result": result})

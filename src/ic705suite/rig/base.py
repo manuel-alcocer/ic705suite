@@ -221,6 +221,25 @@ class Rig(abc.ABC):
     async def read_rf_watts(self) -> float:
         raise RigError(f"{self.model.name}: has no power meter")
 
+    # ---- memory channels -----------------------------------------------------------------
+
+    #: (groups, channels per group) of the radio's memories; None: it has none here.
+    memory_layout: tuple[int, int] | None = None
+
+    async def read_memory(self, group: int, channel: int) -> dict | None:
+        """A memory channel as a dict (frequency, mode, filter, data, duplex, offset,
+        tone_mode, tone, tsql, name), None when it is empty."""
+        raise RigError(f"{self.model.name}: memory channels are not supported")
+
+    async def write_memory(self, group: int, channel: int, memory: dict | None) -> None:
+        """Write a memory channel (None: clear it)."""
+        raise RigError(f"{self.model.name}: memory channels are not supported")
+
+    async def apply_memory(self, memory: dict) -> list[str]:
+        """Tune the VFO as a memory says (frequency, mode, filter, and for FM the duplex,
+        its offset and the tones); what could not be set, as messages."""
+        raise RigError(f"{self.model.name}: memory channels are not supported")
+
     async def save_settings(self) -> object:
         """Operating settings to put back with restore_settings() after a measurement."""
         return (await self.read_frequency(), await self.read_mode())

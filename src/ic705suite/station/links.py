@@ -137,8 +137,9 @@ class Link(abc.ABC):
         Returns its sample rate, 0 when no audio reaches the core."""
         return 0
 
-    async def ptt(self, on: bool) -> dict:
-        """Key the radio for this client's microphone (send_voice), or release it:
+    async def ptt(self, on: bool, source: str = "pc") -> dict:
+        """Key the radio for this client's microphone (send_voice), or for the radio's own
+        (source "radio": said again every half second while held), or release it:
         {on} or {error, msgid, args}."""
         return {"error": "voice is not supported", "msgid": N_("voice is not supported"),
                 "args": {}}
@@ -199,8 +200,8 @@ class LocalLink(Link):
             self._stop_audio = self.core.listen_audio(callback)
         return self.core.audio_rate
 
-    async def ptt(self, on: bool) -> dict:
-        return await self.core.voice.ptt(on, self)
+    async def ptt(self, on: bool, source: str = "pc") -> dict:
+        return await self.core.voice.ptt(on, self, source)
 
     def send_voice(self, pcm: bytes) -> None:
         self.core.voice.audio(self, pcm)
@@ -370,10 +371,10 @@ class RemoteLink(Link):
         result = await self.call("audio.listen", on=callback is not None)
         return int(result.get("rate", rate) or 0)
 
-    async def ptt(self, on: bool) -> dict:
+    async def ptt(self, on: bool, source: str = "pc") -> dict:
         if self._ws is None:
             return dict(LOST)
-        return await self.call("voice.ptt", on=on)
+        return await self.call("voice.ptt", on=on, source=source)
 
     def send_voice(self, pcm: bytes) -> None:
         # In order, one after another: a queue and one task sending it.

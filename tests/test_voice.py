@@ -112,3 +112,24 @@ def test_a_remote_client_talks_and_leaving_releases():
             await core.stop()
 
     asyncio.run(scenario())
+
+
+def test_the_radios_own_microphone():
+    """Source "radio": no audio needed, MIC as the voice modes' input while keyed (put back
+    after), and the PTT said again keeps it keyed; quiet, it is released."""
+    async def scenario():
+        core, sim = await started()
+        sim.settings[MOD] = b"\x03"                        # left on WLAN by someone
+        try:
+            assert await core.voice.ptt(True, "me", "radio") == {"on": True}
+            assert sim.ptt and sim.settings[MOD] == b"\x00"     # the radio's microphone
+            for _ in range(8):                                  # held: said again
+                await asyncio.sleep(0.25)
+                await core.voice.ptt(True, "me", "radio")
+            assert sim.ptt and sim.tx_audio_bytes == 0
+            await asyncio.sleep(voice.SILENT + 0.5)              # the client went quiet
+            assert not sim.ptt and sim.settings[MOD] == b"\x03"
+        finally:
+            await core.stop()
+
+    asyncio.run(scenario())

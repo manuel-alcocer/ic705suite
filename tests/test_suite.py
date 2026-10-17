@@ -89,7 +89,7 @@ def test_dashboard_lists_the_apps_and_opens_one(tmp_path):
                     if link.connected and app.rig.get("connected"):
                         break
                 ids = [a["id"] for a in app.apps]
-                assert ids == ["view", "cw", "dstar", "swr", "log", "packet", "ft8"]
+                assert ids == ["view", "cw", "dstar", "swr", "log", "packet", "ft8", "phone"]
                 await pilot.press("f4")              # D-STAR: not ready yet, stays here
                 await pilot.pause(0.1)
                 assert app.is_running and "coming soon" in app.messages[-1][1]

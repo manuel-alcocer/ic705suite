@@ -23,7 +23,8 @@ SCOPE_POINTS = 475
 # Settings answered generically: command prefix -> current value bytes.
 DEFAULT_SETTINGS: dict[bytes, bytes] = {
     **{bytes([0x16, sub]): bytes([value]) for sub, value in (
-        (0x02, 1), (0x12, 2), (0x22, 0), (0x40, 0), (0x41, 0), (0x44, 0), (0x45, 0), (0x46, 0),
+        (0x02, 1), (0x12, 2), (0x22, 0), (0x40, 0), (0x41, 0), (0x42, 0), (0x43, 0), (0x44, 0),
+        (0x45, 0), (0x46, 0),
         (0x47, 0), (0x48, 0), (0x4F, 0), (0x50, 0), (0x56, 0), (0x57, 0), (0x58, 1))},
     b"\x1c\x01": b"\x00",
     b"\x11": b"\x00", b"\x10": b"\x01", b"\x0f": b"\x00",
@@ -34,6 +35,8 @@ DEFAULT_SETTINGS: dict[bytes, bytes] = {
     b"\x27\x1a\x00": b"\x01", b"\x27\x1d\x00": b"\x00",
     # Menu items (1A 05): DATA OFF MOD and DATA1 MOD inputs (0 MIC, 1 USB, 2 MIC+USB, 3 WLAN).
     b"\x1a\x05\x01\x18": b"\x00", b"\x1a\x05\x01\x19": b"\x01",
+    # The duplex offset (100 Hz units, little-endian BCD) and the repeater tones.
+    b"\x0d": b"\x00\x00\x00", b"\x1b\x00": b"\x00\x08\x85", b"\x1b\x01": b"\x00\x08\x85",
 }
 
 
@@ -94,6 +97,7 @@ class SimTransport(Transport):
         self.levels = {0x09: 128, 0x0C: 85, 0x0A: 128}  # pitch ~600 Hz, ~20 wpm, 50 % power
         self.smeter = 0
         self.data_mode = (0, 0)
+        self.memories: dict[bytes, bytes] = {}   # group + channel (BCD) -> its contents
         self.ptt = False
         self.tx_audio_bytes = 0
         self.tx_peak = 0.0                   # of full scale: the audio sent lately (the ALC)
@@ -178,6 +182,15 @@ class SimTransport(Transport):
             self.levels[data[0]] = civ.decode_level(data[1:3])
             return ok
         if cmd == 0x07:
+            return ok
+        if body[:2] == b"\x1a\x00" and len(data) >= 5:      # memory channels
+            where = bytes(data[1:5])
+            if len(data) == 5:
+                return b"\x1a\x00" + where + self.memories.get(where, b"\xff")
+            if data[5:] == b"\xff":
+                self.memories.pop(where, None)
+            else:
+                self.memories[where] = bytes(data[5:])
             return ok
         prefix = _setting_prefix(body)
         if prefix is not None and prefix in self.settings:
