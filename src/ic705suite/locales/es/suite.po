@@ -1695,3 +1695,9 @@ msgstr "FT8 Auto CQ: llamando a {call}, marcada ({count} veces, luego descanso)"
 
 msgid "FT8: Auto CQ off"
 msgstr "FT8: Auto CQ desactivado"
+
+msgid "Grid"
+msgstr "Cuadrícula"
+
+msgid "Maidenhead's fields and squares, with their names; without them the map is cleaner (the squares worked stay)"
+msgstr "Los campos y cuadrados Maidenhead, con sus nombres; sin ellos el mapa se ve más limpio (los cuadrados trabajados se mantienen)"

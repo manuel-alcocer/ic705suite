@@ -138,6 +138,7 @@ class MapView(QWidget):
         self._under = ""                          # what is under the mouse, for the key
         self._done: dict[str, float] = {}         # call -> when its QSO was completed
         self.traffic = True                       # the calls between other stations
+        self.grid_on = True                       # Maidenhead's fields and squares
         self._frames = QTimer(self)
         self._frames.setInterval(FRAME_MS)
         self._frames.timeout.connect(self.update)
@@ -209,6 +210,13 @@ class MapView(QWidget):
                     and not d.get("end") and not self._ended(heard):
                 out.append((heard.call, False))
         return out
+
+    def set_grid(self, on: bool) -> None:
+        """Maidenhead's lines and names, or a cleaner map without them (the squares worked
+        stay)."""
+        self.grid_on = on
+        self._background = None
+        self.update()
 
     def set_traffic(self, on: bool) -> None:
         self.traffic = on
@@ -313,7 +321,7 @@ class MapView(QWidget):
         """The land, the squares worked, the night and the grid: drawn again only when the
         view, the squares or the minute (the grey line) change."""
         ratio = self.devicePixelRatioF()
-        key = (self.width(), self.height(), ratio, self.zoom, self.center,
+        key = (self.width(), self.height(), ratio, self.zoom, self.center, self.grid_on,
                int(time.time() // 60))
         if self._background is not None and key == self._background_key:
             return self._background
@@ -335,7 +343,8 @@ class MapView(QWidget):
             painter.setBrush(QBrush(NIGHT))
             painter.drawPolygon(night_polygon())
             painter.restore()
-        self._draw_grid(painter)
+        if self.grid_on:
+            self._draw_grid(painter)
         painter.end()
         self._background, self._background_key = picture, key
         return picture

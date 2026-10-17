@@ -201,6 +201,15 @@ class Ft8Page(Page):
                                       "faint, under yours"))
         self.traffic_box.toggled.connect(self._map_traffic)
         self.map_frame.head.addWidget(self.traffic_box)
+        self.map.set_grid(self.config.ft8_map_grid)
+        self.grid_box = QCheckBox(_("Grid"))
+        self.grid_box.setChecked(self.config.ft8_map_grid)
+        self.grid_box.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.grid_box.setToolTip(_("Maidenhead's fields and squares, with their names; "
+                                   "without them the map is cleaner (the squares worked "
+                                   "stay)"))
+        self.grid_box.toggled.connect(self._map_grid)
+        self.map_frame.head.addWidget(self.grid_box)
         self.map.station_clicked.connect(self._choose)
         self.map.station_menu.connect(self._station_menu)
         self.map.station_double_clicked.connect(
@@ -359,6 +368,11 @@ class Ft8Page(Page):
             slider.valueChanged.connect(apply)
             row.addWidget(slider)
         return row
+
+    def _map_grid(self, on: bool) -> None:
+        self.map.set_grid(on)
+        self.config.ft8_map_grid = on
+        remember(self.config, "ft8", "map_grid", on)
 
     def _map_traffic(self, on: bool) -> None:
         self.map.set_traffic(on)

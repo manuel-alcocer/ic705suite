@@ -159,3 +159,16 @@ def test_the_calls_between_other_stations_quiet_under_ours(qapp):
     view.set_traffic(False)
     view.repaint()                                                    # drawn without them
     assert not view.traffic and not view.moving()
+
+
+def test_the_grid_switched_off_for_a_cleaner_map(qapp):
+    view = ft8map.MapView()
+    view.resize(900, 450)
+    view.set_home(37.31, -5.96, "IM77AH")
+    with_grid = view.grab().toImage()
+    view.set_grid(False)
+    assert view._background is None                           # the world drawn again
+    without = view.grab().toImage()
+    assert without != with_grid and not view.grid_on
+    view.set_grid(True)
+    assert view.grid_on and view._background is None
