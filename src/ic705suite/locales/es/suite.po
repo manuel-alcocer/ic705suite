@@ -1608,3 +1608,12 @@ msgstr "Sin nadie conectado, transmite sin límite"
 
 msgid "FT8: nobody connected for {minutes} min: transmission stopped, still decoding"
 msgstr "FT8: nadie conectado durante {minutes} min: transmisión parada, sigue decodificando"
+
+msgid "Others' calls"
+msgstr "Llamadas de otros"
+
+msgid "The calls between other stations of the last cycles, faint, under yours"
+msgstr "Las llamadas entre otras estaciones de los últimos ciclos, tenues, por debajo de las tuyas"
+
+msgid "calls between others"
+msgstr "llamadas entre otros"

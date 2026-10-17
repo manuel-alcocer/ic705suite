@@ -182,6 +182,14 @@ class Ft8Page(Page):
         # Beside the waterfall, in a tab: the map (gui.ft8map), as GridTracker's.
         self.map_frame = Frame(_("Map"))
         self.map = self.map_frame.add(MapView(), 1)
+        self.map.set_traffic(self.config.ft8_map_traffic)
+        self.traffic_box = QCheckBox(_("Others' calls"))
+        self.traffic_box.setChecked(self.config.ft8_map_traffic)
+        self.traffic_box.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.traffic_box.setToolTip(_("The calls between other stations of the last cycles, "
+                                      "faint, under yours"))
+        self.traffic_box.toggled.connect(self._map_traffic)
+        self.map_frame.head.addWidget(self.traffic_box)
         self.map.station_clicked.connect(self._choose)
         self.map.station_double_clicked.connect(
             lambda start, decode: self._choose(start, decode) and self.action_reply())
@@ -336,6 +344,11 @@ class Ft8Page(Page):
             slider.valueChanged.connect(apply)
             row.addWidget(slider)
         return row
+
+    def _map_traffic(self, on: bool) -> None:
+        self.map.set_traffic(on)
+        self.config.ft8_map_traffic = on
+        remember(self.config, "ft8", "map_traffic", on)
 
     def _tab_changed(self, index: int) -> None:
         """The map wants room: the top part takes most of the height while it shows."""

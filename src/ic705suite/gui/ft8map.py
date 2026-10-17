@@ -4,9 +4,10 @@ confirmed (the logbook: worked.py), our station, and every station heard lately 
 (its grid, or its country's middle when no grid came: a hollow dot), coloured as the band
 activity (a CQ green, a call to us red, a new DXCC ringed magenta); the great circle to the
 station we call, and from each station calling us, with arrows running the way the call
-goes. A key in the bottom right corner says what each mark is, and what is under the mouse
-(no tooltips: the help is in the documentation). The wheel zooms, a drag moves it, a click
-on a station chooses it in the list and a double click answers it.
+goes; under them, quiet, the calls between other stations (traffic, a switch). A key in
+the bottom right corner says what each mark is, and what is under the mouse (no tooltips:
+the help is in the documentation). The wheel zooms, a drag moves it, a click on a station
+chooses it in the list and a double click answers it.
 
 The still layers (land, night, grid, the squares worked) are drawn once into a picture and
 kept until the view changes, so the arrows move without redrawing the world each frame.
@@ -50,6 +51,7 @@ COAST = QColor(86, 110, 92)
 NIGHT = QColor(0, 0, 0, 95)
 GRID = QColor(255, 255, 255, 38)
 GRID_LABEL = QColor(255, 255, 255, 70)
+TRAFFIC = QColor(170, 190, 215, 105)  # calls between other stations: there, not in the way
 WORKED = QColor(240, 160, 40, 120)
 CONFIRMED = QColor(70, 210, 120, 140)
 
@@ -133,6 +135,7 @@ class MapView(QWidget):
         self._background_key: tuple = ()
         self._under = ""                          # what is under the mouse, for the key
         self._done: dict[str, float] = {}         # call -> when its QSO was completed
+        self.traffic = True                       # the calls between other stations
         self._frames = QTimer(self)
         self._frames.setInterval(FRAME_MS)
         self._frames.timeout.connect(self.update)
@@ -205,6 +208,37 @@ class MapView(QWidget):
                 out.append((heard.call, False))
         return out
 
+    def set_traffic(self, on: bool) -> None:
+        self.traffic = on
+        self.update()
+
+    def traffic_paths(self, now: float | None = None) -> list[tuple[tuple, tuple, str]]:
+        """(from, to, sender) of each call between other stations heard lately: from the
+        sender to the station it calls, where that one was heard, else its country's
+        middle; not ours (they have paths of their own) nor those to us."""
+        now = time.time() if now is None else now
+        mine = self.mycall.split("/")[0] if self.mycall else ""
+        out = []
+        for heard in self.heard.values():
+            d = heard.decode
+            to = (d.get("to") or "").strip("<>")
+            if d.get("kind") != "call" or not to or now - heard.seen > CALLING_FOR:
+                continue
+            if mine and mine in (to.split("/")[0], heard.call.split("/")[0]):
+                continue
+            if heard.call == self.them:
+                continue
+            target = self.heard.get(to)
+            if target is not None:
+                where = (target.lat, target.lon)
+            else:
+                entity = geo.entity_for(to)
+                if entity is None:
+                    continue
+                where = (entity.lat, entity.lon)
+            out.append(((heard.lat, heard.lon), where, heard.call))
+        return out
+
     def _ended(self, heard: Heard) -> bool:
         done = self._done.get(heard.call)
         return done is not None and heard.seen <= done
@@ -257,6 +291,8 @@ class MapView(QWidget):
         painter.drawPixmap(0, 0, self._still())
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         now = time.time()
+        if self.traffic:
+            self._draw_traffic(painter, now)
         for call, outward in self.paths(now):
             self._draw_path(painter, call, outward, now)
         self._draw_home(painter)
@@ -364,6 +400,38 @@ class MapView(QWidget):
         painter.drawRect(QRectF(p.x() - 5, p.y() - 5, 10, 10))
         painter.drawText(p + QPointF(8, -6), self.home_label)
 
+    def _pieces(self, points: list[tuple[float, float]]) -> list[list[QPointF]]:
+        """A path on the screen, cut where it crosses the map's edge."""
+        pieces: list[list[QPointF]] = []
+        previous = None
+        for lat, lon in points:
+            p = self._xy(lat, lon)
+            if previous is None or abs(p.x() - previous.x()) > self.width() / 2:
+                pieces.append([p])
+            else:
+                pieces[-1].append(p)
+            previous = p
+        return pieces
+
+    def _draw_traffic(self, painter: QPainter, now: float) -> None:
+        """The calls between other stations: thin, faint, still, an arrow halfway."""
+        for start, end, _call in self.traffic_paths(now):
+            pieces = self._pieces(geo.great_circle(start, end, steps=32))
+            painter.setPen(QPen(TRAFFIC, 1.2))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            for piece in pieces:
+                path = QPainterPath(piece[0])
+                for p in piece[1:]:
+                    path.lineTo(p)
+                painter.drawPath(path)
+            longest = max(pieces, key=len)
+            if len(longest) >= 2:
+                middle = len(longest) // 2
+                a, b = longest[max(0, middle - 1)], longest[middle]
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QBrush(TRAFFIC))
+                self._arrow(painter, b, math.atan2(b.y() - a.y(), b.x() - a.x()), size=5.0)
+
     def _draw_path(self, painter: QPainter, call: str, outward: bool, now: float) -> None:
         """The great circle between us and a station, and arrows running along it: from us
         when we call it (outward), towards us when it calls us."""
@@ -374,15 +442,7 @@ class MapView(QWidget):
         if not outward:
             points = points[::-1]                 # from them to us: the arrows' way
         colour = QColor(theme.RED or "#ff5c5c")
-        pieces: list[list[QPointF]] = []
-        previous = None
-        for lat, lon in points:
-            p = self._xy(lat, lon)
-            if previous is None or abs(p.x() - previous.x()) > self.width() / 2:
-                pieces.append([p])                # across the map's edge: a new piece
-            else:
-                pieces[-1].append(p)
-            previous = p
+        pieces = self._pieces(points)
         faint = QColor(colour)
         faint.setAlpha(150)
         painter.setPen(QPen(faint, 1.5, Qt.PenStyle.DashLine))
@@ -475,6 +535,8 @@ class MapView(QWidget):
                 ("square", WORKED, _("square worked")), ("square", CONFIRMED, _("confirmed")),
                 ("home", QColor(theme.YELLOW or "#ffc94d"), _("your station")),
                 ("arrow", red, _("the way a call goes"))]
+        if self.traffic:
+            rows.append(("arrow", TRAFFIC, _("calls between others")))
         line = metrics.height() + 2
         width = max(metrics.horizontalAdvance(text) for _kind, _c, text in rows) + 30
         under = self._under

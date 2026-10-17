@@ -155,6 +155,8 @@ max_power = 30
 # with no client connected for this many minutes it stops transmitting and goes on
 # decoding (0: no limit). A client changes it until the core restarts
 # unattended = 10
+# The map draws the calls between other stations, faint, under ours (its box keeps it here)
+# map_traffic = true
 
 [qrz]
 # QRZ.com's logbook access key (on QRZ.com: your logbook > Settings > API Access Key);
@@ -272,6 +274,7 @@ class Config:
     ft8_auto: bool = False           # [ft8] super_auto: the super-automatic mode, left out
     ft8_others: bool = True          # [ft8] others: messages between other stations, dimmed
     ft8_unattended: int = 10         # [ft8] unattended: minutes transmitting with no client
+    ft8_map_traffic: bool = True     # [ft8] map_traffic: the calls between others on the map
                                      # of the template on purpose (the owner's station only)
     # [qrz]
     qrz_api_key: str = ""            # QRZ.com's logbook access key (never shown)
@@ -380,6 +383,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.ft8_auto = bool(ft8.get("super_auto", cfg.ft8_auto))
         cfg.ft8_others = bool(ft8.get("others", cfg.ft8_others))
         cfg.ft8_unattended = int(ft8.get("unattended", cfg.ft8_unattended))
+        cfg.ft8_map_traffic = bool(ft8.get("map_traffic", cfg.ft8_map_traffic))
         qrz = data.get("qrz", {})
         cfg.qrz_api_key = str(qrz.get("api_key", cfg.qrz_api_key)).strip()
         if "bands" in qrz:

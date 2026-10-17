@@ -130,3 +130,26 @@ def test_the_lines_go_when_the_qso_is_completed(qapp):
     view.add_decodes(1060.0, [decode("G4XYZ", 52.0, -1.0, kind="call", to="EA7KLX",
                                      grid="IO91")])
     assert view.paths() == [("G4XYZ", False)]           # calling again: shown again
+
+
+def test_the_calls_between_other_stations_quiet_under_ours(qapp):
+    view = ft8map.MapView()
+    view.resize(900, 450)
+    view.set_home(37.31, -5.96, "IM77AH")
+    view.mycall = "EA7KLX"
+    view.add_decodes(1000.0, [
+        decode("F5ABC", 48.8, 2.3),                                   # heard: its place
+        decode("G4XYZ", 51.5, -0.1, kind="call", to="F5ABC"),         # to a station heard
+        decode("K4YYL", 35.0, -84.0, kind="call", to="R6AO"),         # to one not heard yet
+        decode("DL1ABC", 50.0, 8.0, kind="call", to="EA7KLX"),        # to us: a path of ours
+    ])
+    paths = {call: (start, end) for start, end, call in view.traffic_paths()}
+    assert set(paths) == {"G4XYZ", "K4YYL"}
+    assert paths["G4XYZ"] == ((51.5, -0.1), (48.8, 2.3))
+    assert paths["K4YYL"][1] != (35.0, -84.0)                         # R6AO's country
+    assert [call for call, _outward in view.paths()] == ["DL1ABC"]
+    view.heard["G4XYZ"].seen = time.time() - ft8map.CALLING_FOR - 1   # gone by
+    assert "G4XYZ" not in {call for _s, _e, call in view.traffic_paths()}
+    view.set_traffic(False)
+    view.repaint()                                                    # drawn without them
+    assert not view.traffic
