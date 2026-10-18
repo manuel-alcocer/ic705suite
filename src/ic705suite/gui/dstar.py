@@ -34,10 +34,13 @@ from ic705suite.apps.dstar.app import (
     VIEWS,
     DStarApp,
     beacon_form,
+    current_to,
     dprs_cells,
     dprs_columns,
     error_text,
+    ext,
     extra,
+    gateway_line,
     heard_list,
     history_cells,
     history_columns,
@@ -71,6 +74,7 @@ class DStarPage(Page):
         self.rows: list[dict] = []
         self.shown: list[dict] = []
         self.reflectors: list[dict] = []
+        self.all_reflectors: list[dict] = []
         self.choice = ""
         self.review: dict | None = None
         self.hide_mine = False
@@ -99,9 +103,10 @@ class DStarPage(Page):
         row.addWidget(self.reflector_box, 1)
         self.change_button = QPushButton(f"C  {_('Change')}")
         self.change_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.change_button.setToolTip(_("Write this TO to the radio (Terminal Mode with its "
-                                        "internal gateway); then a short PTT registers on "
-                                        "the reflector"))
+        self.change_button.setToolTip(_("INT: write this TO to the radio (Terminal Mode "
+                                        "with its internal gateway), then a short PTT "
+                                        "registers on the reflector; EXT: the gateway over "
+                                        "USB links it (U unlinks)"))
         self.change_button.clicked.connect(self._change_clicked)
         row.addWidget(self.change_button)
         self.reflector_frame.body.addLayout(row)
@@ -218,6 +223,9 @@ class DStarPage(Page):
     action_reflector = DStarApp.action_reflector
     action_change = DStarApp.action_change
     _change = DStarApp._change
+    action_unlink = DStarApp.action_unlink
+    _unlink = DStarApp._unlink
+    _sync_reflectors = DStarApp._sync_reflectors
     action_note = DStarApp.action_note
     _note = DStarApp._note
     action_message = DStarApp.action_message
@@ -239,6 +247,8 @@ class DStarPage(Page):
             self.status.update_rig(event)
         elif kind == "dstar":
             self.state = event
+            if self._sync_reflectors():
+                self._fill_reflectors()
             if event.get("history_version") != self.history_version:
                 self.history_version = event.get("history_version")
                 self.run_worker(self._load_history(), group="history", exclusive=True)
@@ -276,16 +286,20 @@ class DStarPage(Page):
             lines.append(" &nbsp; ".join(span(text, colours[kind], kind != "dim")
                                          for text, kind in pieces))
         server = info["radio_server"]
-        lines.append(span(_("Server") + " ", theme.DIM)
-                     + (span(server, theme.TEXT, True) if server else
-                        span(_("(set [dstar] server)"), theme.DIM))
-                     + ("&nbsp;&nbsp;" + span(_("{to} is reached through {needed}").format(
-                         to=info.get("to", ""), needed=info.get("server", "")), theme.RED, True)
-                        if info["mismatch"] else ""))
+        if ext(state):
+            lines.append(" &nbsp; ".join(span(text, colours[kind], kind not in ("dim", "text"))
+                                         for text, kind in gateway_line(state)))
+        else:
+            lines.append(span(_("Server") + " ", theme.DIM)
+                         + (span(server, theme.TEXT, True) if server else
+                            span(_("(set [dstar] server)"), theme.DIM))
+                         + ("&nbsp;&nbsp;" + span(_("{to} is reached through {needed}").format(
+                             to=info.get("to", ""), needed=info.get("server", "")), theme.RED,
+                             True) if info["mismatch"] else ""))
         lines.append(" &nbsp; ".join(
             span(label, theme.DIM) + " " + span(state.get(key) or "—", theme.TEXT, key == "ur")
             for label, key in (("UR", "ur"), ("R1", "r1"), ("R2", "r2"))))
-        if self.choice and self.choice != state.get("ur"):
+        if self.choice and self.choice != current_to(state):
             lines.append(span(_("C changes to {to}").format(to=self.choice), theme.YELLOW, True))
         problem = warning(state)
         if problem:
@@ -295,7 +309,7 @@ class DStarPage(Page):
             self.note_edit.setText(state.get("my_note", ""))
         if not self.message_edit.hasFocus():
             self.message_edit.setText(state.get("tx_message", ""))
-        wanted = self.choice or state.get("ur", "")
+        wanted = self.choice or current_to(state)
         index = self.reflector_box.findData(wanted)
         if index >= 0 and not self.reflector_box.view().isVisible():
             self.reflector_box.setCurrentIndex(index)

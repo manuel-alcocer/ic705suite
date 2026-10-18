@@ -171,6 +171,11 @@ max_power = 30
 # aprs = false
 # aprs_heard = false
 # aprs_server = ""
+# EXT Terminal Mode: the IC-705 on USB to this machine (MENU > DV GW > Gateway Select =
+# External Gateway USB, Terminal/AP call sign "<call> B") and the suite's own gateway
+# linking reflectors (DPlus, DCS, DExtra). Its D-STAR data port, found by itself under
+# /dev/serial/by-id (the IC-705's if02); "off": no gateway
+# usb_port = ""
 
 [qrz]
 # QRZ.com's logbook access key (on QRZ.com: your logbook > Settings > API Access Key);
@@ -295,6 +300,7 @@ class Config:
     dstar_aprs: bool = False         # our D-PRS beacon to APRS-IS too, after each over
     dstar_aprs_server: str = ""      # "": rotate.aprs2.net:14580
     dstar_aprs_heard: bool = False   # also the position of the station on air, gated
+    dstar_usb_port: str = ""         # EXT gateway's data port; "": found, "off": none
                                      # of the template on purpose (the owner's station only)
     # [qrz]
     qrz_api_key: str = ""            # QRZ.com's logbook access key (never shown)
@@ -410,6 +416,7 @@ def load_config(path: Path | None = None) -> Config:
         cfg.dstar_aprs = bool(dstar.get("aprs", cfg.dstar_aprs))
         cfg.dstar_aprs_server = str(dstar.get("aprs_server", cfg.dstar_aprs_server))
         cfg.dstar_aprs_heard = bool(dstar.get("aprs_heard", cfg.dstar_aprs_heard))
+        cfg.dstar_usb_port = str(dstar.get("usb_port", cfg.dstar_usb_port))
         qrz = data.get("qrz", {})
         cfg.qrz_api_key = str(qrz.get("api_key", cfg.qrz_api_key)).strip()
         if "bands" in qrz:

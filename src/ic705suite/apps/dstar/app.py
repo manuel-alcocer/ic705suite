@@ -1,10 +1,13 @@
 """D-STAR (F4): the radio in DV followed by the core (apps.dstar.service), as the suite's
 other applications show things: the rig's status line with D-STAR's own fields, the
-reflector in use (INT Terminal Mode: the TO written to the radio), the station on air (or
-the last one heard) with its name, place, message and distance, and the history of the
-overs. The keys are the same in the terminal and in the window (gui.dstar):
+reflector in use (INT Terminal Mode: the TO written to the radio; EXT: the one the suite's
+gateway has linked over USB), the station on air (or the last one heard) with its name,
+place, message and distance, and the history of the overs. The keys are the same in the
+terminal and in the window (gui.dstar):
 
-  [ ]  choose another reflector   C  change to it (writes the TO; a short PTT registers)
+  [ ]  choose another reflector   C  change to it (INT: writes the TO, a short PTT
+                                     registers; EXT: the gateway links it)
+  U    EXT: the gateway unlinks
   N    the MY note (/xxxx)        M  the TX message
   H    hide our own overs         Enter  an over of the history, in the on-air box
   V    the history, the D-PRS reports heard, the weather stations
@@ -36,29 +39,42 @@ from ic705suite.station.links import Link
 from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.widgets import NameScreen, clock_footer, css
 
-HINT = N_("[ ] Reflector · C Change · N MY note · M TX message · V View · B D-PRS beacon · "
-          "R Status · H Hide mine · Enter Show over · Esc Live / Back")
+HINT = N_("[ ] Reflector · C Change · U Unlink · N MY note · M TX message · V View · "
+          "B D-PRS beacon · R Status · H Hide mine · Enter Show over · Esc Live / Back")
 SHORT_HINT = N_("[ ] Reflector · C Change · Esc Back")
-INDICATORS = (("civ", "CI-V"), ("dv", "DV"), ("int", "INT"), ("net", "NET"), ("rx", "RX"),
+INDICATORS = (("civ", "CI-V"), ("dv", "DV"), ("tm", "INT"), ("net", "NET"), ("rx", "RX"),
               ("tx", "TX"))
 VIEWS = (("history", N_("History")), ("dprs", N_("D-PRS")), ("weather", N_("Weather")))
 
 
 # ---- what each part shows (both clients) -------------------------------------------------
 
+def current_to(state: dict) -> str:
+    """The reflector in use: the TO (INT), the gateway's link (EXT)."""
+    return state.get("to", state.get("ur", "")) or ""
+
+
+def ext(state: dict) -> bool:
+    return state.get("via") == "ext"
+
+
 def indicators(state: dict) -> list[tuple[str, str]]:
     """(name, "on" | "off" | "bad") of D-STAR's lamps: CI-V answering, the radio in DV, in
-    INT Terminal Mode, receiving, transmitting."""
+    Terminal Mode (INT; EXT: answering the gateway over USB), the Internet, receiving,
+    transmitting."""
     on_dv = state.get("mode") == "DV"
+    usb = bool((state.get("gateway") or {}).get("usb"))
     lamps = {
         "civ": "on" if state.get("civ") else "bad" if state.get("on") else "off",
         "dv": "on" if on_dv else "bad" if state.get("mode") else "off",
-        "int": "on" if state.get("radio_mode") == "int" else "off",
+        "tm": ("on" if usb else "bad" if state.get("on") else "off") if ext(state) else
+              "on" if state.get("radio_mode") == "int" else "off",
         "net": {True: "on", False: "bad"}.get(state.get("internet"), "off"),
         "rx": "on" if state.get("rx_active") else "off",
         "tx": "bad" if state.get("transmitting") else "off",
     }
-    return [(name, lamps[key]) for key, name in INDICATORS]
+    names = dict(INDICATORS, tm="EXT" if ext(state) else "INT")
+    return [(names[key], lamps[key]) for key, _name in INDICATORS]
 
 
 def warning(state: dict) -> str:
@@ -67,16 +83,37 @@ def warning(state: dict) -> str:
         return ""
     if state.get("mode") and state.get("mode") != "DV":
         return _("the radio is in {mode}, not DV").format(mode=state["mode"])
+    if ext(state):
+        gateway = state.get("gateway")
+        if gateway is None:
+            return _("the radio is not in INT Terminal Mode (R1 {r1}), and the USB gateway "
+                     "is not running").format(r1=state.get("r1") or _("empty"))
+        if not gateway.get("usb"):
+            return _("no answer from the radio over USB (EXT: MENU > DV GW > External "
+                     "Gateway USB, then Terminal Mode)")
+        return ""
     if state.get("my_call") and state.get("radio_mode") != "int":
         return _("the radio is not in INT Terminal Mode (R1 {r1})").format(
             r1=state.get("r1") or _("empty"))
     return ""
 
 
+def gateway_line(state: dict) -> list[tuple[str, str]]:
+    """EXT: the gateway's link as (text, kind) pieces, kinds as reflector_status's."""
+    gateway = state.get("gateway") or {}
+    link = gateway.get("link") or "unlinked"
+    pieces = [(_("Gateway"), "dim"), (gateway.get("terminal") or "", "text")]
+    if gateway.get("reflector") and link != "unlinked":
+        pieces.append((f"{gateway.get('protocol', '')} {gateway['reflector']}", "text"))
+    pieces.append({"linked": (_("linked"), "good"), "linking": (_("linking…"), "warn"),
+                   "refused": (_("refused"), "bad")}.get(link, (_("not linked"), "dim")))
+    return pieces
+
+
 def reflector_info(state: dict) -> dict:
     """The reflector in use: its entry (or just the TO), the server the radio should use,
     and whether it is reached through another one."""
-    reflector = dict(state.get("reflector") or {"to": state.get("ur", "")})
+    reflector = dict(state.get("reflector") or {"to": current_to(state)})
     server = state.get("server") or ""
     needed = reflector.get("server") or ""
     reflector["mismatch"] = bool(needed and server and needed.lower() != server.lower())
@@ -90,7 +127,8 @@ def reflector_status(state: dict) -> list[tuple[str, str]]:
     or not, the country."""
     found = state.get("status")
     if not found:
-        return [("● " + _("NO DATA"), "dim")] if state.get("ur", "").startswith("/") else []
+        to = current_to(state)
+        return [("● " + _("NO DATA"), "dim")] if to.startswith("/") or ext(state) and to else []
     online = found.get("online")
     pieces = [("● " + _("ONLINE"), "good") if online else
               ("● " + _("NO DATA"), "dim") if online is None else ("● " + _("DOWN"), "bad")]
@@ -125,7 +163,7 @@ def heard_list(state: dict, rows: list[dict], count: int = 3) -> tuple[str, list
                 seen.add(call)
                 rows.append((call, h.get("name", "").strip(), short_time(h.get("time", ""))))
         return _("Last heard on the reflector"), rows
-    return _("Last heard here"), heard_here(rows, state.get("ur", ""), count)
+    return _("Last heard here"), heard_here(rows, current_to(state), count)
 
 
 def ago(ts: float, now: float | None = None) -> str:
@@ -293,12 +331,14 @@ def weather_cells(row: dict, home="") -> list[str]:
 def extra(state: dict) -> list[tuple[str, str]]:
     """D-STAR's fields in the rig's status line."""
     pieces = []
-    if state.get("ur"):
-        pieces.append(("TO", state["ur"]))
+    if current_to(state):
+        pieces.append(("TO", current_to(state)))
     if state.get("my_call"):
         pieces.append(("MY", state["my_call"] + (f" /{state['my_note']}"
                                                   if state.get("my_note") else "")))
-    if state.get("radio_mode") == "int":
+    if ext(state):
+        pieces.append(("", "EXT"))
+    elif state.get("radio_mode") == "int":
         pieces.append(("", "INT"))
     if state.get("dprs"):
         pieces.append(("D-PRS", "ON" if state["dprs"]["send"] else "OFF"))
@@ -405,6 +445,7 @@ class DStarApp(App[int]):
         Binding("left_square_bracket", "reflector(-1)", show=False),
         Binding("right_square_bracket", "reflector(1)", show=False),
         Binding("c", "change", show=False),
+        Binding("u", "unlink", show=False),
         Binding("n", "note", show=False),
         Binding("m", "message", show=False),
         Binding("h", "hide_mine", show=False),
@@ -423,7 +464,8 @@ class DStarApp(App[int]):
         self.state: dict = {}
         self.rows: list[dict] = []
         self.shown: list[dict] = []
-        self.reflectors: list[dict] = []
+        self.reflectors: list[dict] = []     # those of the radio's mode (INT or EXT)
+        self.all_reflectors: list[dict] = []
         self.choice = ""                     # the reflector [ ] chose, C changes to
         self.review: dict | None = None
         self.hide_mine = False
@@ -484,6 +526,7 @@ class DStarApp(App[int]):
             status.refresh()
         elif kind == "dstar":
             self.state = event
+            self._sync_reflectors()
             if event.get("history_version") != self.history_version:
                 self.history_version = event.get("history_version")
                 self.run_worker(self._load_history(), group="history", exclusive=True)
@@ -521,8 +564,22 @@ class DStarApp(App[int]):
         if reply.get("error"):
             self._message("error", reply["error"])
             return
-        self.reflectors = [r for r in reply.get("reflectors", []) if r["via"] == "int"]
+        self.all_reflectors = reply.get("reflectors", [])
+        self.reflectors = []
+        self._sync_reflectors()
         self._show()
+
+    def _sync_reflectors(self) -> bool:
+        """The reflectors to choose from, those of the radio's mode; True when they
+        changed (INT and EXT swapped)."""
+        via = "ext" if ext(self.state) else "int"
+        wanted = [r for r in self.all_reflectors if r["via"] == via]
+        if wanted == self.reflectors:
+            return False
+        self.reflectors = wanted
+        if self.choice not in {r["to"] for r in wanted}:
+            self.choice = ""
+        return True
 
     def shown_rows(self) -> list[dict]:
         mine = (self.state.get("my_call") or (self.config.callsign if self.config else "")
@@ -583,10 +640,14 @@ class DStarApp(App[int]):
             text.append(piece + "\u00a0\u00a0", style=styles[kind])
         if reflector_status(state):
             text.append("\n")
-        server = info["radio_server"] or _("(set [dstar] server)")
-        text.append(f"{_('Server')} ", style="dim")
-        text.append(server, style="bold")
-        if info["mismatch"]:
+        if ext(state):
+            for piece, kind in gateway_line(state):
+                text.append(piece + "\u00a0\u00a0", style=styles[kind])
+        else:
+            server = info["radio_server"] or _("(set [dstar] server)")
+            text.append(f"{_('Server')} ", style="dim")
+            text.append(server, style="bold")
+        if info["mismatch"] and not ext(state):
             text.append("\u00a0\u00a0" + _("{to} is reached through {needed}").format(
                 to=info.get("to", ""), needed=info.get("server", "")), style="bold red")
         text.append("\nUR\u00a0", style="dim")
@@ -595,7 +656,7 @@ class DStarApp(App[int]):
         text.append(state.get("r1") or "—")
         text.append("\u00a0\u00a0R2\u00a0", style="dim")
         text.append(state.get("r2") or "—")
-        if self.choice and self.choice != state.get("ur"):
+        if self.choice and self.choice != current_to(state):
             text.append("\n" + _("C changes to {to}").format(to=self.choice), style="bold yellow")
         problem = warning(state)
         if problem:
@@ -659,7 +720,7 @@ class DStarApp(App[int]):
         if not self.reflectors:
             return
         tos = [r["to"] for r in self.reflectors]
-        current = self.choice or self.state.get("ur", "")
+        current = self.choice or current_to(self.state)
         index = tos.index(current) if current in tos else -1
         self.choice = tos[(index + step) % len(tos)]
         chosen = next(r for r in self.reflectors if r["to"] == self.choice)
@@ -676,19 +737,41 @@ class DStarApp(App[int]):
         if not to:
             self._message("info", _("Choose a reflector first ([ ])"))
             return
-        if to == self.state.get("ur"):
+        if to == current_to(self.state):
             self._message("info", _("{to} is already the current TO").format(to=to))
             return
-        self._message("info", _("Changing the TO to {to}…").format(to=to))
+        linking = ext(self.state)
+        self._message("info", (_("Linking {to}…") if linking else
+                               _("Changing the TO to {to}…")).format(to=to))
         reply = await self.link.call("dstar.change", to=to)
         if reply.get("error"):
             self._message("error", error_text(reply))
             return
         self.choice = ""
-        self.state["ur"] = reply["to"]               # confirmed: before the next state
-        self._message("info", _("TO {to}: press the PTT briefly to register on the "
-                                "reflector").format(to=reply["to"]))
+        self.state["to"] = reply["to"]               # confirmed: before the next state
+        if linking:
+            self._message("info", _("Linked to {to}").format(to=reply["to"]))
+        else:
+            self.state["ur"] = reply["to"]
+            self._message("info", _("TO {to}: press the PTT briefly to register on the "
+                                    "reflector").format(to=reply["to"]))
         self._show()
+
+    def action_unlink(self) -> None:
+        self.run_worker(self._unlink(), group="tx")
+
+    async def _unlink(self) -> None:
+        """U: the gateway unlinks (EXT)."""
+        if not ext(self.state):
+            self._message("info", _("Unlinking is for EXT Terminal Mode (the gateway over "
+                                    "USB); in INT change the TO"))
+            return
+        reply = await self.link.call("dstar.unlink")
+        if reply.get("error"):
+            self._message("error", error_text(reply))
+            return
+        self._message("info", _("Unlinked from {to}").format(to=reply["unlinked"])
+                      if reply.get("unlinked") else _("Not linked"))
 
     def action_note(self) -> None:
         self.run_worker(self._note(), group="tx")

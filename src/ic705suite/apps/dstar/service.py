@@ -21,11 +21,17 @@ Events: dstar {...state()} when it changes. Calls (dstar.*): start, stop, state,
 history {limit}, reflectors, reflector.save {item, old_to}, reflector.delete {to},
 change {to}, note {note}, message {text}, clear_history, dprs {limit}, weather,
 dprs_settings, dprs_save {send, source, lat, lon, alt, symbol, ssid, comment},
-statuses (every reflector's, apps.dstar.status), status_refresh.
+statuses (every reflector's, apps.dstar.status), status_refresh, unlink (EXT).
 
 The reflectors' status (apps.dstar.status: online, nodes, our terminal linked, last heard)
 is checked from their own pages: the one in use every 30 s (and 3 s after each over of
 ours: its dashboard catches up), every reflector every 10 minutes.
+
+EXT Terminal Mode (the radio on USB to the core's machine): the suite's own gateway
+(apps.dstar.gateway) links the reflectors, and the one linked is the one in use; change
+links it, unlink drops it. The last one linked is linked again when the radio answers over
+USB, and after a command typed as UR (XLX214DL, U) the radio is set back to CQCQCQ, or
+its every over would repeat it.
 """
 
 from __future__ import annotations
@@ -34,11 +40,12 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 import time
 import urllib.parse
 import urllib.request
 
-from ic705suite import geo
+from ic705suite import geo, paths
 from ic705suite.apps.dstar import aprs, civ, dprs, status
 from ic705suite.apps.dstar.protocol import ur_command
 from ic705suite.i18n import N_
@@ -61,6 +68,8 @@ STATUS_POLL = 30.0     # s: the reflector in use's status, checked again
 STATUS_ALL = 600.0     # s: every reflector's
 XLX_REFRESH = 600.0    # s: the XLX directory, read again
 STATUS_AFTER_TX = 3.0  # s after our over: its dashboard has it
+CQ_AFTER_COMMAND = 1.5  # s after a UR command ran: the radio back to CQCQCQ
+CQCQCQ = "CQCQCQ"
 RADIOID_URL = "https://radioid.net/api/dmr/user/?callsign={}"
 HISTORY = 300          # rows a client gets at most
 
@@ -105,6 +114,8 @@ class DStarService:
         self._registry = None
         self._pending: set[asyncio.Task] = set()
         self._lookups: set[str] = set()
+        self.gateway = None
+        self._last_link_path = paths.data_dir() / "dstar_gateway.json"
         self.reset()
 
     def reset(self) -> None:
@@ -135,6 +146,8 @@ class DStarService:
         self.gps_fix: tuple | None = None         # the radio's GPS (23 00)
         self.aprs = aprs.AprsIs(lambda text: log.info("dstar: %s", text))
         self.statuses: dict[str, dict] = {}       # TO -> its status (apps.dstar.status)
+        self.gateway_usb = False                  # the EXT gateway's radio answering
+        self.gateway_linked = ""
         self.internet: bool | None = None         # the XLX directory could be read
         self._xlx: dict[str, dict] = {}
         self._xlx_at = 0.0
@@ -187,6 +200,9 @@ class DStarService:
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
         self._task = self._status_task = None
+        if self.gateway is not None:
+            self.gateway.stop()
+            self.gateway = None
         if self.rx_info and self.rx_info.get("live"):
             await self._rx_ended()
         if self.tx_entry is not None:
@@ -206,6 +222,7 @@ class DStarService:
         next_slow = next_own = 0.0
         while True:
             try:
+                self._ensure_gateway()
                 if self.station.connected:
                     now = time.monotonic()
                     if now >= next_own:
@@ -252,9 +269,8 @@ class DStarService:
                 self._touch()
         elif kind == "tx_calls":
             if value != (self.ur, self.r1, self.r2):
-                if value[0] != self.ur:
-                    self._background(self._find_reflector(value[0]))
                 self.ur, self.r1, self.r2 = value
+                self._background(self._find_reflector())
                 self._touch()
         elif kind == "tx_message":
             self.tx_message = value
@@ -331,7 +347,12 @@ class DStarService:
 
     @property
     def reflector(self) -> str:
-        """The reflector in use: the TO (INT)."""
+        """The reflector in use: the TO (INT), the gateway's link (EXT)."""
+        return self.current_to()
+
+    def current_to(self) -> str:
+        if self.radio_mode() == "ext" and self.gateway is not None:
+            return self.gateway.linked_reflector()
         return self.ur
 
     async def _rx_started(self, calls: civ.RxCalls) -> None:
@@ -405,7 +426,7 @@ class DStarService:
         base = base_call(self.my_call or self.config.callsign) or "?"
         if on:
             self.tx_since = time.time()
-            if ur_command(self.ur or ""):
+            if ur_command(self.ur or "") or (self.gateway and self.gateway.command_recent()):
                 self.tx_entry = None           # a command to a gateway, not a conversation
             else:
                 self.tx_entry = await self._db(self.storage.start_entry, "TX", base,
@@ -420,9 +441,10 @@ class DStarService:
             self._background(self._status_after_tx())
         self._history_changed()
 
-    async def _find_reflector(self, to: str) -> None:
-        found = await self._db(self.registry.get, to) if to.startswith("/") else None
-        if to == self.ur or self.reflector_info is None or found != self.reflector_info:
+    async def _find_reflector(self) -> None:
+        to = self.current_to()
+        found = await self._db(self.registry.get, to) if to else None
+        if to == self.current_to() and found != self.reflector_info:
             self.reflector_info = found
             self._touch()
 
@@ -438,7 +460,7 @@ class DStarService:
                     next_all = now + STATUS_ALL
                     items = await self._db(self.registry.list)
                 else:
-                    current = self.ur if self.ur.startswith("/") else ""
+                    current = self.current_to()
                     found = await self._db(self.registry.get, current) if current else None
                     items = [found] if found else []
                 await asyncio.gather(*(self._check(item) for item in items))
@@ -622,11 +644,125 @@ class DStarService:
         self._touch()
         return {"settings": self.settings()}
 
+    # ---- the EXT gateway ------------------------------------------------------------------
+
+    def _ensure_gateway(self) -> None:
+        """The gateway runs while the service does, once the call sign is known (it waits
+        for the radio on USB by itself)."""
+        port = self.config.dstar_usb_port.strip()
+        call = base_call(self.config.callsign or self.my_call)
+        if self.gateway is not None or port.lower() == "off" or not call or os.name != "posix":
+            return
+        from ic705suite.apps.dstar.gateway import ExtGateway
+
+        self.gateway = ExtGateway(call, f"{call:<7}B", f"{call:<7}G", port,
+                                  on_change=self._gateway_changed,
+                                  on_command=self._gateway_command)
+        self.gateway.start()
+
+    def _gateway_changed(self) -> None:
+        gateway = self.gateway
+        if gateway is None:
+            return
+        usb, linked = gateway.terminal.connected, gateway.linked_reflector()
+        if usb and not self.gateway_usb:
+            self._background(self._restore_link())
+        if linked != self.gateway_linked or usb != self.gateway_usb:    # or INT <-> EXT
+            self.gateway_linked = linked
+            self._background(self._find_reflector())
+            self._status_wake.set()
+        self.gateway_usb = usb
+        self._touch()
+
+    def _gateway_command(self, command: str, reflector: str) -> None:
+        """A command typed as UR on the radio: a link remembered as one from a client."""
+        if command == "link":
+            self._save_last_link(reflector)
+        elif command == "unlink":
+            self._save_last_link("")
+        if command != "echo":
+            self._background(self._cq_later())
+
+    async def _cq_later(self) -> None:
+        await asyncio.sleep(CQ_AFTER_COMMAND)
+        await self._ext_cq(force=True)
+
+    async def _ext_cq(self, force: bool = False) -> None:
+        """In EXT the radio transmits to CQCQCQ, for the gateway to send it to the reflector
+        linked (R1 / R2 left blank, as EXT has them). A command (XLX214DL, U, I, E) is left
+        until the gateway has run it (force)."""
+        if self.radio_mode() != "ext" or not self.ur or self.ur == CQCQCQ:
+            return
+        if ur_command(self.ur) and not force:
+            return
+        try:
+            await self.station.rig.transact(b"\x1f\x01" + civ.text8(CQCQCQ) + civ.text8("")
+                                            + civ.text8(""))
+            await self._ask(b"\x1f\x01")
+        except (RigError, TransportError) as exc:
+            log.info("dstar: UR CQCQCQ not written: %s", exc)
+
+    def _last_link(self) -> str:
+        try:
+            return str(json.loads(self._last_link_path.read_text()).get("reflector", ""))
+        except (OSError, ValueError, AttributeError):
+            return ""
+
+    def _save_last_link(self, reflector: str) -> None:
+        try:
+            self._last_link_path.parent.mkdir(parents=True, exist_ok=True)
+            self._last_link_path.write_text(json.dumps({"reflector": reflector.strip()}))
+        except OSError as exc:
+            log.info("dstar: the last link not kept: %s", exc)
+
+    async def _restore_link(self) -> None:
+        """The radio answering over USB: the reflector of last time linked again."""
+        last = self._last_link()
+        gateway = self.gateway
+        if not last or gateway is None or gateway.conn is not None:
+            return
+        log.info("dstar: linking %s again, the last reflector linked", last)
+        ok, why = await gateway.link(last)
+        if not ok:
+            log.info("dstar: %s not linked again (%s)", last, why)
+
+    async def link_ext(self, reflector: str) -> dict:
+        from ic705suite.apps.dstar.reflectors import normalize_to
+
+        reflector = normalize_to(reflector, "ext")
+        if self.gateway is None:
+            raise DStarError(N_("The USB gateway is not running (is [dstar] usb_port off, or "
+                                "the call sign missing?)"))
+        if not self.gateway.terminal.connected:
+            raise DStarError(N_("The radio does not answer over USB (is it in Terminal Mode, "
+                                "External Gateway USB?)"))
+        self._save_last_link(reflector)
+        ok, why = await self.gateway.link(reflector)
+        if not ok:
+            messages = {
+                "not_found": N_("The address of {to} was not found"),
+                "auth": N_("The DPlus trust server did not authenticate {call}"),
+                "refused": N_("{to} refuses the link"),
+                "no_answer": N_("{to} does not answer yet; the gateway goes on trying"),
+            }
+            raise DStarError(messages[why], to=reflector, call=self.gateway.login)
+        await self._ext_cq()
+        self._say(N_("D-STAR: linked to {to}"), to=reflector)
+        return {"to": reflector}
+
+    async def unlink_ext(self) -> dict:
+        self._save_last_link("")
+        old = self.gateway.unlink() if self.gateway is not None else ""
+        return {"unlinked": old}
+
     # ---- what the operator does -----------------------------------------------------------
 
     def radio_mode(self) -> str | None:
-        """The Terminal Mode the radio is in, by its R1: INT fills it with the terminal call
-        sign (<call> Z); EXT, and plain DV, leave it empty."""
+        """The Terminal Mode the radio is in: EXT when it answers the gateway over USB, else
+        by its R1: INT fills it with the terminal call sign (<call> Z); EXT, and plain DV,
+        leave it empty."""
+        if self.gateway is not None and self.gateway.terminal.connected:
+            return "ext"
         call = base_call(self.my_call or self.config.callsign)
         if self.r1 and self.r1.split()[:1] == [call] and self.r1.endswith("Z"):
             return "int"
@@ -635,9 +771,12 @@ class DStarService:
         return None
 
     async def change_to(self, to: str) -> dict:
-        """INT: write the TO (UR), R1 / R2 as the radio has them, and read it back."""
+        """INT: write the TO (UR), R1 / R2 as the radio has them, and read it back; EXT:
+        the gateway links it."""
         from ic705suite.apps.dstar.reflectors import normalize_to
 
+        if self.radio_mode() == "ext":
+            return await self.link_ext(to)
         to = normalize_to(to, "int")
         if not self.r1:
             raise DStarError(N_("R1 / R2 have not been read from the radio yet (is it in DV, "
@@ -694,13 +833,22 @@ class DStarService:
                 "home": list(self._home()) if self._home() else None,
                 "aprs": self.config.dstar_aprs,
                 "status": self._current_status(), "internet": self.internet,
+                "to": self.current_to(),
+                "via": "ext" if self.radio_mode() == "ext" else "int",
+                "gateway": self.gateway.state() if self.gateway is not None else None,
                 "locator": self.config.locator, "callsign": self.config.callsign}
 
     def _current_status(self) -> dict | None:
         """The reflector in use's status, its "checked" left out (it would change every
-        check, and with it the state sent out)."""
-        found = self.statuses.get(self.ur)
-        return {k: v for k, v in found.items() if k != "checked"} if found else None
+        check, and with it the state sent out); linked, in EXT, as the gateway knows it."""
+        to = self.current_to()
+        found = self.statuses.get(to)
+        if not found:
+            return None
+        found = {k: v for k, v in found.items() if k != "checked"}
+        if self.radio_mode() == "ext" and self.gateway is not None:
+            found["linked"] = bool(to)
+        return found
 
     async def call(self, method: str, params: dict) -> dict:
         try:
@@ -741,6 +889,8 @@ class DStarService:
                 return await self.save_settings(params)
             elif method == "statuses":
                 return {"statuses": self.statuses, "internet": self.internet}
+            elif method == "unlink":
+                return await self.unlink_ext()
             elif method == "status_refresh":
                 self._status_wake.set()
             elif method == "clear_history":

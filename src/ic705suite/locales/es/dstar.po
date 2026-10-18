@@ -96,8 +96,8 @@ msgstr "Hora"
 msgid "Transmitting"
 msgstr "Transmitiendo"
 
-msgid "Write this TO to the radio (Terminal Mode with its internal gateway); then a short PTT registers on the reflector"
-msgstr "Escribe este TO en la radio (modo Terminal con su pasarela interna); después, un PTT corto te registra en el reflector"
+msgid "INT: write this TO to the radio (Terminal Mode with its internal gateway), then a short PTT registers on the reflector; EXT: the gateway over USB links it (U unlinks)"
+msgstr "INT: escribe este TO en la radio (modo Terminal con su pasarela interna) y después un PTT corto te registra en el reflector; EXT: la pasarela por USB lo enlaza (U desenlaza)"
 
 msgid "empty"
 msgstr "vacío"
@@ -317,8 +317,8 @@ msgstr "Tiempo"
 msgid "When"
 msgstr "Cuándo"
 
-msgid "[ ] Reflector · C Change · N MY note · M TX message · V View · B D-PRS beacon · R Status · H Hide mine · Enter Show over · Esc Live / Back"
-msgstr "[ ] Reflector · C Cambiar · N Nota MY · M Mensaje TX · V Vista · B Baliza D-PRS · R Estado · H Ocultar las mías · Intro Ver pasada · Esc En directo / Volver"
+msgid "[ ] Reflector · C Change · U Unlink · N MY note · M TX message · V View · B D-PRS beacon · R Status · H Hide mine · Enter Show over · Esc Live / Back"
+msgstr "[ ] Reflector · C Cambiar · U Desenlazar · N Nota MY · M Mensaje TX · V Vista · B Baliza D-PRS · R Estado · H Ocultar las mías · Intro Ver pasada · Esc En directo / Volver"
 
 msgid "calm"
 msgstr "calma"
@@ -418,3 +418,54 @@ msgstr "estación meteorológica"
 
 msgid "{n} stations, last {days} days"
 msgstr "{n} estaciones, últimos {days} días"
+
+msgid "D-STAR: linked to {to}"
+msgstr "D-STAR: enlazado a {to}"
+
+msgid "Gateway"
+msgstr "Pasarela"
+
+msgid "Linked to {to}"
+msgstr "Enlazado a {to}"
+
+msgid "Linking {to}…"
+msgstr "Enlazando {to}…"
+
+msgid "Not linked"
+msgstr "Sin enlace"
+
+msgid "The DPlus trust server did not authenticate {call}"
+msgstr "El servidor de confianza DPlus no ha autenticado a {call}"
+
+msgid "The USB gateway is not running (is [dstar] usb_port off, or the call sign missing?)"
+msgstr "La pasarela USB no está en marcha (¿[dstar] usb_port está en off, o falta el indicativo?)"
+
+msgid "The address of {to} was not found"
+msgstr "No se ha encontrado la dirección de {to}"
+
+msgid "The radio does not answer over USB (is it in Terminal Mode, External Gateway USB?)"
+msgstr "La radio no responde por USB (¿está en modo Terminal, External Gateway USB?)"
+
+msgid "Unlinked from {to}"
+msgstr "Desenlazado de {to}"
+
+msgid "Unlinking is for EXT Terminal Mode (the gateway over USB); in INT change the TO"
+msgstr "Desenlazar es para el modo Terminal EXT (la pasarela por USB); en INT cambia el TO"
+
+msgid "linking…"
+msgstr "enlazando…"
+
+msgid "no answer from the radio over USB (EXT: MENU > DV GW > External Gateway USB, then Terminal Mode)"
+msgstr "la radio no responde por USB (EXT: MENU > DV GW > External Gateway USB y luego modo Terminal)"
+
+msgid "refused"
+msgstr "rechazado"
+
+msgid "the radio is not in INT Terminal Mode (R1 {r1}), and the USB gateway is not running"
+msgstr "la radio no está en Terminal Mode INT (R1 {r1}) y la pasarela USB no está en marcha"
+
+msgid "{to} does not answer yet; the gateway goes on trying"
+msgstr "{to} aún no responde; la pasarela sigue intentándolo"
+
+msgid "{to} refuses the link"
+msgstr "{to} rechaza el enlace"
