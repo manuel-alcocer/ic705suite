@@ -1,7 +1,8 @@
 """Antenna tuning: SWR and noise sweeps on the shared station (formerly swr-remote).
 
 * SWR sweep (transmits): RTTY carrier at low power, about 0.4 s per point, PTT watchdog,
-  only inside one band (an amateur one, or CB); restores frequency, mode, data mode and power afterwards.
+  only inside one band (an amateur one, or CB); restores frequency, mode, data mode and
+  power afterwards.
   Needs transmission enabled ([rig] tx_enabled or --tx) *and* the remote control switched
   on by hand in the antenna application (``set_remote``): it is off whenever the suite
   starts, and only the antenna application turns it on, never the phone page. While it is
