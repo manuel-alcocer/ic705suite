@@ -317,8 +317,8 @@ msgstr "Tiempo"
 msgid "When"
 msgstr "Cuándo"
 
-msgid "[ ] Reflector · C Change · N MY note · M TX message · V View · B D-PRS beacon · H Hide mine · Enter Show over · Esc Live / Back"
-msgstr "[ ] Reflector · C Cambiar · N Nota MY · M Mensaje TX · V Vista · B Baliza D-PRS · H Ocultar las mías · Intro Ver pasada · Esc En directo / Volver"
+msgid "[ ] Reflector · C Change · N MY note · M TX message · V View · B D-PRS beacon · R Status · H Hide mine · Enter Show over · Esc Live / Back"
+msgstr "[ ] Reflector · C Cambiar · N Nota MY · M Mensaje TX · V Vista · B Baliza D-PRS · R Estado · H Ocultar las mías · Intro Ver pasada · Esc En directo / Volver"
 
 msgid "calm"
 msgstr "calma"
@@ -376,3 +376,27 @@ msgstr "Camión"
 
 msgid "Van"
 msgstr "Furgoneta"
+
+msgid "Checking the reflector's status…"
+msgstr "Comprobando el estado del reflector…"
+
+msgid "DOWN"
+msgstr "CAÍDO"
+
+msgid "Last heard on the reflector"
+msgstr "Últimos oídos en el reflector"
+
+msgid "NO DATA"
+msgstr "SIN DATOS"
+
+msgid "ONLINE"
+msgstr "EN LÍNEA"
+
+msgid "linked"
+msgstr "enlazado"
+
+msgid "not linked"
+msgstr "sin enlazar"
+
+msgid "{n} nodes"
+msgstr "{n} nodos"

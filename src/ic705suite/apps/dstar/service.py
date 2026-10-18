@@ -20,7 +20,12 @@ aprs_heard, the position of the station on air, gated as ours).
 Events: dstar {...state()} when it changes. Calls (dstar.*): start, stop, state,
 history {limit}, reflectors, reflector.save {item, old_to}, reflector.delete {to},
 change {to}, note {note}, message {text}, clear_history, dprs {limit}, weather,
-dprs_settings, dprs_save {send, source, lat, lon, alt, symbol, ssid, comment}.
+dprs_settings, dprs_save {send, source, lat, lon, alt, symbol, ssid, comment},
+statuses (every reflector's, apps.dstar.status), status_refresh.
+
+The reflectors' status (apps.dstar.status: online, nodes, our terminal linked, last heard)
+is checked from their own pages: the one in use every 30 s (and 3 s after each over of
+ours: its dashboard catches up), every reflector every 10 minutes.
 """
 
 from __future__ import annotations
@@ -34,7 +39,7 @@ import urllib.parse
 import urllib.request
 
 from ic705suite import geo
-from ic705suite.apps.dstar import aprs, civ, dprs
+from ic705suite.apps.dstar import aprs, civ, dprs, status
 from ic705suite.apps.dstar.protocol import ur_command
 from ic705suite.i18n import N_
 from ic705suite.rig.base import RigError
@@ -52,6 +57,10 @@ DPRS_REPEAT = 300.0    # s: the same D-PRS data again is the radio's last one, n
 TO_CONFIRM = 3.0       # s: the TO written must read back by then
 OWN_POLL = 60.0        # s: our own beacon's settings and GPS fix, read again
 VIA_WINDOW = 10.0      # s after an over: a report still came with it
+STATUS_POLL = 30.0     # s: the reflector in use's status, checked again
+STATUS_ALL = 600.0     # s: every reflector's
+XLX_REFRESH = 600.0    # s: the XLX directory, read again
+STATUS_AFTER_TX = 3.0  # s after our over: its dashboard has it
 RADIOID_URL = "https://radioid.net/api/dmr/user/?callsign={}"
 HISTORY = 300          # rows a client gets at most
 
@@ -125,6 +134,11 @@ class DStarService:
         self.own: dict[str, bytes] = {}           # our beacon's items (1A 05 nnnn)
         self.gps_fix: tuple | None = None         # the radio's GPS (23 00)
         self.aprs = aprs.AprsIs(lambda text: log.info("dstar: %s", text))
+        self.statuses: dict[str, dict] = {}       # TO -> its status (apps.dstar.status)
+        self.internet: bool | None = None         # the XLX directory could be read
+        self._xlx: dict[str, dict] = {}
+        self._xlx_at = 0.0
+        self._status_wake = asyncio.Event()
 
     # ---- the database (blocking: threads) ------------------------------------------------
 
@@ -160,17 +174,19 @@ class DStarService:
         self.reset()
         self.on = True
         self._task = asyncio.create_task(self._run())
+        self._status_task = asyncio.create_task(self._watch_status())
         self._touch()
 
     async def stop(self) -> None:
         if not self.on:
             return
         self.on = False
-        if self._task is not None:
-            self._task.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await self._task
-        self._task = None
+        for task in (self._task, getattr(self, "_status_task", None)):
+            if task is not None:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
+        self._task = self._status_task = None
         if self.rx_info and self.rx_info.get("live"):
             await self._rx_ended()
         if self.tx_entry is not None:
@@ -401,6 +417,7 @@ class DStarService:
                            name=own.get("name") or "", location=own.get("location") or "")
             self.tx_entry = None
             self._beacon_own()
+            self._background(self._status_after_tx())
         self._history_changed()
 
     async def _find_reflector(self, to: str) -> None:
@@ -408,6 +425,52 @@ class DStarService:
         if to == self.ur or self.reflector_info is None or found != self.reflector_info:
             self.reflector_info = found
             self._touch()
+
+    # ---- the reflectors' status --------------------------------------------------------
+
+    async def _watch_status(self) -> None:
+        next_all = 0.0
+        while True:
+            try:
+                await self._refresh_xlx()
+                now = time.monotonic()
+                if now >= next_all:
+                    next_all = now + STATUS_ALL
+                    items = await self._db(self.registry.list)
+                else:
+                    current = self.ur if self.ur.startswith("/") else ""
+                    found = await self._db(self.registry.get, current) if current else None
+                    items = [found] if found else []
+                await asyncio.gather(*(self._check(item) for item in items))
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001 - logged; the watching goes on
+                log.exception("dstar: reflector status failed")
+            self._status_wake.clear()
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._status_wake.wait(), STATUS_POLL)
+
+    async def _refresh_xlx(self) -> None:
+        if time.monotonic() - self._xlx_at < XLX_REFRESH and self._xlx:
+            return
+        found = await asyncio.to_thread(status.fetch_xlx)
+        internet = found is not None
+        if found:
+            self._xlx, self._xlx_at = found, time.monotonic()
+        if internet != self.internet:
+            self.internet = internet
+            self._touch()
+
+    async def _check(self, item: dict) -> None:
+        terminal = self.r1 if self.radio_mode() == "int" else ""
+        result = await asyncio.to_thread(status.check, item, self._xlx, terminal)
+        if result != self.statuses.get(item["to"]):
+            self.statuses[item["to"]] = result
+            self._touch()
+
+    async def _status_after_tx(self) -> None:
+        await asyncio.sleep(STATUS_AFTER_TX)
+        self._status_wake.set()
 
     def _history_changed(self) -> None:
         self.history_version += 1
@@ -630,7 +693,14 @@ class DStarService:
                 "dprs_version": self.dprs_version, "dprs": self.settings(),
                 "home": list(self._home()) if self._home() else None,
                 "aprs": self.config.dstar_aprs,
+                "status": self._current_status(), "internet": self.internet,
                 "locator": self.config.locator, "callsign": self.config.callsign}
+
+    def _current_status(self) -> dict | None:
+        """The reflector in use's status, its "checked" left out (it would change every
+        check, and with it the state sent out)."""
+        found = self.statuses.get(self.ur)
+        return {k: v for k, v in found.items() if k != "checked"} if found else None
 
     async def call(self, method: str, params: dict) -> dict:
         try:
@@ -669,6 +739,10 @@ class DStarService:
                 return {"settings": self.settings()}
             elif method == "dprs_save":
                 return await self.save_settings(params)
+            elif method == "statuses":
+                return {"statuses": self.statuses, "internet": self.internet}
+            elif method == "status_refresh":
+                self._status_wake.set()
             elif method == "clear_history":
                 await self._db(self.storage.clear_history)
                 self._history_changed()

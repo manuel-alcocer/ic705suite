@@ -35,3 +35,15 @@ def private_data(tmp_path, monkeypatch):
     data.mkdir(exist_ok=True)
     monkeypatch.setenv("XDG_DATA_HOME", str(data))
     monkeypatch.setenv("LOCALAPPDATA", str(data))
+
+
+@pytest.fixture(autouse=True)
+def no_reflector_pages(monkeypatch):
+    """D-STAR's reflector status reads web pages: never from the tests (a test that wants
+    some gives them to status.check)."""
+    from ic705suite.apps.dstar import status
+
+    def offline(url, *args, **kwargs):
+        raise OSError(f"no network in the tests ({url})")
+
+    monkeypatch.setattr(status, "http_get", offline)

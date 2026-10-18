@@ -37,13 +37,14 @@ from ic705suite.apps.dstar.app import (
     dprs_columns,
     error_text,
     extra,
-    heard_here,
+    heard_list,
     history_cells,
     history_columns,
     home_of,
     indicators,
     on_air,
     reflector_info,
+    reflector_status,
     warning,
     weather_cells,
     weather_columns,
@@ -198,6 +199,7 @@ class DStarPage(Page):
         self._fill_view()
 
     action_beacon = DStarApp.action_beacon
+    action_refresh = DStarApp.action_refresh
     _beacon = DStarApp._beacon
 
     async def _load_reflectors(self) -> None:
@@ -257,6 +259,12 @@ class DStarPage(Page):
                  + span(info.get("to") or "", theme.CYAN, True)]
         if info.get("description"):
             lines.append(esc(info["description"]))
+        colours = {"good": theme.GREEN, "bad": theme.RED, "warn": theme.YELLOW,
+                   "dim": theme.DIM, "text": theme.TEXT}
+        pieces = reflector_status(state)
+        if pieces:
+            lines.append(" &nbsp; ".join(span(text, colours[kind], kind != "dim")
+                                         for text, kind in pieces))
         server = info["radio_server"]
         lines.append(span(_("Server") + " ", theme.DIM)
                      + (span(server, theme.TEXT, True) if server else
@@ -300,10 +308,9 @@ class DStarPage(Page):
                     + "".join(f"<p style='margin:0'>"
                               f"{span(line, theme.CYAN if line.startswith('«') else theme.TEXT)}"
                               "</p>" for line in air["lines"]))
-        heard = heard_here(self.rows, self.state.get("ur", ""))
+        title, heard = heard_list(self.state, self.rows)
         if heard:
-            html += "<p style='margin:14px 0 2px 0'>" + span(_("Last heard here"), theme.DIM,
-                                                              True) + "</p>" + \
+            html += "<p style='margin:14px 0 2px 0'>" + span(title, theme.DIM, True) + "</p>" + \
                 "".join("<p style='margin:0'>" + span(call, theme.AMBER, True) + "&nbsp; "
                         + esc(name) + "&nbsp; " + span(hhmm, theme.DIM) + "</p>"
                         for call, name, hhmm in heard)

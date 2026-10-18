@@ -9,6 +9,7 @@ overs. The keys are the same in the terminal and in the window (gui.dstar):
   H    hide our own overs         Enter  an over of the history, in the on-air box
   V    the history, the D-PRS reports heard, the weather stations
   B    our D-PRS beacon (the radio's settings: position, symbol, SSID, comment)
+  R    the reflectors' status (online, nodes, our terminal linked) checked again now
   Esc  back to live, or leave
 
 The functions here (what each part shows) serve both clients; the window draws the same
@@ -17,6 +18,7 @@ with pixels.
 
 from __future__ import annotations
 
+import re
 import time
 
 from rich.text import Text
@@ -35,9 +37,10 @@ from ic705suite.ui.rigline import RigStatusLine
 from ic705suite.ui.widgets import NameScreen, clock_footer, css
 
 HINT = N_("[ ] Reflector · C Change · N MY note · M TX message · V View · B D-PRS beacon · "
-          "H Hide mine · Enter Show over · Esc Live / Back")
+          "R Status · H Hide mine · Enter Show over · Esc Live / Back")
 SHORT_HINT = N_("[ ] Reflector · C Change · Esc Back")
-INDICATORS = (("civ", "CI-V"), ("dv", "DV"), ("int", "INT"), ("rx", "RX"), ("tx", "TX"))
+INDICATORS = (("civ", "CI-V"), ("dv", "DV"), ("int", "INT"), ("net", "NET"), ("rx", "RX"),
+              ("tx", "TX"))
 VIEWS = (("history", N_("History")), ("dprs", N_("D-PRS")), ("weather", N_("Weather")))
 
 
@@ -51,6 +54,7 @@ def indicators(state: dict) -> list[tuple[str, str]]:
         "civ": "on" if state.get("civ") else "bad" if state.get("on") else "off",
         "dv": "on" if on_dv else "bad" if state.get("mode") else "off",
         "int": "on" if state.get("radio_mode") == "int" else "off",
+        "net": {True: "on", False: "bad"}.get(state.get("internet"), "off"),
         "rx": "on" if state.get("rx_active") else "off",
         "tx": "bad" if state.get("transmitting") else "off",
     }
@@ -78,6 +82,50 @@ def reflector_info(state: dict) -> dict:
     reflector["mismatch"] = bool(needed and server and needed.lower() != server.lower())
     reflector["radio_server"] = server
     return reflector
+
+
+def reflector_status(state: dict) -> list[tuple[str, str]]:
+    """The reflector in use as its pages tell it: (text, "good" | "bad" | "warn" | "dim" |
+    "text") pieces: online or down, the nodes on our module, its name, our terminal linked
+    or not, the country."""
+    found = state.get("status")
+    if not found:
+        return [("● " + _("NO DATA"), "dim")] if state.get("ur", "").startswith("/") else []
+    online = found.get("online")
+    pieces = [("● " + _("ONLINE"), "good") if online else
+              ("● " + _("NO DATA"), "dim") if online is None else ("● " + _("DOWN"), "bad")]
+    if found.get("users") is not None:
+        pieces.append((_("{n} nodes").format(n=found["users"]), "text"))
+    if found.get("module_name"):
+        pieces.append((found["module_name"], "dim"))
+    if found.get("linked") is True:
+        pieces.append((_("linked"), "good"))
+    elif found.get("linked") is False:
+        pieces.append((_("not linked"), "warn"))
+    if found.get("country"):
+        pieces.append((found["country"], "dim"))
+    return pieces
+
+
+def short_time(text: str) -> str:
+    """A reflector's time ("2026-10-18 10:21:33", "18.10.2026 10:21") as HH:MM."""
+    match = re.search(r"(\d{1,2}:\d{2})", text or "")
+    return match.group(1) if match else (text or "")
+
+
+def heard_list(state: dict, rows: list[dict], count: int = 3) -> tuple[str, list]:
+    """The last heard: the reflector's own list when its page gives one, else ours on it
+    (title, [(call sign, name, HH:MM)])."""
+    reflector = (state.get("status") or {}).get("heard") or []
+    if reflector:
+        rows, seen = [], set()
+        for h in reflector:
+            call = h.get("callsign", "").strip()
+            if call and call not in seen and len(rows) < count:
+                seen.add(call)
+                rows.append((call, h.get("name", "").strip(), short_time(h.get("time", ""))))
+        return _("Last heard on the reflector"), rows
+    return _("Last heard here"), heard_here(rows, state.get("ur", ""), count)
 
 
 def ago(ts: float, now: float | None = None) -> str:
@@ -336,6 +384,7 @@ class DStarApp(App[int]):
         Binding("h", "hide_mine", show=False),
         Binding("v", "view", show=False),
         Binding("b", "beacon", show=False),
+        Binding("r", "refresh", show=False),
         Binding("escape", "escape", show=False),
         Binding("ctrl+q", "leave", show=False, priority=True),
     ]
@@ -502,6 +551,12 @@ class DStarApp(App[int]):
         text.append(f"{info.get('name') or '—'}\u00a0\u00a0", style="bold yellow")
         text.append(info.get("to") or "", style="bold cyan")
         text.append(f"\n{info.get('description') or ''}\n", style="white")
+        styles = {"good": "bold green", "bad": "bold red", "warn": "bold yellow", "dim": "dim",
+                  "text": "white"}
+        for piece, kind in reflector_status(state):
+            text.append(piece + "\u00a0\u00a0", style=styles[kind])
+        if reflector_status(state):
+            text.append("\n")
         server = info["radio_server"] or _("(set [dstar] server)")
         text.append(f"{_('Server')} ", style="dim")
         text.append(server, style="bold")
@@ -542,9 +597,9 @@ class DStarApp(App[int]):
                         "bold green" if air.get("live") else "bold yellow")
             for line in air["lines"]:
                 text.append(line + "\n", style="cyan" if line.startswith("«") else "white")
-        heard = heard_here(self.rows, self.state.get("ur", ""))
+        title, heard = heard_list(self.state, self.rows)
         if heard:
-            text.append("\n" + _("Last heard here") + "\n", style="dim")
+            text.append("\n" + title + "\n", style="dim")
             for call, name, hhmm in heard:
                 text.append(f"{call:<9}", style="bold yellow")
                 text.append(f" {name[:22]:<22} {hhmm}\n", style="white")
@@ -669,6 +724,11 @@ class DStarApp(App[int]):
 
     async def _beacon_form(self, settings: dict) -> dict | None:
         return await self.push_screen_wait(BeaconScreen(settings))
+
+    def action_refresh(self) -> None:
+        """R: the reflectors' status checked again now."""
+        self.run_worker(self.link.call("dstar.status_refresh"))
+        self._message("info", _("Checking the reflector's status…"))
 
     def action_escape(self) -> None:
         if self.review is not None:

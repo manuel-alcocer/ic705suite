@@ -7,7 +7,7 @@ to the radio; a dashboard opens the applications, which all share that one conne
 |---|---|---|
 | F2 | **IC-705 View** | the whole front panel (about 50 controls), meters, and a band scope with waterfall: our own wfview for the console |
 | F3 | **CW** | Bayesian CW decoder, multi-signal skimmer, keyer, channels with plain-language translation (formerly *cwic705*) |
-| F4 | **D-STAR** | reflectors in Terminal Mode, the overs heard (name, place, message, distance) and their history (formerly *QDStar*; D-PRS and the USB gateway to come) |
+| F4 | **D-STAR** | reflectors in Terminal Mode, the overs heard (name, place, message, distance) and their history (formerly *QDStar*; the USB gateway to come) |
 | F5 | **Antenna** | SWR and noise sweeps, which way to move the coil, per-band history; also a page for the phone (formerly *swr-remote*) |
 | F6 | **Logbook** | *hamrlog*: contacts, ADIF, repeaters, address book |
 | F7 | **Packet** | BayCom-style terminal: 8 AX.25 channels and the monitor, over a Direwolf TNC (here or on another machine) |
@@ -205,9 +205,13 @@ each, nearest first). `B` edits our own D-PRS beacon as the radio keeps it (menu
 0281-0297, each item read back): sent with every over or not, the radio's GPS or a position
 typed (degrees, or a locator's centre), the symbol, SSID and comment; distances are from
 that position, else from `[station] locator`. With `[dstar] aprs = true` the position our
-over carried goes to APRS-IS too (`aprs_heard`: also the station on air's). This is QDStar,
-the same author's D-STAR controller, brought into the suite: the reflectors' status and its
-own gateway over USB (EXT) follow.
+over carried goes to APRS-IS too (`aprs_heard`: also the station on air's). The core checks
+the **reflectors' status** from their own pages: the XLX directory (online), the xlxd JSON
+API or the dashboard (the nodes on our module, our terminal linked, the last heard; DCS214's
+tabbed dashboard too), the reflector in use every 30 s and 3 s after each over of ours, all
+of them every 10 minutes; `R` checks again now, the NET lamp tells whether internet answers,
+and the on-air box shows the reflector's own last heard. This is QDStar, the same author's
+D-STAR controller, brought into the suite: its own gateway over USB (EXT) follows.
 
 ### Core on a Raspberry Pi, client here
 

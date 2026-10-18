@@ -47,6 +47,19 @@ def test_the_dstar_page(tmp_path, run, monkeypatch):
             await until(lambda: page.table.rowCount() == 1
                         and page.table.item(0, 6).text() == "hola")
             assert "Last heard here" in page.air_label.text()
+            # The reflector's status (its pages, given here): the lamps, the box, its heard
+            link.core.dstar.statuses["/XLX214D"] = {
+                "online": True, "users": 5, "module_name": "D-Star Spain", "linked": True,
+                "heard": [{"callsign": "EA1ZZZ", "name": "Ana", "via": "", "time": "10:21"}],
+                "nodes": [], "comment": "", "country": "ES", "dashboard": "", "checked": 0}
+            link.core.dstar.internet = True
+            link.core.dstar._touch()
+            await until(lambda: "5 nodes" in page.reflector_label.text())
+            assert "linked" in page.reflector_label.text() and "NET" in page.lamps.text()
+            await until(lambda: "EA1ZZZ" in page.air_label.text())
+            assert "Last heard on the reflector" in page.air_label.text()
+            link.core.dstar.statuses.clear()
+            link.core.dstar._touch()
             page.table.cellClicked.emit(0, 1)              # that over in the on-air box
             assert page.review["callsign"] == "EA7ABC" and "HISTORY" in page.air_label.text()
             await key(Qt.Key.Key_Escape)                   # live again; the page stays
