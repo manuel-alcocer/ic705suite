@@ -80,6 +80,7 @@ SKIM_INTERVAL = 1.0
 CHANNELS_INTERVAL = 2.0
 BACKLOG = 400          # text events replayed to a client that connects later
 RETRY_DELAY = 10.0     # wait between attempts to reach the radio
+STOP_TIMEOUT = 10.0    # s each service gets to stop; one stuck is left behind, and named
 AUDIO_RX = 0x01        # kinds of binary frame: receive audio,
 AUDIO_TX = 0x02        # and a client's microphone
 
@@ -308,14 +309,16 @@ class Core:
             saved = self.session.autosave()
             if saved:
                 log.info("archived %d unsaved channels on exit", saved)
-        await self.swr.stop()
-        await self.packet.stop()
-        await self.ft8.stop()
-        await self.lotw.stop()
-        await self.voice.stop()
-        await self.dstar.stop()
-        await self.session.stop()
-        await self.station.stop()
+        for name, stopping in (("swr", self.swr.stop), ("packet", self.packet.stop),
+                               ("ft8", self.ft8.stop), ("lotw", self.lotw.stop),
+                               ("voice", self.voice.stop), ("dstar", self.dstar.stop),
+                               ("session", self.session.stop), ("station", self.station.stop)):
+            try:
+                await asyncio.wait_for(stopping(), STOP_TIMEOUT)
+            except TimeoutError:
+                log.warning("%s did not stop in %.0f s, left behind", name, STOP_TIMEOUT)
+            except Exception:
+                log.exception("%s failed to stop", name)
 
     async def call(self, method: str, params: dict | None = None) -> dict:
         params = params or {}

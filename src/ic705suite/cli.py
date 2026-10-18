@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import faulthandler
 import logging
 import signal
 import sys
@@ -23,6 +24,7 @@ from ic705suite.ui import glyphs
 TRACE = 5
 APP_CHOICES = ("view", "cw", "swr", "log", "packet", "ft8", "dstar")
 OFFLINE_APPS = ("log",)   # it never uses the core
+SHUTDOWN_GRACE = 30       # s: a server still stopping after this dumps its threads and exits
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -216,9 +218,14 @@ async def run_server(transport: Transport | None, config, record: Path | None) -
     serving = asyncio.create_task(server.run(stop))
     starting = asyncio.create_task(core.start(retry_forever=True))
     await stop.wait()
+    # A stop that hangs (a thread blocked, a service stuck) must not wait for systemd's
+    # SIGKILL: every thread's stack goes to the console (the journal) and the process exits.
+    faulthandler.dump_traceback_later(SHUTDOWN_GRACE, exit=True)
+    print("-- stopping", flush=True)
     starting.cancel()
     await serving
     await core.stop(autosave=config.autosave_on_exit)
+    print("-- stopped", flush=True)
     return 0
 
 

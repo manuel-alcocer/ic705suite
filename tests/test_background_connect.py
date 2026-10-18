@@ -116,3 +116,27 @@ def test_a_half_dead_session_is_connected_again(tmp_path, monkeypatch):
             await link.close()
 
     asyncio.run(run())
+
+
+def test_a_service_stuck_stopping_does_not_hold_the_core(tmp_path, monkeypatch):
+    monkeypatch.setattr(core_module, "STOP_TIMEOUT", 0.1)
+
+    async def run():
+        link = sim_link(tmp_path)
+        await link.connect()
+        stopped = []
+        real_stop = link.core.station.stop
+
+        async def stuck():
+            await asyncio.Event().wait()
+
+        async def station_stop():
+            stopped.append(1)
+            await real_stop()
+
+        link.core.ft8.stop = stuck
+        link.core.station.stop = station_stop
+        await asyncio.wait_for(link.core.stop(), 5)
+        assert stopped                          # the services after it stopped all the same
+
+    asyncio.run(run())
