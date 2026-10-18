@@ -1,7 +1,7 @@
 """Antenna tuning: SWR and noise sweeps on the shared station (formerly swr-remote).
 
 * SWR sweep (transmits): RTTY carrier at low power, about 0.4 s per point, PTT watchdog,
-  only inside one amateur band; restores frequency, mode, data mode and power afterwards.
+  only inside one band (an amateur one, or CB); restores frequency, mode, data mode and power afterwards.
   Needs transmission enabled ([rig] tx_enabled or --tx) *and* the remote control switched
   on by hand in the antenna application (``set_remote``): it is off whenever the suite
   starts, and only the antenna application turns it on, never the phone page. While it is
@@ -52,9 +52,17 @@ SWR_SATURATED = 3.0
 TUNE_BANDS = [("40m", 7_074_000, 10_000), ("30m", 10_136_000, 5_000), ("20m", 14_074_000, 25_000),
               ("17m", 18_100_000, 10_000), ("15m", 21_074_000, 25_000), ("12m", 24_915_000, 10_000),
               ("10m", 28_074_000, 50_000), ("6m", 50_313_000, 50_000)]
-# Bands outside the amateur ones, for the noise sweep only (the SWR sweep never transmits
-# on them): name, edges, target and step. CB, 40 channels, channel 19 as the target.
-RECEIVE_BANDS = [("11m", 26_965_000, 27_405_000, 27_185_000, 10_000)]
+# Bands outside the amateur ones the antenna is also tuned on, SWR sweep included: name,
+# edges, target and step. CB, 40 channels, channel 19 as the target.
+EXTRA_BANDS = [("11m", 26_965_000, 27_405_000, 27_185_000, 10_000)]
+
+
+def sweep_band(freq: int) -> str | None:
+    """The band a frequency belongs to: an amateur one or one of EXTRA_BANDS."""
+    band = band_for(freq)
+    if band is not None:
+        return band.name
+    return next((name for name, start, end, _, _ in EXTRA_BANDS if start <= freq <= end), None)
 
 # Photos of the antenna kept with the sweeps (the phone's camera, a file): their formats by
 # their first bytes, and the largest accepted.
@@ -453,7 +461,7 @@ class SwrService:
             freqs.append(stop)
         if len(freqs) > MAX_POINTS:
             raise SweepError(f"too many points ({len(freqs)}); use a larger step (max {MAX_POINTS})")
-        band = band_for(start)
+        band = sweep_band(start)
         if kind == "swr":
             if not self.allow_tx:
                 raise SweepError("transmission disabled: SWR sweeps need --tx "
@@ -461,12 +469,12 @@ class SwrService:
             if not self.remote:
                 raise SweepError("remote control is off: switch it on in the antenna "
                                  "application (R) before an SWR sweep")
-            if band is None or band_for(stop) is not band:
-                raise SweepError("SWR sweep must stay inside one amateur band")
+            if band is None or sweep_band(stop) != band:
+                raise SweepError("SWR sweep must stay inside one band")
         target = int(req.get("target") or (start + stop) // 2)
         power = max(1, min(self.max_power, int(req.get("power") or self.max_power)))
         preset = int(req["preset"]) if req.get("preset") else None
-        self.sweep = Sweep(kind=kind, running=True, band=req.get("band") or (band.name if band else ""),
+        self.sweep = Sweep(kind=kind, running=True, band=req.get("band") or band or "",
                            target=target, preset=preset, total=len(freqs))
         self._version += 1
         self._task = asyncio.create_task(self._run_sweep(freqs, power))
@@ -784,9 +792,9 @@ class SwrService:
             band = find_band(name)
             out.append({"name": name, "band": name, "start": band.start, "end": band.end,
                         "target": target, "step": step})
-        for name, start, end, target, step in RECEIVE_BANDS:
+        for name, start, end, target, step in EXTRA_BANDS:
             out.append({"name": name, "band": name, "start": start, "end": end,
-                        "target": target, "step": step, "receive_only": True})
+                        "target": target, "step": step})
         return out
 
     def presets(self) -> list[dict]:
