@@ -169,3 +169,30 @@ def test_dprs_views_and_the_beacon_dialog(tmp_path, run, monkeypatch):
             await link.close()
 
     run(scenario())
+
+
+def test_the_map_groups_stations_on_the_same_spot(qapp):
+    """Two stations 13 km apart (EA2AFZ-W and EB2EMZ-W, Bilbao) at a world's zoom: one dot,
+    called "+1", both under the mouse; the view fitted to them; our call not in the way."""
+    import time
+
+    from ic705suite.apps.dstar.app import map_stations
+    from ic705suite.gui.dstarmap import DStarMap
+
+    now = time.time()
+    rows = [{"name": "EA2AFZ-W", "lat": 43.2535, "lon": -2.911, "kind": "position",
+             "symbol": "/r", "received": now - 60, "via": "ED2YAV"},
+            {"name": "EB2EMZ-W", "lat": 43.1333, "lon": -2.95, "kind": "weather",
+             "symbol": "/_", "received": now - 1200, "via": "ED2YAV"}]
+    m = DStarMap()
+    m.resize(1100, 520)
+    m.set_home(37.3125, -5.9583, "EA7KLX")
+    m.set_stations(map_stations(rows, now))
+    m.show()
+    m.grab()                                         # drawn: fitted to them
+    assert m.zoom > 1 and 36 < m.center[0] < 44
+    m.zoom, m.center = 1.0, (25.0, -6.0)
+    m.grab()
+    assert [h.call for _r, h in m._spots] == ["EA2AFZ-W"]
+    assert [h.call for h in m.groups["EA2AFZ-W"]] == ["EA2AFZ-W", "EB2EMZ-W"]
+    assert m.under(m._xy(43.2535, -2.911)).startswith("EA2AFZ-W, EB2EMZ-W")
