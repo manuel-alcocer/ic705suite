@@ -276,6 +276,10 @@ class Core:
         await self.swr.start()
         await self.packet.start()
         await self.lotw.start()
+        try:
+            self.dstar.start_gateway()      # D-STAR over USB: no client, no radio link needed
+        except Exception:
+            log.exception("the D-STAR gateway did not start")
         self._ticker = asyncio.create_task(self._tick())
         if self.config.connection == "none":
             # A core for packet only (a Raspberry Pi with a Digirig): nothing to look for.
@@ -311,7 +315,7 @@ class Core:
                 log.info("archived %d unsaved channels on exit", saved)
         for name, stopping in (("swr", self.swr.stop), ("packet", self.packet.stop),
                                ("ft8", self.ft8.stop), ("lotw", self.lotw.stop),
-                               ("voice", self.voice.stop), ("dstar", self.dstar.stop),
+                               ("voice", self.voice.stop), ("dstar", self.dstar.close),
                                ("session", self.session.stop), ("station", self.station.stop)):
             try:
                 await asyncio.wait_for(stopping(), STOP_TIMEOUT)

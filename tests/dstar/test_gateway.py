@@ -295,3 +295,40 @@ def test_ext_on_the_simulated_radio(tmp_path, monkeypatch):
             await link.close()
 
     asyncio.run(scenario())
+
+
+def test_the_gateway_lives_with_the_core(tmp_path, monkeypatch):
+    """No client needed: the gateway starts with the core, links the reflector of last time
+    when the radio answers, keeps it when D-STAR is closed, and stops with the core."""
+    from ic705suite.config import Config
+    from ic705suite.station.links import LocalLink
+
+    from .test_dstar import until
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    FakeLink.instances = []
+    monkeypatch.setattr(gateway_module, "IcomTerminal", FakeTerminal)
+    monkeypatch.setattr(gateway_module, "HostDirectory", FakeHosts)
+    monkeypatch.setitem(links.LINKS, "DCS", FakeLink)
+
+    async def scenario():
+        config = Config(connection="sim", swr_web=False, callsign="EA4SIM", locator="IM77",
+                        database_url=f"sqlite:///{tmp_path / 'suite.db'}")
+        link = LocalLink(None, config)
+        dstar = link.core.dstar
+        dstar._save_last_link("DCS214 D")
+        await link.connect()
+        gateway = dstar.gateway
+        try:
+            assert gateway is not None and not dstar.on
+            gateway._radio_connected(True)
+            await until(lambda: gateway.linked_reflector() == "DCS214 D")
+            await link.call("dstar.start")
+            assert (await link.call("dstar.state"))["to"] == "DCS214 D"
+            await link.call("dstar.stop")
+            assert dstar.gateway is gateway and gateway.linked_reflector() == "DCS214 D"
+        finally:
+            await link.close()
+        assert dstar.gateway is None and FakeLink.instances[-1].state == "unlinked"
+
+    asyncio.run(scenario())

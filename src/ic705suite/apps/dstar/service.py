@@ -185,6 +185,9 @@ class DStarService:
         if self.on:
             return
         self.reset()
+        if self.gateway is not None:            # running since the core started
+            self.gateway_usb = self.gateway.terminal.connected
+            self.gateway_linked = self.gateway.linked_reflector()
         self.on = True
         self._task = asyncio.create_task(self._run())
         self._status_task = asyncio.create_task(self._watch_status())
@@ -200,9 +203,6 @@ class DStarService:
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
         self._task = self._status_task = None
-        if self.gateway is not None:
-            self.gateway.stop()
-            self.gateway = None
         if self.rx_info and self.rx_info.get("live"):
             await self._rx_ended()
         if self.tx_entry is not None:
@@ -210,6 +210,15 @@ class DStarService:
         for task in list(self._pending):
             task.cancel()
         self._touch()
+
+    async def close(self) -> None:
+        """The core stopping: the service and the gateway (which outlives the service)."""
+        await self.stop()
+        if self.gateway is not None:
+            self.gateway.stop()
+            self.gateway = None
+        for task in list(self._pending):
+            task.cancel()
 
     def changed(self) -> bool:
         changed, self._changed = self._changed, False
@@ -222,7 +231,7 @@ class DStarService:
         next_slow = next_own = 0.0
         while True:
             try:
-                self._ensure_gateway()
+                self.start_gateway()
                 if self.station.connected:
                     now = time.monotonic()
                     if now >= next_own:
@@ -646,9 +655,10 @@ class DStarService:
 
     # ---- the EXT gateway ------------------------------------------------------------------
 
-    def _ensure_gateway(self) -> None:
-        """The gateway runs while the service does, once the call sign is known (it waits
-        for the radio on USB by itself)."""
+    def start_gateway(self) -> None:
+        """The gateway, from the core's start (or once the call sign is known) to its stop,
+        whether a client has D-STAR open or not: a link stays up and the last one is linked
+        again when the radio answers on USB (it waits for the radio by itself)."""
         port = self.config.dstar_usb_port.strip()
         call = base_call(self.config.callsign or self.my_call)
         if self.gateway is not None or port.lower() == "off" or not call or os.name != "posix":
