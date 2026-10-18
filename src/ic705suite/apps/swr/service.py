@@ -1,8 +1,8 @@
 """Antenna tuning: SWR and noise sweeps on the shared station (formerly swr-remote).
 
 * SWR sweep (transmits): RTTY carrier at low power, about 0.4 s per point, PTT watchdog,
-  only inside one band (an amateur one, or CB); restores frequency, mode, data mode and
-  power afterwards.
+  on any frequency (the radio refuses where it does not transmit); restores frequency,
+  mode, data mode and power afterwards.
   Needs transmission enabled ([rig] tx_enabled or --tx) *and* the remote control switched
   on by hand in the antenna application (``set_remote``): it is off whenever the suite
   starts, and only the antenna application turns it on, never the phone page. While it is
@@ -53,8 +53,7 @@ SWR_SATURATED = 3.0
 TUNE_BANDS = [("40m", 7_074_000, 10_000), ("30m", 10_136_000, 5_000), ("20m", 14_074_000, 25_000),
               ("17m", 18_100_000, 10_000), ("15m", 21_074_000, 25_000), ("12m", 24_915_000, 10_000),
               ("10m", 28_074_000, 50_000), ("6m", 50_313_000, 50_000)]
-# Bands outside the amateur ones the antenna is also tuned on, SWR sweep included: name,
-# edges, target and step. CB, 40 channels, channel 19 as the target.
+# Bands outside the amateur ones the antenna is also tuned on: name, edges, target, step.
 EXTRA_BANDS = [("11m", 26_965_000, 27_405_000, 27_185_000, 10_000)]
 
 
@@ -470,8 +469,6 @@ class SwrService:
             if not self.remote:
                 raise SweepError("remote control is off: switch it on in the antenna "
                                  "application (R) before an SWR sweep")
-            if band is None or sweep_band(stop) != band:
-                raise SweepError("SWR sweep must stay inside one band")
         target = int(req.get("target") or (start + stop) // 2)
         power = max(1, min(self.max_power, int(req.get("power") or self.max_power)))
         preset = int(req["preset"]) if req.get("preset") else None
