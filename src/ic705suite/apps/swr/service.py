@@ -52,6 +52,9 @@ SWR_SATURATED = 3.0
 TUNE_BANDS = [("40m", 7_074_000, 10_000), ("30m", 10_136_000, 5_000), ("20m", 14_074_000, 25_000),
               ("17m", 18_100_000, 10_000), ("15m", 21_074_000, 25_000), ("12m", 24_915_000, 10_000),
               ("10m", 28_074_000, 50_000), ("6m", 50_313_000, 50_000)]
+# Bands outside the amateur ones, for the noise sweep only (the SWR sweep never transmits
+# on them): name, edges, target and step. CB, 40 channels, channel 19 as the target.
+RECEIVE_BANDS = [("11m", 26_965_000, 27_405_000, 27_185_000, 10_000)]
 
 # Photos of the antenna kept with the sweeps (the phone's camera, a file): their formats by
 # their first bytes, and the largest accepted.
@@ -781,6 +784,9 @@ class SwrService:
             band = find_band(name)
             out.append({"name": name, "band": name, "start": band.start, "end": band.end,
                         "target": target, "step": step})
+        for name, start, end, target, step in RECEIVE_BANDS:
+            out.append({"name": name, "band": name, "start": start, "end": end,
+                        "target": target, "step": step, "receive_only": True})
         return out
 
     def presets(self) -> list[dict]:
@@ -798,10 +804,9 @@ class SwrService:
         target = params.get("target")
         if isinstance(target, str):
             target = parse_frequency(target)
-        whole = find_band(band["name"])
-        if not target or not whole.start <= int(target) <= whole.end:
+        if not target or not band["start"] <= int(target) <= band["end"]:
             raise SweepError(f"the target must be inside {band['name']} "
-                             f"({whole.start / 1e6:.3f}-{whole.end / 1e6:.3f} MHz)")
+                             f"({band['start'] / 1e6:.3f}-{band['end'] / 1e6:.3f} MHz)")
         preset_id = params.get("id")
         self.history.save_preset(str(params.get("name", "")), band["name"], int(target),
                                  int(preset_id) if preset_id is not None else None)

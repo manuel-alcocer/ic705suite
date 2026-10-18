@@ -538,3 +538,29 @@ def test_ten_metres_sweeps_the_whole_band():
     ten = next(b for b in SwrService.bands() if b["name"] == "10m")
     assert (ten["start"], ten["end"]) == (28_000_000, 29_700_000)
     assert (ten["end"] - ten["start"]) // ten["step"] + 1 <= MAX_POINTS
+
+
+def test_cb_preset_sweeps_noise_but_never_transmits(tmp_path):
+    """11 m (CB) takes presets and the noise sweep; the SWR sweep stays on amateur bands."""
+    async def run():
+        station, service = make_service(tmp_path, FakeRadio(27_185_000))
+        station.connected = True
+        cb = next(b for b in service.bands() if b["name"] == "11m")
+        assert cb["receive_only"] and (cb["start"], cb["end"]) == (26_965_000, 27_405_000)
+        assert (cb["end"] - cb["start"]) // cb["step"] + 1 <= 61
+        presets = service.save_preset({"name": "CB 27 MHz", "band": "11m",
+                                       "target": "27.185"})["presets"]
+        assert [(p["name"], p["band"], p["target"]) for p in presets] == \
+            [("CB 27 MHz", "11m", 27_185_000)]
+        with pytest.raises(SweepError, match="inside 11m"):
+            service.save_preset({"name": "CB out", "band": "11m", "target": "28.000"})
+        service.set_remote(True)
+        with pytest.raises(SweepError, match="one amateur band"):
+            service.start_sweep({"kind": "swr", "start": cb["start"], "stop": cb["end"],
+                                 "step": cb["step"]})
+        service.start_sweep({"kind": "noise", "start": cb["start"], "stop": cb["end"],
+                             "step": cb["step"], "band": "11m", "preset": presets[0]["preset"]})
+        assert service.sweep.band == "11m"
+        service.stop_sweep()
+
+    asyncio.run(run())
