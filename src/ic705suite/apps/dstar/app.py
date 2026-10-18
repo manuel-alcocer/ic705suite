@@ -252,6 +252,32 @@ def dprs_cells(row: dict, home="") -> list[str]:
             row.get("via") or "", row.get("reflector") or ""]
 
 
+MAP_DAYS = 7          # the map shows where each station was last reported this lately
+
+
+def map_stations(rows: list[dict], now: float | None = None,
+                 days: float = MAP_DAYS) -> list[dict]:
+    """The stations that gave their position (D-PRS reports, newest first as the core
+    sends them): the latest of each, of the last `days` days, oldest first (the newest
+    drawn on top)."""
+    now = time.time() if now is None else now
+    latest: dict[str, dict] = {}
+    for row in rows:
+        if row.get("lat") is None or row.get("lon") is None or not row.get("name"):
+            continue
+        if now - row["received"] > days * 86400:
+            continue
+        known = latest.get(row["name"])
+        if known is None or row["received"] > known["received"]:
+            latest[row["name"]] = row
+    return sorted(latest.values(), key=lambda r: r["received"])
+
+
+def base_call(call: str) -> str:
+    """A call sign without its SSID or suffix ("EA7ABC-9", "EA7ABC /705": EA7ABC)."""
+    return (call or "").split("-")[0].split("/")[0].split(" ")[0].strip().upper()
+
+
 def weather_columns() -> list[str]:
     return [_("Station"), _("Weather"), _("Dist."), _("Via"), _("When")]
 

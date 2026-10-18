@@ -173,3 +173,18 @@ def test_a_tabbed_dashboard():
     assert result["heard"][2] == {"callsign": "EA7KLX", "name": "Manuel Alcocer",
                                   "via": "EA7KLX Z", "time": "22:08:58"}
     assert status.check(item, {}, "EA7KLX Z", get=get)["linked"] is False
+
+
+def test_the_stations_on_the_map():
+    from ic705suite.apps.dstar.app import base_call, map_stations
+
+    now = 1_000_000.0
+    rows = [{"name": "EA7ABC-9", "lat": 37.4, "lon": -6.0, "received": now - 60},
+            {"name": "EA7ABC-9", "lat": 37.0, "lon": -6.5, "received": now - 3600},
+            {"name": "EA1WX", "lat": 43.3, "lon": -8.4, "received": now - 120},
+            {"name": "OLD", "lat": 40.0, "lon": -3.7, "received": now - 8 * 86400},
+            {"name": "NOWHERE", "lat": None, "lon": None, "received": now}]
+    shown = map_stations(rows, now)
+    assert [r["name"] for r in shown] == ["EA1WX", "EA7ABC-9"]    # oldest first
+    assert shown[1]["lat"] == 37.4                                 # its latest place
+    assert base_call("EA7ABC-9") == base_call("EA7ABC /705") == "EA7ABC"

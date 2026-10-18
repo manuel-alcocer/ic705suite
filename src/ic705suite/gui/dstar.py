@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from ic705suite import geo
 from ic705suite.apps.dstar import dprs
 from ic705suite.apps.dstar.app import (
     HINT,
@@ -42,6 +43,7 @@ from ic705suite.apps.dstar.app import (
     history_columns,
     home_of,
     indicators,
+    map_stations,
     on_air,
     reflector_info,
     reflector_status,
@@ -50,10 +52,13 @@ from ic705suite.apps.dstar.app import (
     weather_columns,
 )
 from ic705suite.gui import theme
+from ic705suite.gui.dstarmap import DStarMap
 from ic705suite.gui.page import Page
 from ic705suite.gui.widgets import Footer, Frame, LoadLine, StatusLine, Table, badge, esc, span
-from ic705suite.i18n import _, render
+from ic705suite.i18n import N_, _, render
 from ic705suite.station.links import Link
+
+MAP_VIEW = ("map", N_("Map"))          # the window's own view: the terminal has no map
 
 
 class DStarPage(Page):
@@ -148,6 +153,9 @@ class DStarPage(Page):
         for table, (_name, label) in zip((self.table, self.dprs_table, self.weather_table),
                                          VIEWS, strict=True):
             self.views.addTab(table, _(label))
+        self.map = DStarMap()
+        self.map.station_double_clicked.connect(lambda _t, row: self._find_report(row))
+        self.views.addTab(self.map, _(MAP_VIEW[1]))
         self.views.currentChanged.connect(self._view_changed)
         self.table.cellClicked.connect(lambda row, _c: self._review_row(row))
         self.table.cellActivated.connect(lambda row, _c: self._review_row(row))
@@ -247,6 +255,8 @@ class DStarPage(Page):
 
     def _show(self) -> None:
         state = self.state
+        rx = state.get("rx") or {}
+        self.map.set_on_air(rx.get("callsign", "") if state.get("rx_active") else "")
         self.status.extra = extra(state)
         self.status.redraw()
         colours = {"on": ("#000000", theme.BG_GREEN), "bad": ("#ffffff", theme.RED)}
@@ -334,13 +344,31 @@ class DStarPage(Page):
                             item.setForeground(QColor(theme.AMBER))
                         table.setItem(i, column, item)
             table.resizeColumnsToContents()
+        self._fill_map()
+
+    def _fill_map(self) -> None:
+        home = home_of(self.state)
+        if isinstance(home, str):
+            home = geo.locator_to_latlon(home) if home else None
+        if home:
+            self.map.set_home(home[0], home[1], self.state.get("callsign") or "")
+        self.map.set_stations(map_stations(self.dprs_rows))
+
+    def _find_report(self, row: dict) -> None:
+        """A station double-clicked on the map: its latest report in the D-PRS tab."""
+        for i, r in enumerate(self.dprs_rows):
+            if r["name"] == row.get("name"):
+                self.views.setCurrentWidget(self.dprs_table)
+                self.dprs_table.selectRow(i)
+                self.dprs_table.scrollToItem(self.dprs_table.item(i, 0))
+                return
 
     def action_view(self) -> None:
-        """V: the next view, as the terminal's."""
+        """V: the next view, as the terminal's (and the map, the window's own)."""
         self.views.setCurrentIndex((self.views.currentIndex() + 1) % self.views.count())
 
     def _view_changed(self, index: int) -> None:
-        self.view = VIEWS[index][0]
+        self.view = (*VIEWS, MAP_VIEW)[index][0]
         self.mine_box.setVisible(self.view == "history")
 
     async def _beacon_form(self, settings: dict) -> dict | None:

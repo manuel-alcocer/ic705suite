@@ -400,3 +400,21 @@ msgstr "sin enlazar"
 
 msgid "{n} nodes"
 msgstr "{n} nodos"
+
+msgid "object or item"
+msgstr "objeto o ítem"
+
+msgid "on air now"
+msgstr "en el aire ahora"
+
+msgid "station"
+msgstr "estación"
+
+msgid "via {via}"
+msgstr "vía {via}"
+
+msgid "weather station"
+msgstr "estación meteorológica"
+
+msgid "{n} stations, last {days} days"
+msgstr "{n} estaciones, últimos {days} días"

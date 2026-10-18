@@ -210,7 +210,7 @@ the **reflectors' status** from their own pages: the XLX directory (online), the
 API or the dashboard (the nodes on our module, our terminal linked, the last heard; DCS214's
 tabbed dashboard too), the reflector in use every 30 s and 3 s after each over of ours, all
 of them every 10 minutes; `R` checks again now, the NET lamp tells whether internet answers,
-and the on-air box shows the reflector's own last heard. This is QDStar, the same author's
+and the on-air box shows the reflector's own last heard. In the window a fourth tab, **Map**, puts on the world every station that gave its position by D-PRS in the last week, where it was last reported (weather stations, objects and the station on air marked apart; the wheel zooms, a drag moves it, a double click finds its report). This is QDStar, the same author's
 D-STAR controller, brought into the suite: its own gateway over USB (EXT) follows.
 
 ### Core on a Raspberry Pi, client here

@@ -138,6 +138,20 @@ def test_dprs_views_and_the_beacon_dialog(tmp_path, run, monkeypatch):
             assert page.views.currentIndex() == 1 and page.view == "dprs"
             await key(None, text="v")
             assert page.view == "weather"
+            await key(None, text="v")                      # the map: the window's own view
+            assert page.view == "map" and page.views.currentWidget() is page.map
+            assert "EA7ABC-9" in page.map.heard and page.map.home is not None
+            spot = page.map._xy(37.39, -5.98)
+            page.map.repaint()                             # its spots, where they are drawn
+            assert "EA7ABC-9" in page.map.under(spot) and "km" in page.map.under(spot)
+            page.map.station_double_clicked.emit(0.0, page.map.heard["EA7ABC-9"].decode)
+            assert page.view == "dprs" and page.dprs_table.currentRow() == 0
+            await key(None, text="v")
+            await key(None, text="v")
+            await key(None, text="v")
+            assert page.view == "history"                  # and round again
+            await key(None, text="v")
+            await key(None, text="v")
             await key(None, text="b")                      # B: the beacon, from the radio
             await until(lambda: page.findChildren(BeaconDialog))
             dialog = page.findChildren(BeaconDialog)[0]
