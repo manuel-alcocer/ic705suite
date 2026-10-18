@@ -47,8 +47,8 @@ def save_theme(config: Config) -> None:
 
 
 PROJECT_URL = "https://github.com/manuel-alcocer/ic705suite"
-# The user's guide, once it is published (GitHub Pages of the project).
-HELP_URL = "https://manuel-alcocer.github.io/ic705suite/"
+# The user's guide (in Spanish), built in the ea7klx.es repository.
+HELP_URL = "https://ic705suite.ea7klx.es/"
 
 # The theme button goes round these, showing the one in use.
 THEMES = ("light", "dark", "auto")

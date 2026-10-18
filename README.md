@@ -24,6 +24,9 @@ applications, a quick logbook entry: a line in hamrlog's fast-entry format (its 
 order, e.g. `EA7XYZ, Pepe, 59, 57, Sevilla`) goes into hamrlog's log with the radio's
 frequency, band, mode and power, and today's contacts are listed below it.
 
+The user's guide, with screenshots, installation and setting up the core on a server, is
+at **[ic705suite.ea7klx.es](https://ic705suite.ea7klx.es/)** (in Spanish).
+
 It also works on the plain Linux console (no desktop), whose fonts have a few hundred
 characters and 16 colours. The suite asks the kernel which characters the loaded font has and
 draws with those: the frequency in a block font, the waterfall
