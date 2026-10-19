@@ -402,6 +402,7 @@ def test_a_station_menu_the_lists_tab_and_auto_cq(tmp_path, run, monkeypatch):
     from tests.ft8.test_worked_ft8 import CTY
 
     fake_jt9(monkeypatch)
+    monkeypatch.setattr(service_module.encode, "find_ft8code", lambda configured="": "ft8code")
     table = geo.Cty(CTY)                              # DL1ABC's country, for Shift+I
     monkeypatch.setattr(geo, "cty", lambda: table)
     from PySide6.QtWidgets import QMenu
