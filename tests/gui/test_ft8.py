@@ -398,7 +398,12 @@ def test_a_long_list_with_a_row_chosen_fills_fast(qapp):
 
 
 def test_a_station_menu_the_lists_tab_and_auto_cq(tmp_path, run, monkeypatch):
+    from ic705suite import geo
+    from tests.ft8.test_worked_ft8 import CTY
+
     fake_jt9(monkeypatch)
+    table = geo.Cty(CTY)                              # DL1ABC's country, for Shift+I
+    monkeypatch.setattr(geo, "cty", lambda: table)
     from PySide6.QtWidgets import QMenu
 
     menus: list[QMenu] = []

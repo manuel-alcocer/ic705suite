@@ -3,10 +3,26 @@
 import calendar
 import time
 
+import pytest
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtTest import QTest
 
+from ic705suite import geo
 from ic705suite.gui import ft8map
+
+# Where a call goes to a station not heard: its country's middle, from cty.dat (WSJT-X's,
+# which the runners do not have).
+CTY = """England: 14:  27:  EU:   52.77:     1.47:     0.0:  G:
+    G,M;
+European Russia: 16:  29:  EU:   53.65:   -41.37:    -4.0:  UA:
+    R,U;
+"""
+
+
+@pytest.fixture(autouse=True)
+def cty(monkeypatch):
+    table = geo.Cty(CTY)
+    monkeypatch.setattr(geo, "cty", lambda: table)
 
 
 def test_the_sun_and_the_night():

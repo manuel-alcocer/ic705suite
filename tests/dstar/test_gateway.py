@@ -3,10 +3,16 @@ all), the reflectors' link packets and answers, and the voice routed both ways b
 simulated radio and a simulated reflector, with the radio's UR commands."""
 
 import asyncio
+import os
+
+import pytest
 
 from ic705suite.apps.dstar import gateway as gateway_module
 from ic705suite.apps.dstar import links, terminal
 from ic705suite.apps.dstar.protocol import Header, message_frames, pad
+
+# The serial port's termios, and the core starts no gateway elsewhere (service.start_gateway).
+posix_only = pytest.mark.skipif(os.name != "posix", reason="the USB gateway is POSIX only")
 
 
 def test_frames_split_from_the_idle_bytes():
@@ -220,6 +226,7 @@ async def test_a_reflector_not_found(monkeypatch):
     gw.stop()
 
 
+@posix_only
 async def test_the_terminal_on_a_serial_port():
     import os
     import pty
@@ -252,6 +259,7 @@ async def test_the_terminal_on_a_serial_port():
         os.close(slave)
 
 
+@posix_only
 def test_ext_on_the_simulated_radio(tmp_path, monkeypatch):
     """The core in EXT: the radio answering the gateway over USB, a reflector linked from a
     client (UR set back to CQCQCQ), kept for next time, and unlinked."""
@@ -297,6 +305,7 @@ def test_ext_on_the_simulated_radio(tmp_path, monkeypatch):
     asyncio.run(scenario())
 
 
+@posix_only
 def test_the_gateway_lives_with_the_core(tmp_path, monkeypatch):
     """No client needed: the gateway starts with the core, links the reflector of last time
     when the radio answers, keeps it when D-STAR is closed, and stops with the core."""

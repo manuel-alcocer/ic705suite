@@ -289,7 +289,8 @@ def test_a_knob_keeps_the_value_turned_to(qapp, monkeypatch):
     model.set_values({"af": 65})                              # the radio has it
     model.set_values({"af": 30})                              # and from now on, the radio's
     assert model.values["af"] == 30
-    monkeypatch.setattr(panelmodel.PanelState, "HOLD", 0.0)
+    # Already past (0 is not: Windows' clock ticks every 15 ms, so no time goes by).
+    monkeypatch.setattr(panelmodel.PanelState, "HOLD", -1.0)
     model.hold("af", 90)
     model.set_values({"af": 30})                              # held too long: the radio's
     assert model.values["af"] == 30
