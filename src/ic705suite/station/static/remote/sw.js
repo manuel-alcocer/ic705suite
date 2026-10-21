@@ -1,6 +1,6 @@
 // The page's shell, for opening the app quickly and installing it; the radio itself is the
 // WebSocket, never cached. The network first: a newer core brings a newer page.
-const CACHE = "ic705-remote-v1";
+const CACHE = "ic705-remote-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {

@@ -13,6 +13,7 @@
     --bg: #0b1120; --card: #131c2e; --fg: #e8edf5; --muted: #94a0b4; --line: #26324a;
     --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
     --tx: #dc2626; --tx-glow: rgba(220, 38, 38, .45); --ptt: #1e293b;
+    --tabs: calc(58px + env(safe-area-inset-bottom));
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
@@ -20,63 +21,132 @@
          font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
          user-select: none; -webkit-user-select: none; }
   main { max-width: 520px; min-height: 100%; margin: 0 auto; display: flex; flex-direction: column;
-         padding: calc(10px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); }
+         padding: calc(10px + env(safe-area-inset-top)) 16px calc(var(--tabs) + 12px); }
+  body.bar main { padding-bottom: calc(var(--tabs) + 84px); }
   header { display: flex; align-items: center; gap: 10px; }
   header h1 { font-size: 16px; margin: 0; flex: 1; font-weight: 600; color: var(--muted); }
   .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad); flex: none; }
   .dot.on { background: var(--ok); }
-  .icon-btn { border: 1px solid var(--line); background: transparent; color: var(--muted);
-              border-radius: 10px; padding: 6px 10px; font-size: 14px; }
-  .rig { margin-top: 14px; padding: 14px 16px; border-radius: 16px; background: var(--card);
+  button { font: inherit; color: inherit; }
+  button:disabled { opacity: .4; }
+
+  /* the rig: frequency (tap to type it, drag sideways to tune), mode, meter */
+  .rig { margin-top: 12px; padding: 12px 14px; border-radius: 16px; background: var(--card);
          border: 1px solid var(--line); }
   .freq { font-size: 40px; font-weight: 700; letter-spacing: .5px; font-variant-numeric: tabular-nums;
-          line-height: 1.1; }
+          line-height: 1.1; touch-action: pan-y; cursor: ew-resize; }
   .freq small { font-size: 18px; color: var(--muted); font-weight: 500; margin-left: 6px; }
   .sub { display: flex; justify-content: space-between; color: var(--muted); font-size: 14px;
          margin-top: 4px; font-variant-numeric: tabular-nums; }
-  .meter { height: 10px; border-radius: 5px; background: var(--line); margin-top: 10px; overflow: hidden; }
+  .meter { height: 10px; border-radius: 5px; background: var(--line); margin-top: 8px; overflow: hidden; }
   .meter > div { height: 100%; width: 0; background: var(--ok); transition: width .2s; }
   .meter.tx > div { background: var(--tx); }
-  .ptt-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 18px 0;
-              min-height: 260px; }
-  #ptt { width: min(72vw, 300px); aspect-ratio: 1; border-radius: 50%; border: 0;
-         background: var(--ptt); color: var(--fg); font-size: 34px; font-weight: 800; letter-spacing: 2px;
-         box-shadow: 0 0 0 6px var(--line), 0 10px 30px rgba(0,0,0,.4); touch-action: none;
-         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-         transition: background .1s, box-shadow .1s, transform .1s; }
-  #ptt small { font-size: 14px; font-weight: 500; letter-spacing: 0; color: var(--muted); }
-  #ptt.keying { background: #7f1d1d; transform: scale(.97); }
-  #ptt.on { background: var(--tx); transform: scale(.97);
-            box-shadow: 0 0 0 6px var(--bad), 0 0 50px 10px var(--tx-glow); }
-  #ptt.on small { color: #fee2e2; }
-  #ptt:disabled { opacity: .35; }
-  .mic { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin: 0 auto 14px;
-         width: min(72vw, 300px); }
+  .tune { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 8px; margin-top: 10px; }
+  .tune button { padding: 10px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--bg);
+                 font-size: 20px; font-weight: 700; touch-action: none; }
+  .tune button.step { font-size: 15px; font-weight: 600; color: var(--muted); }
+
+  /* rows of chips: bands, modes, filters */
+  .chips { display: flex; gap: 6px; overflow-x: auto; margin-top: 10px; padding-bottom: 2px;
+           scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chips button { flex: none; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line);
+                  background: var(--card); font-size: 15px; font-weight: 600; }
+  .chips button.sel { background: var(--accent); border-color: var(--accent); color: #0b1120; }
+  .chips .gap { flex: none; width: 6px; }
+
+  /* the PTT: round on the radio tab, a bar on the others */
+  .ptt-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 14px 0;
+              min-height: 220px; }
+  .ptt { border: 0; background: var(--ptt); color: var(--fg); font-weight: 800; letter-spacing: 2px;
+         touch-action: none; display: flex; flex-direction: column; align-items: center;
+         justify-content: center; gap: 4px; transition: background .1s, box-shadow .1s, transform .1s; }
+  .ptt small { font-size: 14px; font-weight: 500; letter-spacing: 0; color: var(--muted); }
+  #ptt { width: min(64vw, 260px); aspect-ratio: 1; border-radius: 50%; font-size: 34px;
+         box-shadow: 0 0 0 6px var(--line), 0 10px 30px rgba(0,0,0,.4); }
+  #ptt-bar { position: fixed; left: 16px; right: 16px; bottom: calc(var(--tabs) + 10px); max-width: 488px;
+             margin: 0 auto; height: 64px; border-radius: 16px; font-size: 22px; flex-direction: row; gap: 12px;
+             box-shadow: 0 0 0 3px var(--line), 0 6px 20px rgba(0,0,0,.5); z-index: 5; }
+  body:not(.bar) #ptt-bar { display: none; }
+  #ptt-bar:disabled { opacity: 1; color: #475569; }   /* over the page: never see-through */
+  #ptt-bar:disabled small { color: #475569; }
+  .ptt.keying { background: #7f1d1d; transform: scale(.97); }
+  .ptt.on { background: var(--tx); transform: scale(.97); box-shadow: 0 0 0 6px var(--bad), 0 0 50px 10px var(--tx-glow); }
+  .ptt.on small { color: #fee2e2; }
+  .mic { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin: 0 auto 12px;
+         width: min(64vw, 260px); }
   .mic > div { height: 100%; width: 0; background: var(--accent); }
+
   .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .toggle { padding: 12px 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--card);
-            color: var(--fg); font-size: 15px; font-weight: 600; }
+            font-size: 15px; font-weight: 600; }
   .toggle.sel { background: var(--accent); border-color: var(--accent); color: #0b1120; }
   .volume { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 8px 12px;
             border-radius: 12px; border: 1px solid var(--line); background: var(--card); }
   .volume span { color: var(--muted); font-size: 14px; }
   .volume input { flex: 1; accent-color: var(--accent); }
-  #toast { position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+
+  /* tabs */
+  .page[hidden] { display: none; }
+  .page { display: flex; flex-direction: column; flex: 1; }
+  nav { position: fixed; left: 0; right: 0; bottom: 0; height: var(--tabs); background: #0e1626;
+        border-top: 1px solid var(--line); display: flex; justify-content: center;
+        padding-bottom: env(safe-area-inset-bottom); z-index: 6; }
+  nav button { flex: 1; max-width: 173px; border: 0; background: transparent; color: var(--muted);
+               font-size: 13px; font-weight: 600; display: flex; flex-direction: column; align-items: center;
+               justify-content: center; gap: 2px; }
+  nav button svg { width: 22px; height: 22px; }
+  nav button.sel { color: var(--accent); }
+
+  /* the radio's controls */
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 16px 2px 6px; }
+  .group { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px 12px; }
+  .ctl { display: flex; align-items: center; gap: 10px; min-height: 50px; border-bottom: 1px solid var(--line); }
+  .ctl:last-child { border-bottom: 0; }
+  .ctl > label { width: 64px; flex: none; font-weight: 600; font-size: 15px; }
+  .ctl input[type=range] { flex: 1; accent-color: var(--accent); height: 28px; }
+  .ctl output { width: 46px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; }
+  .ctl .seg { flex: 1; display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  .ctl .seg button { padding: 7px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg);
+                     font-size: 14px; }
+  .ctl .seg button.sel { background: var(--accent); border-color: var(--accent); color: #0b1120; font-weight: 600; }
+  .switch { margin-left: auto; width: 54px; height: 30px; border-radius: 15px; border: 0; background: var(--line);
+            position: relative; flex: none; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%;
+                   background: var(--fg); transition: left .15s; }
+  .switch.on { background: var(--accent); }
+  .switch.on::after { left: 27px; background: #0b1120; }
+  .empty { color: var(--muted); text-align: center; padding: 24px 8px; }
+
+  /* memories */
+  .mem { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 4px; border: 0;
+         border-bottom: 1px solid var(--line); background: transparent; text-align: left; }
+  .group .mem:last-child { border-bottom: 0; }
+  .mem b { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mem span { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .save { display: flex; gap: 8px; margin-top: 12px; }
+  .save input { flex: 1; min-width: 0; padding: 12px; font-size: 16px; border-radius: 12px; border: 1px solid var(--line);
+                background: var(--card); color: var(--fg); user-select: text; }
+  .save button { padding: 0 16px; border-radius: 12px; border: 0; background: var(--accent); color: #0b1120; font-weight: 700; }
+
+  #toast { position: fixed; left: 16px; right: 16px; top: calc(12px + env(safe-area-inset-top));
            max-width: 488px; margin: 0 auto; padding: 12px 14px; border-radius: 12px; background: #1f2937;
-           border-left: 4px solid var(--accent); font-size: 14px; opacity: 0; transform: translateY(10px);
-           transition: opacity .2s, transform .2s; pointer-events: none; }
+           border-left: 4px solid var(--accent); font-size: 14px; opacity: 0; transform: translateY(-10px);
+           transition: opacity .2s, transform .2s; pointer-events: none; z-index: 20; }
   #toast.show { opacity: 1; transform: none; }
   #toast.error { border-left-color: var(--bad); }
   .overlay { position: fixed; inset: 0; background: rgba(11,17,32,.96); display: flex; align-items: center;
              justify-content: center; padding: 24px; z-index: 10; }
   .overlay[hidden] { display: none; }
   .panel { width: 100%; max-width: 380px; text-align: center; }
-  .panel h2 { margin: 0 0 8px; font-size: 22px; }
+  .panel h3 { margin: 0 0 8px; font-size: 22px; }
   .panel p { color: var(--muted); margin: 0 0 18px; font-size: 15px; }
-  .panel input { width: 100%; padding: 14px; font-size: 17px; border-radius: 12px; margin-bottom: 12px;
-                 border: 1px solid var(--line); background: var(--card); color: var(--fg); user-select: text; }
+  .panel input { width: 100%; padding: 14px; font-size: 20px; border-radius: 12px; margin-bottom: 12px;
+                 border: 1px solid var(--line); background: var(--card); color: var(--fg); user-select: text;
+                 text-align: center; font-variant-numeric: tabular-nums; }
   .big { width: 100%; padding: 16px; border: 0; border-radius: 14px; font-size: 18px; font-weight: 700;
          background: var(--accent); color: #0b1120; }
+  .link { margin-top: 10px; background: transparent; border: 0; color: var(--muted); padding: 10px; }
 </style>
 </head>
 <body>
@@ -84,7 +154,6 @@
   <header>
     <span class="dot" id="dot"></span>
     <h1 id="title">IC-705 remoto</h1>
-    <button class="icon-btn" id="logout" type="button">Token</button>
   </header>
 
   <section class="rig">
@@ -93,23 +162,62 @@
     <div class="meter" id="meter"><div></div></div>
   </section>
 
-  <div class="ptt-wrap">
-    <button id="ptt" type="button" disabled>PTT<small id="ptt-hint">Mantén pulsado</small></button>
+  <!-- Radio: tuning, bands, modes, the PTT -->
+  <div class="page" id="page-radio">
+    <div class="tune">
+      <button type="button" id="down">−</button>
+      <button type="button" class="step" id="step">100 Hz</button>
+      <button type="button" id="up">+</button>
+    </div>
+    <div class="chips" id="bands"></div>
+    <div class="chips" id="modes"></div>
+    <div class="ptt-wrap">
+      <button class="ptt" id="ptt" type="button" disabled>PTT<small id="ptt-hint">Mantén pulsado</small></button>
+    </div>
+    <div class="mic"><div id="mic"></div></div>
+    <div class="controls">
+      <button class="toggle sel" id="listen" type="button">Escuchar</button>
+      <button class="toggle" id="latch" type="button">PTT enclavado</button>
+      <label class="volume"><span>Volumen</span><input id="volume" type="range" min="0" max="200" value="100"></label>
+    </div>
   </div>
-  <div class="mic"><div id="mic"></div></div>
 
-  <div class="controls">
-    <button class="toggle sel" id="listen" type="button">Escuchar</button>
-    <button class="toggle" id="latch" type="button">PTT enclavado</button>
-    <button class="toggle" id="awake" type="button">Pantalla encendida</button>
-    <button class="toggle" id="reconnect" type="button">Reconectar</button>
-    <label class="volume"><span>Volumen</span><input id="volume" type="range" min="0" max="200" value="100"></label>
+  <!-- Controls: the radio's own (rig.describe), then this page's -->
+  <div class="page" id="page-controls" hidden>
+    <div id="rig-controls"><div class="empty">Sin conexión con la radio</div></div>
+    <h2>Esta app</h2>
+    <div class="controls">
+      <button class="toggle" id="awake" type="button">Pantalla encendida</button>
+      <button class="toggle" id="reconnect" type="button">Reconectar</button>
+      <button class="toggle" id="logout" type="button">Cambiar token</button>
+    </div>
+  </div>
+
+  <!-- Memories: the suite's channels -->
+  <div class="page" id="page-memories" hidden>
+    <h2>Memorias</h2>
+    <div class="group" id="memories"><div class="empty">Sin memorias</div></div>
+    <form class="save" id="save-form">
+      <input id="save-name" placeholder="Nombre para la frecuencia actual" maxlength="40">
+      <button type="submit">Guardar</button>
+    </form>
   </div>
 </main>
 
+<button class="ptt" id="ptt-bar" type="button" disabled>PTT<small id="ptt-bar-hint"></small></button>
+
+<nav>
+  <button type="button" class="sel" data-page="radio">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Radio</button>
+  <button type="button" data-page="controls">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Controles</button>
+  <button type="button" data-page="memories">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Memorias</button>
+</nav>
+
 <div class="overlay" id="login" hidden>
   <form class="panel" id="login-form">
-    <h2>Conectar con la radio</h2>
+    <h3>Conectar con la radio</h3>
     <p>El token del core: <code>[server] token</code> en su config.toml.</p>
     <input id="token" type="password" autocomplete="current-password" placeholder="Token" required>
     <button class="big" type="submit">Conectar</button>
@@ -118,10 +226,20 @@
 
 <div class="overlay" id="start" hidden>
   <div class="panel">
-    <h2>Activar el audio</h2>
+    <h3>Activar el audio</h3>
     <p>Conecta los auriculares. El navegador pedirá permiso para el micrófono.</p>
     <button class="big" id="start-btn" type="button">Empezar</button>
   </div>
+</div>
+
+<div class="overlay" id="entry" hidden>
+  <form class="panel" id="entry-form">
+    <h3>Frecuencia</h3>
+    <p>En kHz (7150 o 145500,5) o en MHz (7.150).</p>
+    <input id="entry-value" inputmode="decimal" autocomplete="off" required>
+    <button class="big" type="submit">Sintonizar</button>
+    <button class="link" type="button" id="entry-cancel">Cancelar</button>
+  </form>
 </div>
 
 <div id="toast"></div>
@@ -136,6 +254,20 @@ const FRAME = 960;            // 20 ms at 48 kHz
 const LATENCY = 0.15;         // s of receive audio held back against the network's jitter
 const MOST_BEHIND = 0.6;      // s behind past which the receive audio catches up
 const TOKEN_KEY = "ic705remote.token", PREFS_KEY = "ic705remote.prefs";
+// Each band's phone segment and its mode (gui.phone's), and the voice modes.
+const BANDS = [["160m", 1850000, "LSB"], ["80m", 3700000, "LSB"], ["60m", 5360000, "USB"],
+               ["40m", 7150000, "LSB"], ["20m", 14200000, "USB"], ["17m", 18140000, "USB"],
+               ["15m", 21250000, "USB"], ["12m", 24950000, "USB"], ["10m", 28500000, "USB"],
+               ["6m", 50150000, "USB"], ["2m", 145500000, "FM"], ["70cm", 433500000, "FM"]];
+const MODES = ["LSB", "USB", "AM", "FM"];
+const STEPS = [10, 100, 1000, 5000, 12500, 25000];
+const SWIPE = 18;             // px of a sideways drag on the frequency per step
+// The radio's controls a phone operator turns (gui.phone's), in groups of this page's.
+const GROUPS = [["Recepción", ["af", "sql", "rf", "agc", "preamp", "att"]],
+                ["Filtro y DSP", ["filter_width", "nb", "nb_level", "nr", "nr_level", "anf"]],
+                ["Transmisión", ["power", "mic", "comp", "comp_level", "tx_width"]],
+                ["Escucha y VOX", ["monitor", "monitor_gain", "vox", "vox_gain"]]];
+const SENT_HOLD = 1500;       // ms a control keeps the value the operator gave it
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -143,7 +275,8 @@ const store = {
   set(key, value) { try { localStorage.setItem(key, value); } catch {} },
   remove(key) { try { localStorage.removeItem(key); } catch {} },
 };
-const prefs = Object.assign({ listen: true, latch: false, awake: true, volume: 100 },
+const prefs = Object.assign({ listen: true, latch: false, awake: true, volume: 100, step: 100,
+                              tab: "radio", left: {} },
                             JSON.parse(store.get(PREFS_KEY) || "{}"));
 const savePrefs = () => store.set(PREFS_KEY, JSON.stringify(prefs));
 
@@ -153,6 +286,8 @@ let welcome = {}, rig = {};
 let audio = null;             // {ctx, gain, decoder, encoder, playAt, rxTime, txTime}
 let ptt = "idle";             // idle, keying (asked), on (keyed), releasing (let go while asked)
 let keyedAt = 0, wakeLock = null, toastTimer = null;
+let described = null;         // rig.describe's controls, by id
+const touched = new Map();    // control id -> when the operator last moved it here
 
 // ---------------------------------------------------------------- the connection --
 
@@ -182,6 +317,10 @@ function call(method, params = {}) {
   });
 }
 
+function command(line) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "command", line, app: "rig" }));
+}
+
 function onEvent(ev) {
   switch (ev.type) {
     case "welcome":
@@ -189,8 +328,10 @@ function onEvent(ev) {
       setConnected(true);
       $("title").textContent = ev.callsign ? `${ev.callsign} · IC-705` : "IC-705 remoto";
       if (audio) listen(prefs.listen);
+      describe();
+      loadMemories();
       break;
-    case "rig": rig = ev; showRig(); break;
+    case "rig": onRig(ev); break;
     case "reply": {
       const resolve = pending.get(ev.id);
       pending.delete(ev.id);
@@ -199,8 +340,9 @@ function onEvent(ev) {
     }
     case "error":
       if (ev.fatal) {
-        toast(/token/i.test(ev.text || "") ? "Token incorrecto" : ev.text, true);
-        if (/token/i.test(ev.text || "")) { store.remove(TOKEN_KEY); $("login").hidden = false; }
+        const token = /token/i.test(ev.text || "");
+        toast(token ? "Token incorrecto" : ev.text, true);
+        if (token) { store.remove(TOKEN_KEY); $("login").hidden = false; }
         ws.onclose = () => setConnected(false);
         return;
       }
@@ -209,7 +351,7 @@ function onEvent(ev) {
       toast(ev.text, true);
       break;
     case "info":
-      if (/voice|remote/i.test(ev.msgid || "")) toast(ev.text);
+      if (/voice|remote|memory|tuned/i.test(ev.msgid || "")) toast(ev.text);
       break;
   }
 }
@@ -225,17 +367,38 @@ function setConnected(on) {
 
 // ------------------------------------------------------------------------ the rig --
 
+function onRig(ev) {
+  const wasConnected = rig.connected;
+  rig = ev;
+  // Where each band was left, for its button (a band's segment the first time).
+  if (rig.band && rig.frequency && MODES.includes(rig.mode) && BANDS.some((b) => b[0] === rig.band)) {
+    const left = prefs.left[rig.band];
+    if (!left || left[0] !== rig.frequency || left[1] !== rig.mode) {
+      prefs.left[rig.band] = [rig.frequency, rig.mode];
+      clearTimeout(onRig.saving);
+      onRig.saving = setTimeout(savePrefs, 2000);
+    }
+  }
+  if (rig.connected && !wasConnected) describe();
+  showRig();
+  showControls();
+}
+
+function formatHz(f) {
+  const mhz = Math.floor(f / 1e6), khz = Math.floor(f / 1e3) % 1000, hz = f % 1000;
+  return `${mhz}.${String(khz).padStart(3, "0")}.${String(hz).padStart(3, "0")}`;
+}
+
 function showRig() {
-  const f = rig.frequency;
-  if (!connected || !rig.connected || !f) {
+  const f = tuning.target ?? rig.frequency;
+  const live = connected && rig.connected && f;
+  if (!live) {
     $("freq").firstChild.textContent = connected ? "Radio desconectada" : "Sin conexión";
     $("freq").style.fontSize = "26px";
     $("mode").textContent = ""; $("band").textContent = ""; $("smeter").textContent = "";
     $("meter").firstElementChild.style.width = "0";
   } else {
-    const mhz = Math.floor(f / 1e6), khz = Math.floor(f / 1e3) % 1000, hz = f % 1000;
-    $("freq").firstChild.textContent =
-      `${mhz}.${String(khz).padStart(3, "0")}.${String(hz).padStart(3, "0")}`;
+    $("freq").firstChild.textContent = formatHz(f);
     $("freq").style.fontSize = "";
     $("mode").textContent = rig.mode || "";
     $("band").textContent = rig.band || "";
@@ -250,8 +413,286 @@ function showRig() {
       $("meter").firstElementChild.style.width = `${Math.min(100, (rig.smeter ?? 0) / 2.41)}%`;
     }
   }
+  const filter = String((rig.controls || {}).filter ?? "");
+  for (const b of $("bands").children) b.classList.toggle("sel", live && b.dataset.band === rig.band);
+  for (const b of $("modes").children) {
+    b.classList.toggle("sel", live && (b.dataset.mode ? b.dataset.mode === rig.mode : b.dataset.filter === filter));
+  }
+  for (const id of ["down", "up", "step"]) $(id).disabled = !live;
   updatePttButton();
 }
+
+// Tuning: the latest target goes to the radio at most every 120 ms, the digits follow it
+// at once; the radio's own frequency shows again once it has caught up.
+const tuning = { target: null, timer: null, sentAt: 0 };
+
+function tuneTo(hz) {
+  if (!rig.connected || !hz || hz < 30000) return;
+  tuning.target = Math.round(hz);
+  showRig();
+  if (tuning.timer) return;
+  const wait = Math.max(0, 120 - (Date.now() - tuning.sentAt));
+  tuning.timer = setTimeout(() => {
+    tuning.timer = null;
+    tuning.sentAt = Date.now();
+    command(`/f ${tuning.target}`);
+    clearTimeout(tuning.release);
+    tuning.release = setTimeout(() => { tuning.target = null; showRig(); }, 700);
+  }, wait);
+}
+
+function stepBy(direction) {
+  const f = tuning.target ?? rig.frequency, step = prefs.step;
+  if (!f) return;
+  // Up to the next multiple of the step, down to the previous one (ui.rigkeys).
+  tuneTo(direction > 0 ? (Math.floor(f / step) + 1) * step : Math.floor((f - 1) / step) * step);
+}
+
+function showStep() {
+  const s = prefs.step;
+  $("step").textContent = s >= 1000 ? `${s / 1000} kHz`.replace(".", ",") : `${s} Hz`;
+}
+
+function repeatable(button, action) {
+  // Held: again and again, faster after a while.
+  let timer = null;
+  const stop = () => { clearTimeout(timer); timer = null; };
+  button.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    button.setPointerCapture(e.pointerId);
+    action();
+    let delay = 400;
+    const again = () => { action(); delay = Math.max(60, delay * 0.8); timer = setTimeout(again, delay); };
+    timer = setTimeout(again, delay);
+  });
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) button.addEventListener(type, stop);
+}
+
+repeatable($("down"), () => stepBy(-1));
+repeatable($("up"), () => stepBy(1));
+$("step").onclick = () => {
+  prefs.step = STEPS[(STEPS.indexOf(prefs.step) + 1) % STEPS.length] || 100;
+  savePrefs(); showStep();
+};
+
+// The frequency: dragged sideways it tunes by steps; tapped, it is typed.
+(() => {
+  const el = $("freq");
+  let startX = null, moved = 0, done = 0;
+  el.addEventListener("pointerdown", (e) => { startX = e.clientX; moved = 0; done = 0; });
+  el.addEventListener("pointermove", (e) => {
+    if (startX === null || !rig.connected) return;
+    moved = e.clientX - startX;
+    const steps = Math.trunc(moved / SWIPE);
+    while (done < steps) { stepBy(1); done++; }
+    while (done > steps) { stepBy(-1); done--; }
+  });
+  el.addEventListener("pointerup", () => {
+    if (startX !== null && Math.abs(moved) < 6 && rig.connected) {
+      $("entry-value").value = "";
+      $("entry").hidden = false;
+      $("entry-value").focus();
+    }
+    startX = null;
+  });
+  el.addEventListener("pointercancel", () => { startX = null; });
+})();
+
+$("entry-form").onsubmit = (e) => {
+  e.preventDefault();
+  const text = $("entry-value").value.trim().replace(",", ".");
+  const value = Number(text);
+  $("entry").hidden = true;
+  if (!text || !Number.isFinite(value) || value <= 0) { toast("Frecuencia no válida", true); return; }
+  command(`/f ${text}`);       // the core reads MHz, kHz or Hz by its size (rig.bands)
+};
+$("entry-cancel").onclick = () => { $("entry").hidden = true; };
+
+function buildChips() {
+  for (const [name] of BANDS) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = name; b.dataset.band = name;
+    b.onclick = () => goBand(name);
+    $("bands").append(b);
+  }
+  for (const mode of MODES) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = mode; b.dataset.mode = mode;
+    b.onclick = () => command(`/mode ${mode}`);
+    $("modes").append(b);
+  }
+  const gap = document.createElement("span");
+  gap.className = "gap";
+  $("modes").append(gap);
+  for (const n of ["1", "2", "3"]) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = `FIL${n}`; b.dataset.filter = n;
+    b.onclick = () => setControl("filter", n);
+    $("modes").append(b);
+  }
+}
+
+function goBand(name) {
+  // Where it was left, else its phone segment (gui.phone's go_band).
+  const [, hz, mode] = BANDS.find((b) => b[0] === name);
+  const [f, m] = prefs.left[name] || [hz, mode];
+  command(`/f ${f}`);
+  command(`/mode ${m}`);
+}
+
+// ---------------------------------------------------------- the radio's controls --
+
+async function describe() {
+  if (!connected) return;
+  const result = await call("rig.describe");
+  if (!result.controls) return;
+  described = Object.fromEntries(result.controls.map((c) => [c.id, c]));
+  buildControls();
+}
+
+async function setControl(id, value) {
+  touched.set(id, Date.now());
+  const result = await call("rig.set", { id, value });
+  if (result.error) toast(result.error, true);
+}
+
+function buildControls() {
+  const box = $("rig-controls");
+  box.textContent = "";
+  for (const [title, ids] of GROUPS) {
+    const present = ids.filter((id) => described[id]);
+    if (!present.length) continue;
+    const h = document.createElement("h2");
+    h.textContent = title;
+    const group = document.createElement("div");
+    group.className = "group";
+    for (const id of present) group.append(controlRow(described[id]));
+    box.append(h, group);
+  }
+  if (!box.children.length) box.innerHTML = '<div class="empty">Esta radio no tiene controles</div>';
+  showControls();
+}
+
+function controlRow(c) {
+  const row = document.createElement("div");
+  row.className = "ctl";
+  row.dataset.id = c.id;
+  row.dataset.kind = c.kind;
+  const label = document.createElement("label");
+  label.textContent = c.label;
+  label.title = c.help || "";
+  row.append(label);
+  if (c.kind === "level") {
+    const input = document.createElement("input");
+    Object.assign(input, { type: "range", min: c.minimum, max: c.maximum, step: c.step || 1 });
+    const out = document.createElement("output");
+    let timer = null;
+    // While dragged: the value to the radio at most every 150 ms, the last one always.
+    const send = () => { timer = null; setControl(c.id, Number(input.value)); };
+    input.oninput = () => {
+      touched.set(c.id, Date.now());
+      out.textContent = formatValue(c, Number(input.value));
+      if (!timer) timer = setTimeout(send, 150);
+    };
+    input.onchange = () => { clearTimeout(timer); send(); };
+    row.append(input, out);
+  } else if (c.kind === "toggle") {
+    const sw = document.createElement("button");
+    sw.type = "button"; sw.className = "switch";
+    sw.onclick = () => {
+      const on = !sw.classList.contains("on");
+      sw.classList.toggle("on", on);
+      setControl(c.id, on);
+    };
+    row.append(sw);
+  } else if (c.kind === "choice") {
+    const seg = document.createElement("div");
+    seg.className = "seg";
+    for (const [value, text] of c.choices) {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = text; b.dataset.value = value;
+      b.onclick = () => {
+        for (const other of seg.children) other.classList.toggle("sel", other === b);
+        setControl(c.id, value);
+      };
+      seg.append(b);
+    }
+    row.append(seg);
+  } else {
+    return document.createDocumentFragment();
+  }
+  return row;
+}
+
+function formatValue(c, v) {
+  if (c.unit === "%") return `${Math.round(v)} %`;
+  if (c.unit) return `${Math.round(v)} ${c.unit}`;
+  return String(Math.round(v));
+}
+
+function showControls() {
+  if (!described || $("page-controls").hidden) return;
+  const values = rig.controls || {};
+  const now = Date.now();
+  for (const row of $("rig-controls").querySelectorAll(".ctl")) {
+    const id = row.dataset.id, value = values[id], c = described[id];
+    row.style.opacity = value === undefined || value === null ? ".45" : "";
+    // What the operator just gave it wins over the radio's older state.
+    if (value === undefined || value === null || now - (touched.get(id) || 0) < SENT_HOLD) continue;
+    if (row.dataset.kind === "level") {
+      row.querySelector("input").value = value;
+      row.querySelector("output").textContent = formatValue(c, Number(value));
+    } else if (row.dataset.kind === "toggle") {
+      row.querySelector(".switch").classList.toggle("on", !!value);
+    } else {
+      for (const b of row.querySelectorAll(".seg button")) b.classList.toggle("sel", b.dataset.value === String(value));
+    }
+  }
+}
+
+// ------------------------------------------------------------------ the memories --
+
+async function loadMemories() {
+  const result = await call("memories");
+  if (result.memories) showMemories(result.memories);
+}
+
+function showMemories(list) {
+  const box = $("memories");
+  box.textContent = "";
+  if (!list.length) { box.innerHTML = '<div class="empty">Sin memorias: guarda la frecuencia actual abajo</div>'; return; }
+  for (const m of list) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "mem";
+    const name = document.createElement("b");
+    name.textContent = m.name || formatHz(m.frequency);
+    const info = document.createElement("span");
+    info.textContent = `${formatHz(m.frequency)} ${m.mode || ""}`;
+    b.append(name, info);
+    b.onclick = async () => {
+      const fields = Object.fromEntries(Object.entries(m).filter(([k]) =>
+        !["id", "added", "group", "channel", "note"].includes(k)));
+      const result = await call("memory.tune", fields);
+      if (result.error) toast(result.error, true);
+      else toast(`Sintonizada: ${name.textContent}`);
+    };
+    box.append(b);
+  }
+}
+
+$("save-form").onsubmit = async (e) => {
+  e.preventDefault();
+  if (!rig.connected || !rig.frequency) { toast("Radio desconectada", true); return; }
+  const controls = rig.controls || {};
+  const result = await call("memory.save", {
+    name: $("save-name").value.trim(), frequency: rig.frequency, mode: rig.mode || "USB",
+    filter: Number(controls.filter || 1), data: controls.data_mode ? 1 : 0 });
+  if (result.error) { toast(result.error, true); return; }
+  $("save-name").value = "";
+  $("save-name").blur();
+  if (result.memories) showMemories(result.memories);
+  toast("Memoria guardada");
+};
 
 // ---------------------------------------------------------------------- the audio --
 
@@ -358,11 +799,10 @@ async function listen(on) {
 
 // ------------------------------------------------------------------------ the PTT --
 
+const PTT_BUTTONS = [$("ptt"), $("ptt-bar")];
+
 function updatePttButton() {
-  const button = $("ptt");
-  button.disabled = !connected || !rig.connected || !audio;
-  button.classList.toggle("keying", ptt === "keying" || ptt === "releasing");
-  button.classList.toggle("on", ptt === "on");
+  const disabled = !connected || !rig.connected || !audio;
   let hint = prefs.latch ? "Toca para hablar" : "Mantén pulsado";
   if (connected && welcome.tx_enabled === false) hint = "TX desactivada en el core";
   if (ptt === "keying") hint = "Pasando a TX…";
@@ -370,7 +810,13 @@ function updatePttButton() {
     const s = Math.floor((Date.now() - keyedAt) / 1000);
     hint = `${prefs.latch ? "Toca para soltar" : "Suelta para recibir"} · ${s} s`;
   }
+  for (const button of PTT_BUTTONS) {
+    button.disabled = disabled;
+    button.classList.toggle("keying", ptt === "keying" || ptt === "releasing");
+    button.classList.toggle("on", ptt === "on");
+  }
   $("ptt-hint").textContent = hint;
+  $("ptt-bar-hint").textContent = hint;
 }
 
 function setPtt(state) {
@@ -400,17 +846,18 @@ async function pttUp(force = false) {
   await call("voice.ptt", { on: false });
 }
 
-const button = $("ptt");
-button.addEventListener("pointerdown", (e) => {
-  e.preventDefault();
-  if (prefs.latch) { ptt === "idle" ? pttDown() : pttUp(); return; }
-  button.setPointerCapture(e.pointerId);
-  pttDown();
-});
-for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
-  button.addEventListener(type, () => { if (!prefs.latch) pttUp(); });
+for (const button of PTT_BUTTONS) {
+  button.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    if (prefs.latch) { ptt === "idle" ? pttDown() : pttUp(); return; }
+    button.setPointerCapture(e.pointerId);
+    pttDown();
+  });
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    button.addEventListener(type, () => { if (!prefs.latch) pttUp(); });
+  }
+  button.addEventListener("contextmenu", (e) => e.preventDefault());
 }
-button.addEventListener("contextmenu", (e) => e.preventDefault());
 // Nothing stays keyed with the app out of sight.
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) pttUp(true);
@@ -418,7 +865,7 @@ document.addEventListener("visibilitychange", () => {
 });
 setInterval(() => { if (ptt === "on") updatePttButton(); }, 500);
 
-// ----------------------------------------------------------------- the controls --
+// ------------------------------------------------------------------ the page itself --
 
 function toast(text, error = false) {
   if (!text) return;
@@ -438,14 +885,26 @@ async function requestWakeLock() {
   } catch {}
 }
 
+function showTab(name) {
+  prefs.tab = name; savePrefs();
+  for (const b of document.querySelectorAll("nav button")) b.classList.toggle("sel", b.dataset.page === name);
+  for (const page of ["radio", "controls", "memories"]) $(`page-${page}`).hidden = page !== name;
+  document.body.classList.toggle("bar", name !== "radio");
+  if (name === "controls") { if (!described) describe(); showControls(); }
+  if (name === "memories") loadMemories();
+  window.scrollTo(0, 0);
+}
+
 function showToggles() {
   $("listen").classList.toggle("sel", prefs.listen);
   $("latch").classList.toggle("sel", prefs.latch);
   $("awake").classList.toggle("sel", prefs.awake);
   $("volume").value = prefs.volume;
+  showStep();
   updatePttButton();
 }
 
+for (const b of document.querySelectorAll("nav button")) b.onclick = () => showTab(b.dataset.page);
 $("listen").onclick = () => { prefs.listen = !prefs.listen; savePrefs(); showToggles(); listen(prefs.listen); };
 $("latch").onclick = () => { pttUp(true); prefs.latch = !prefs.latch; savePrefs(); showToggles(); };
 $("awake").onclick = () => {
@@ -485,7 +944,9 @@ $("start-btn").onclick = async () => {
 };
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+buildChips();
 showToggles();
+showTab(["radio", "controls", "memories"].includes(prefs.tab) ? prefs.tab : "radio");
 showRig();
 requestWakeLock();
 if (store.get(TOKEN_KEY)) { $("start").hidden = false; connect(); } else $("login").hidden = false;
