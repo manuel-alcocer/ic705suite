@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.28.0 (2026-10-21)
+
+### Features
+
+- **remote**: Choose the phone's microphone
+  ([`21a1fa5`](https://github.com/manuel-alcocer/ic705suite/commit/21a1fa5510fcf08d7999295aa8315d47e5723ef0))
+
+
 ## v0.27.0 (2026-10-21)
 
 ### Features
