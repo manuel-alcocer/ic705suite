@@ -25,7 +25,8 @@ Events (server -> client), by "type":
            msgid is an English template to translate on the client (ic705suite.i18n.render),
            text the same message already formatted in English
 Commands (client -> server):
-  hello    {token, client}   must be first on a remote connection
+  hello    {token, client, language?}   must be first on a remote connection; with a
+           language ("es"), info and error come with their text in it
   command  {line, app}       app: "cw" (default) or "rig"
   scope    {start, end, center, out_of_range, data}  band scope sweep, data = base64 of
            one byte per point (0..255); only while a client keeps calling scope.watch
@@ -37,7 +38,8 @@ Commands (client -> server):
            swr.antenna.save {name, notes, coil_sign, id?}, swr.antenna.delete {id},
            pkt.* (see apps.packet.service), ft8.* (see apps.ft8.service),
            dstar.* (see apps.dstar.service),
-           audio.listen {on}  receive audio for this client (remote: binary frames)
+           audio.listen {on, codec?}  receive audio for this client (remote: binary frames;
+           codec "opus": OPUS_RX frames, when the core has libopus)
            voice.ptt {on, source}  key the radio for this client's microphone, or for the
            radio's own (source "radio"; see station.voice)
            memories, memory.save {id?, name, frequency, mode...}, memory.delete {id}
@@ -47,6 +49,9 @@ Binary frames, one byte of kind, then the data:
   AUDIO_RX  (server -> client, while it listens) the radio's receive audio, 16-bit
             little-endian mono PCM at audio_rate
   AUDIO_TX  (client -> server, while its PTT is down) its microphone, the same format
+  OPUS_RX   the receive audio as one Opus packet of 20 ms (audio.listen with codec "opus"),
+            decodable at any Opus rate
+  OPUS_TX   the microphone as Opus packets, at any Opus rate (see ic705suite.opus)
 """
 
 from __future__ import annotations
@@ -82,7 +87,9 @@ BACKLOG = 400          # text events replayed to a client that connects later
 RETRY_DELAY = 10.0     # wait between attempts to reach the radio
 STOP_TIMEOUT = 10.0    # s each service gets to stop; one stuck is left behind, and named
 AUDIO_RX = 0x01        # kinds of binary frame: receive audio,
-AUDIO_TX = 0x02        # and a client's microphone
+AUDIO_TX = 0x02        # and a client's microphone; the same, as Opus packets
+OPUS_RX = 0x03
+OPUS_TX = 0x04
 
 Event = dict
 Subscriber = Callable[[Event], None]

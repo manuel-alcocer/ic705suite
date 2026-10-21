@@ -10,8 +10,16 @@ import logging
 from websockets.asyncio.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
 
-from ic705suite.i18n import N_
-from ic705suite.station.core import AUDIO_RX, AUDIO_TX, PROTOCOL_VERSION, Core
+from ic705suite import opus
+from ic705suite.i18n import N_, SOURCE_LANGUAGE, language_code, load_catalog, render
+from ic705suite.station.core import (
+    AUDIO_RX,
+    AUDIO_TX,
+    OPUS_RX,
+    OPUS_TX,
+    PROTOCOL_VERSION,
+    Core,
+)
 
 log = logging.getLogger(__name__)
 
@@ -62,7 +70,13 @@ class CoreServer:
         queue: asyncio.Queue[str | bytes] = asyncio.Queue(CLIENT_QUEUE)
         dropped = asyncio.Event()
 
+        # A client in a language of its own (the phone's page) gets the messages in it.
+        wanted = language_code(str(hello.get("language") or SOURCE_LANGUAGE))
+        catalog = load_catalog(wanted) if wanted != SOURCE_LANGUAGE else None
+
         def push(event: dict) -> None:
+            if catalog and event.get("msgid") and event.get("type") in ("info", "error"):
+                event = {**event, "text": render(event, catalog)}
             try:
                 queue.put_nowait(json.dumps(event))
             except asyncio.QueueFull:
@@ -72,7 +86,14 @@ class CoreServer:
             if queue.qsize() < AUDIO_QUEUE:
                 queue.put_nowait(bytes([AUDIO_RX]) + pcm)
 
+        def push_opus(pcm: bytes) -> None:
+            for packet in encoder.encode(pcm):
+                if queue.qsize() < AUDIO_QUEUE:
+                    queue.put_nowait(bytes([OPUS_RX]) + packet)
+
         stop_audio = None
+        encoder: opus.Encoder | None = None
+        decoder: opus.Decoder | None = None
         talker = object()                    # this connection, for the voice's PTT
         unsubscribe = self.core.subscribe(push)
         self.clients += 1
@@ -84,6 +105,10 @@ class CoreServer:
                 if isinstance(raw, bytes):
                     if raw[:1] == bytes([AUDIO_TX]):
                         self.core.voice.audio(talker, raw[1:])
+                    elif raw[:1] == bytes([OPUS_TX]) and self.core.voice.talker is talker:
+                        if decoder is None:
+                            decoder = opus.Decoder(self.core.station.sample_rate)
+                        self.core.voice.audio(talker, decoder.decode(raw[1:]))
                     continue
                 try:
                     msg = json.loads(raw)
@@ -95,16 +120,29 @@ class CoreServer:
                     await self.core.command(msg["line"], app)
                 elif msg.get("type") == "call" and msg.get("method") == "audio.listen":
                     # The client's own: the audio goes to this connection.
-                    on = bool((msg.get("params") or {}).get("on"))
+                    params = msg.get("params") or {}
+                    on = bool(params.get("on"))
+                    codec = "opus" if params.get("codec") == "opus" else "pcm"
+                    result: dict = {}
                     if on and stop_audio is None and self.core.audio_rate:
-                        stop_audio = self.core.listen_audio(push_audio)
-                        log.info("client %s listens to the receive audio", peer)
+                        if codec == "opus":
+                            try:
+                                encoder = opus.Encoder(self.core.audio_rate)
+                            except (opus.OpusError, OSError) as exc:
+                                result["error"] = str(exc)
+                            else:
+                                stop_audio = self.core.listen_audio(push_opus)
+                        else:
+                            stop_audio = self.core.listen_audio(push_audio)
+                        if stop_audio is not None:
+                            log.info("client %s listens to the receive audio (%s)", peer,
+                                     codec)
                     elif not on and stop_audio is not None:
                         stop_audio()
                         stop_audio = None
                     push({"type": "reply", "id": msg.get("id"),
                           "result": {"on": stop_audio is not None,
-                                     "rate": self.core.audio_rate}})
+                                     "rate": self.core.audio_rate, "codec": codec, **result}})
                 elif msg.get("type") == "call" and msg.get("method") == "voice.ptt":
                     params = msg.get("params") or {}
                     on = bool(params.get("on"))
@@ -124,6 +162,9 @@ class CoreServer:
                 await self.core.voice.release(talker, tail=0)
             if stop_audio is not None:
                 stop_audio()
+            for codec in (encoder, decoder):
+                if codec is not None:
+                    codec.close()
             unsubscribe()
             sender.cancel()
             self.clients -= 1

@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b1120">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>IC-705 remoto</title>
+<style>
+  :root {
+    --bg: #0b1120; --card: #131c2e; --fg: #e8edf5; --muted: #94a0b4; --line: #26324a;
+    --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
+    --tx: #dc2626; --tx-glow: rgba(220, 38, 38, .45); --ptt: #1e293b;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); overscroll-behavior: none;
+         font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         user-select: none; -webkit-user-select: none; }
+  main { max-width: 520px; min-height: 100%; margin: 0 auto; display: flex; flex-direction: column;
+         padding: calc(10px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); }
+  header { display: flex; align-items: center; gap: 10px; }
+  header h1 { font-size: 16px; margin: 0; flex: 1; font-weight: 600; color: var(--muted); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad); flex: none; }
+  .dot.on { background: var(--ok); }
+  .icon-btn { border: 1px solid var(--line); background: transparent; color: var(--muted);
+              border-radius: 10px; padding: 6px 10px; font-size: 14px; }
+  .rig { margin-top: 14px; padding: 14px 16px; border-radius: 16px; background: var(--card);
+         border: 1px solid var(--line); }
+  .freq { font-size: 40px; font-weight: 700; letter-spacing: .5px; font-variant-numeric: tabular-nums;
+          line-height: 1.1; }
+  .freq small { font-size: 18px; color: var(--muted); font-weight: 500; margin-left: 6px; }
+  .sub { display: flex; justify-content: space-between; color: var(--muted); font-size: 14px;
+         margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .meter { height: 10px; border-radius: 5px; background: var(--line); margin-top: 10px; overflow: hidden; }
+  .meter > div { height: 100%; width: 0; background: var(--ok); transition: width .2s; }
+  .meter.tx > div { background: var(--tx); }
+  .ptt-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 18px 0;
+              min-height: 260px; }
+  #ptt { width: min(72vw, 300px); aspect-ratio: 1; border-radius: 50%; border: 0;
+         background: var(--ptt); color: var(--fg); font-size: 34px; font-weight: 800; letter-spacing: 2px;
+         box-shadow: 0 0 0 6px var(--line), 0 10px 30px rgba(0,0,0,.4); touch-action: none;
+         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+         transition: background .1s, box-shadow .1s, transform .1s; }
+  #ptt small { font-size: 14px; font-weight: 500; letter-spacing: 0; color: var(--muted); }
+  #ptt.keying { background: #7f1d1d; transform: scale(.97); }
+  #ptt.on { background: var(--tx); transform: scale(.97);
+            box-shadow: 0 0 0 6px var(--bad), 0 0 50px 10px var(--tx-glow); }
+  #ptt.on small { color: #fee2e2; }
+  #ptt:disabled { opacity: .35; }
+  .mic { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin: 0 auto 14px;
+         width: min(72vw, 300px); }
+  .mic > div { height: 100%; width: 0; background: var(--accent); }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .toggle { padding: 12px 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--card);
+            color: var(--fg); font-size: 15px; font-weight: 600; }
+  .toggle.sel { background: var(--accent); border-color: var(--accent); color: #0b1120; }
+  .volume { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+            border-radius: 12px; border: 1px solid var(--line); background: var(--card); }
+  .volume span { color: var(--muted); font-size: 14px; }
+  .volume input { flex: 1; accent-color: var(--accent); }
+  #toast { position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+           max-width: 488px; margin: 0 auto; padding: 12px 14px; border-radius: 12px; background: #1f2937;
+           border-left: 4px solid var(--accent); font-size: 14px; opacity: 0; transform: translateY(10px);
+           transition: opacity .2s, transform .2s; pointer-events: none; }
+  #toast.show { opacity: 1; transform: none; }
+  #toast.error { border-left-color: var(--bad); }
+  .overlay { position: fixed; inset: 0; background: rgba(11,17,32,.96); display: flex; align-items: center;
+             justify-content: center; padding: 24px; z-index: 10; }
+  .overlay[hidden] { display: none; }
+  .panel { width: 100%; max-width: 380px; text-align: center; }
+  .panel h2 { margin: 0 0 8px; font-size: 22px; }
+  .panel p { color: var(--muted); margin: 0 0 18px; font-size: 15px; }
+  .panel input { width: 100%; padding: 14px; font-size: 17px; border-radius: 12px; margin-bottom: 12px;
+                 border: 1px solid var(--line); background: var(--card); color: var(--fg); user-select: text; }
+  .big { width: 100%; padding: 16px; border: 0; border-radius: 14px; font-size: 18px; font-weight: 700;
+         background: var(--accent); color: #0b1120; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="dot" id="dot"></span>
+    <h1 id="title">IC-705 remoto</h1>
+    <button class="icon-btn" id="logout" type="button">Token</button>
+  </header>
+
+  <section class="rig">
+    <div class="freq" id="freq">—<small id="mode"></small></div>
+    <div class="sub"><span id="band"></span><span id="smeter"></span></div>
+    <div class="meter" id="meter"><div></div></div>
+  </section>
+
+  <div class="ptt-wrap">
+    <button id="ptt" type="button" disabled>PTT<small id="ptt-hint">Mantén pulsado</small></button>
+  </div>
+  <div class="mic"><div id="mic"></div></div>
+
+  <div class="controls">
+    <button class="toggle sel" id="listen" type="button">Escuchar</button>
+    <button class="toggle" id="latch" type="button">PTT enclavado</button>
+    <button class="toggle" id="awake" type="button">Pantalla encendida</button>
+    <button class="toggle" id="reconnect" type="button">Reconectar</button>
+    <label class="volume"><span>Volumen</span><input id="volume" type="range" min="0" max="200" value="100"></label>
+  </div>
+</main>
+
+<div class="overlay" id="login" hidden>
+  <form class="panel" id="login-form">
+    <h2>Conectar con la radio</h2>
+    <p>El token del core: <code>[server] token</code> en su config.toml.</p>
+    <input id="token" type="password" autocomplete="current-password" placeholder="Token" required>
+    <button class="big" type="submit">Conectar</button>
+  </form>
+</div>
+
+<div class="overlay" id="start" hidden>
+  <div class="panel">
+    <h2>Activar el audio</h2>
+    <p>Conecta los auriculares. El navegador pedirá permiso para el micrófono.</p>
+    <button class="big" id="start-btn" type="button">Empezar</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+// The core's protocol (ic705suite.station.core): JSON events and calls, and binary frames of
+// one byte of kind then the data. The voice goes as Opus, 20 ms per packet, both ways.
+const OPUS_RX = 0x03, OPUS_TX = 0x04;
+const RATE = 48000;           // the page's audio; the core's Opus decodes at the radio's
+const FRAME = 960;            // 20 ms at 48 kHz
+const LATENCY = 0.15;         // s of receive audio held back against the network's jitter
+const MOST_BEHIND = 0.6;      // s behind past which the receive audio catches up
+const TOKEN_KEY = "ic705remote.token", PREFS_KEY = "ic705remote.prefs";
+
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+  set(key, value) { try { localStorage.setItem(key, value); } catch {} },
+  remove(key) { try { localStorage.removeItem(key); } catch {} },
+};
+const prefs = Object.assign({ listen: true, latch: false, awake: true, volume: 100 },
+                            JSON.parse(store.get(PREFS_KEY) || "{}"));
+const savePrefs = () => store.set(PREFS_KEY, JSON.stringify(prefs));
+
+let ws = null, connected = false, retry = null, nextId = 1;
+const pending = new Map();
+let welcome = {}, rig = {};
+let audio = null;             // {ctx, gain, decoder, encoder, playAt, rxTime, txTime}
+let ptt = "idle";             // idle, keying (asked), on (keyed), releasing (let go while asked)
+let keyedAt = 0, wakeLock = null, toastTimer = null;
+
+// ---------------------------------------------------------------- the connection --
+
+function connect() {
+  clearTimeout(retry);
+  const token = store.get(TOKEN_KEY);
+  if (!token) { $("login").hidden = false; return; }
+  if (ws) { ws.onclose = null; ws.close(); }
+  ws = new WebSocket(`${location.protocol === "http:" ? "ws" : "wss"}://${location.host}/ws`);
+  ws.binaryType = "arraybuffer";
+  ws.onopen = () => ws.send(JSON.stringify({ type: "hello", token, client: "phone",
+                                            language: navigator.language || "es" }));
+  ws.onmessage = (msg) => typeof msg.data === "string" ? onEvent(JSON.parse(msg.data))
+                                                       : onAudio(new Uint8Array(msg.data));
+  ws.onclose = () => {
+    setConnected(false);
+    retry = setTimeout(connect, 2000);
+  };
+}
+
+function call(method, params = {}) {
+  return new Promise((resolve) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) { resolve({ error: "Sin conexión con el core" }); return; }
+    const id = nextId++;
+    pending.set(id, resolve);
+    ws.send(JSON.stringify({ type: "call", id, method, params }));
+  });
+}
+
+function onEvent(ev) {
+  switch (ev.type) {
+    case "welcome":
+      welcome = ev;
+      setConnected(true);
+      $("title").textContent = ev.callsign ? `${ev.callsign} · IC-705` : "IC-705 remoto";
+      if (audio) listen(prefs.listen);
+      break;
+    case "rig": rig = ev; showRig(); break;
+    case "reply": {
+      const resolve = pending.get(ev.id);
+      pending.delete(ev.id);
+      if (resolve) resolve(ev.result || {});
+      break;
+    }
+    case "error":
+      if (ev.fatal) {
+        toast(/token/i.test(ev.text || "") ? "Token incorrecto" : ev.text, true);
+        if (/token/i.test(ev.text || "")) { store.remove(TOKEN_KEY); $("login").hidden = false; }
+        ws.onclose = () => setConnected(false);
+        return;
+      }
+      // The core let go (no audio, too long...): the button too.
+      if ((ev.msgid || "").startsWith("Voice released")) setPtt("idle");
+      toast(ev.text, true);
+      break;
+    case "info":
+      if (/voice|remote/i.test(ev.msgid || "")) toast(ev.text);
+      break;
+  }
+}
+
+function setConnected(on) {
+  connected = on;
+  $("dot").classList.toggle("on", on);
+  for (const resolve of pending.values()) resolve({ error: "Sin conexión con el core" });
+  pending.clear();
+  if (!on) { rig = {}; showRig(); setPtt("idle"); }
+  updatePttButton();
+}
+
+// ------------------------------------------------------------------------ the rig --
+
+function showRig() {
+  const f = rig.frequency;
+  if (!connected || !rig.connected || !f) {
+    $("freq").firstChild.textContent = connected ? "Radio desconectada" : "Sin conexión";
+    $("freq").style.fontSize = "26px";
+    $("mode").textContent = ""; $("band").textContent = ""; $("smeter").textContent = "";
+    $("meter").firstElementChild.style.width = "0";
+  } else {
+    const mhz = Math.floor(f / 1e6), khz = Math.floor(f / 1e3) % 1000, hz = f % 1000;
+    $("freq").firstChild.textContent =
+      `${mhz}.${String(khz).padStart(3, "0")}.${String(hz).padStart(3, "0")}`;
+    $("freq").style.fontSize = "";
+    $("mode").textContent = rig.mode || "";
+    $("band").textContent = rig.band || "";
+    const tx = !!rig.transmitting;
+    $("meter").classList.toggle("tx", tx);
+    if (tx) {
+      const percent = rig.power ?? 0;      // the power set, in percent
+      $("smeter").textContent = `TX ${(percent / 100 * (rig.max_power_w || 10)).toFixed(1)} W`;
+      $("meter").firstElementChild.style.width = `${Math.min(100, percent)}%`;
+    } else {
+      $("smeter").textContent = rig.smeter_text || "";
+      $("meter").firstElementChild.style.width = `${Math.min(100, (rig.smeter ?? 0) / 2.41)}%`;
+    }
+  }
+  updatePttButton();
+}
+
+// ---------------------------------------------------------------------- the audio --
+
+async function startAudio() {
+  if (!("AudioDecoder" in window) || !("AudioEncoder" in window)) {
+    throw new Error("Este navegador no tiene WebCodecs (usa Chrome)");
+  }
+  const ctx = new AudioContext({ sampleRate: RATE, latencyHint: "interactive" });
+  const gain = ctx.createGain();
+  gain.gain.value = prefs.volume / 100;
+  gain.connect(ctx.destination);
+  audio = { ctx, gain, decoder: null, encoder: null, playAt: 0, rxTime: 0, txTime: 0 };
+
+  audio.decoder = new AudioDecoder({ output: play, error: (e) => console.warn("decoder", e) });
+  audio.decoder.configure({ codec: "opus", sampleRate: RATE, numberOfChannels: 1 });
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: {
+    channelCount: 1, echoCancellation: false, noiseSuppression: true, autoGainControl: true } });
+  const config = { codec: "opus", sampleRate: RATE, numberOfChannels: 1, bitrate: 24000,
+                   opus: { frameDuration: 20000 } };
+  if (!(await AudioEncoder.isConfigSupported(config)).supported) {
+    throw new Error("Este navegador no codifica Opus");
+  }
+  audio.encoder = new AudioEncoder({ output: sendPacket, error: (e) => console.warn("encoder", e) });
+  audio.encoder.configure(config);
+
+  // The microphone in pieces of 20 ms, from an audio worklet.
+  const worklet = `class Tap extends AudioWorkletProcessor {
+    constructor() { super(); this.buf = new Float32Array(${FRAME}); this.n = 0; }
+    process(inputs) {
+      const ch = inputs[0] && inputs[0][0];
+      if (!ch) return true;
+      for (let i = 0; i < ch.length; i++) {
+        this.buf[this.n++] = ch[i];
+        if (this.n === ${FRAME}) { this.port.postMessage(this.buf); this.buf = new Float32Array(${FRAME}); this.n = 0; }
+      }
+      return true;
+    }
+  }
+  registerProcessor("tap", Tap);`;
+  await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([worklet], { type: "text/javascript" })));
+  const tap = new AudioWorkletNode(ctx, "tap", { numberOfInputs: 1, numberOfOutputs: 0 });
+  tap.port.onmessage = (msg) => microphone(msg.data);
+  ctx.createMediaStreamSource(stream).connect(tap);
+  ctx.resume();                 // the tap that started it lets it play
+}
+
+function onAudio(data) {
+  if (data[0] !== OPUS_RX || !audio || audio.decoder.state !== "configured") return;
+  audio.decoder.decode(new EncodedAudioChunk({ type: "key", timestamp: audio.rxTime,
+                                               data: data.subarray(1) }));
+  audio.rxTime += 20000;
+}
+
+function play(data) {
+  const n = data.numberOfFrames;
+  const samples = new Float32Array(n);
+  data.copyTo(samples, { planeIndex: 0, format: "f32-planar" });
+  const rate = data.sampleRate;
+  data.close();
+  const { ctx } = audio;
+  const now = ctx.currentTime;
+  // Late (the network stalled): start again a little ahead; too far behind: catch up.
+  if (audio.playAt < now + 0.01 || audio.playAt > now + MOST_BEHIND) audio.playAt = now + LATENCY;
+  const buffer = ctx.createBuffer(1, n, rate);
+  buffer.copyToChannel(samples, 0);
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audio.gain);
+  source.start(audio.playAt);
+  audio.playAt += buffer.duration;
+}
+
+function microphone(samples) {
+  let sum = 0;
+  for (let i = 0; i < samples.length; i += 4) sum += samples[i] * samples[i];
+  const level = Math.min(1, Math.sqrt(sum / (samples.length / 4)) * 4);
+  $("mic").style.width = ptt === "idle" ? "0" : `${level * 100}%`;
+  if (ptt === "idle" || !audio.encoder || audio.encoder.state !== "configured") return;
+  const data = new AudioData({ format: "f32-planar", sampleRate: audio.ctx.sampleRate,
+                               numberOfFrames: samples.length, numberOfChannels: 1,
+                               timestamp: audio.txTime, data: samples });
+  audio.txTime += Math.round(samples.length / audio.ctx.sampleRate * 1e6);
+  audio.encoder.encode(data);
+  data.close();
+}
+
+function sendPacket(chunk) {
+  // Only while keyed; and never piling up behind a slow network (the core lets go when
+  // the audio stops: better that than talking seconds late).
+  if (ptt === "idle" || !ws || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 16000) return;
+  const frame = new Uint8Array(chunk.byteLength + 1);
+  frame[0] = OPUS_TX;
+  chunk.copyTo(frame.subarray(1));
+  ws.send(frame);
+}
+
+async function listen(on) {
+  if (!connected) return;
+  const result = await call("audio.listen", { on, codec: "opus" });
+  if (result.error) toast(result.error, true);
+  else if (on && !result.on) toast("No llega audio de la radio al core", true);
+}
+
+// ------------------------------------------------------------------------ the PTT --
+
+function updatePttButton() {
+  const button = $("ptt");
+  button.disabled = !connected || !rig.connected || !audio;
+  button.classList.toggle("keying", ptt === "keying" || ptt === "releasing");
+  button.classList.toggle("on", ptt === "on");
+  let hint = prefs.latch ? "Toca para hablar" : "Mantén pulsado";
+  if (connected && welcome.tx_enabled === false) hint = "TX desactivada en el core";
+  if (ptt === "keying") hint = "Pasando a TX…";
+  if (ptt === "on") {
+    const s = Math.floor((Date.now() - keyedAt) / 1000);
+    hint = `${prefs.latch ? "Toca para soltar" : "Suelta para recibir"} · ${s} s`;
+  }
+  $("ptt-hint").textContent = hint;
+}
+
+function setPtt(state) {
+  if (state === ptt) return;
+  ptt = state;
+  if (state === "on") { keyedAt = Date.now(); navigator.vibrate?.(40); }
+  if (state === "idle") { $("mic").style.width = "0"; }
+  updatePttButton();
+}
+
+async function pttDown() {
+  if (ptt !== "idle" || $("ptt").disabled) return;
+  setPtt("keying");
+  if (audio.ctx.state !== "running") audio.ctx.resume();
+  const result = await call("voice.ptt", { on: true, source: "pc" });
+  if (result.error) { setPtt("idle"); toast(result.error, true); navigator.vibrate?.([30, 60, 30]); return; }
+  // Let go (or the connection lost) while the radio was keying: release it at once.
+  if (ptt !== "keying") { ptt = "on"; pttUp(true); return; }
+  setPtt("on");
+}
+
+async function pttUp(force = false) {
+  if (ptt === "keying" && !force) { ptt = "releasing"; updatePttButton(); return; }
+  if (ptt === "idle" || (ptt === "releasing" && !force)) return;
+  setPtt("idle");
+  navigator.vibrate?.(20);
+  await call("voice.ptt", { on: false });
+}
+
+const button = $("ptt");
+button.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  if (prefs.latch) { ptt === "idle" ? pttDown() : pttUp(); return; }
+  button.setPointerCapture(e.pointerId);
+  pttDown();
+});
+for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+  button.addEventListener(type, () => { if (!prefs.latch) pttUp(); });
+}
+button.addEventListener("contextmenu", (e) => e.preventDefault());
+// Nothing stays keyed with the app out of sight.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) pttUp(true);
+  else { requestWakeLock(); if (!ws || ws.readyState > WebSocket.OPEN) connect(); }
+});
+setInterval(() => { if (ptt === "on") updatePttButton(); }, 500);
+
+// ----------------------------------------------------------------- the controls --
+
+function toast(text, error = false) {
+  if (!text) return;
+  const el = $("toast");
+  el.textContent = text;
+  el.classList.toggle("error", error);
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), error ? 5000 : 3000);
+}
+
+async function requestWakeLock() {
+  if (!prefs.awake || !("wakeLock" in navigator) || wakeLock || document.hidden) return;
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+    wakeLock.addEventListener("release", () => { wakeLock = null; });
+  } catch {}
+}
+
+function showToggles() {
+  $("listen").classList.toggle("sel", prefs.listen);
+  $("latch").classList.toggle("sel", prefs.latch);
+  $("awake").classList.toggle("sel", prefs.awake);
+  $("volume").value = prefs.volume;
+  updatePttButton();
+}
+
+$("listen").onclick = () => { prefs.listen = !prefs.listen; savePrefs(); showToggles(); listen(prefs.listen); };
+$("latch").onclick = () => { pttUp(true); prefs.latch = !prefs.latch; savePrefs(); showToggles(); };
+$("awake").onclick = () => {
+  prefs.awake = !prefs.awake; savePrefs(); showToggles();
+  if (prefs.awake) requestWakeLock(); else wakeLock?.release();
+};
+$("reconnect").onclick = () => { pttUp(true); connect(); };
+$("volume").oninput = (e) => {
+  prefs.volume = Number(e.target.value); savePrefs();
+  if (audio) audio.gain.gain.value = prefs.volume / 100;
+};
+$("logout").onclick = () => {
+  pttUp(true);
+  store.remove(TOKEN_KEY);
+  if (ws) { ws.onclose = null; ws.close(); }
+  setConnected(false);
+  $("token").value = "";
+  $("login").hidden = false;
+};
+$("login-form").onsubmit = (e) => {
+  e.preventDefault();
+  store.set(TOKEN_KEY, $("token").value.trim());
+  $("login").hidden = true;
+  connect();
+  if (!audio) $("start").hidden = false;
+};
+$("start-btn").onclick = async () => {
+  try {
+    await startAudio();
+    $("start").hidden = true;
+    if (connected) listen(prefs.listen);
+    updatePttButton();
+  } catch (err) {
+    audio = null;
+    toast(err.name === "NotAllowedError" ? "Sin permiso para el micrófono" : err.message, true);
+  }
+};
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+showToggles();
+showRig();
+requestWakeLock();
+if (store.get(TOKEN_KEY)) { $("start").hidden = false; connect(); } else $("login").hidden = false;
+</script>
+</body>
+</html>

@@ -83,16 +83,17 @@ def N_(message: str) -> str:  # noqa: N802 - the gettext convention
     return message
 
 
-def render(event: dict) -> str:
-    """Text of a core message event in the client's language."""
+def render(event: dict, catalog: dict[str, str] | None = None) -> str:
+    """Text of a core message event in the client's language (or in the catalog's)."""
     msgid = event.get("msgid")
     if not msgid:
         return str(event.get("text", ""))
+    translate = _ if catalog is None else (lambda message: catalog.get(message) or message)
     args = dict(event.get("args", {}))
     if isinstance(args.get("country"), str):          # a DXCC entity: its name translated
-        args["country"] = _(args["country"])
+        args["country"] = translate(args["country"])
     try:
-        return _(msgid).format(**args)
+        return translate(msgid).format(**args)
     except (KeyError, IndexError, ValueError):
         return str(event.get("text", msgid))
 

@@ -216,6 +216,8 @@ async def run_server(transport: Transport | None, config, record: Path | None) -
     stop = asyncio.Event()
     _signals(stop)
     serving = asyncio.create_task(server.run(stop))
+    remote = _remote_server(core, config)
+    remote_serving = asyncio.create_task(remote.run(stop)) if remote is not None else None
     starting = asyncio.create_task(core.start(retry_forever=True))
     await stop.wait()
     # A stop that hangs (a thread blocked, a service stuck) must not wait for systemd's
@@ -224,9 +226,28 @@ async def run_server(transport: Transport | None, config, record: Path | None) -
     print("-- stopping", flush=True)
     starting.cancel()
     await serving
+    if remote_serving is not None:
+        await remote_serving
     await core.stop(autosave=config.autosave_on_exit)
     print("-- stopped", flush=True)
     return 0
+
+
+def _remote_server(core, config):
+    """The phone's remote control ([remote]), when it has a certificate; a problem with it
+    is told and the core goes on without it."""
+    if not config.remote_cert:
+        return None
+    from ic705suite.station.remote import DEFAULT_PORT as REMOTE_PORT
+    from ic705suite.station.remote import RemoteServer
+
+    host, _, port = config.remote_listen.rpartition(":")
+    try:
+        return RemoteServer(core, host or "0.0.0.0", int(port or REMOTE_PORT),
+                            config.server_token, config.remote_cert, config.remote_key)
+    except ValueError as exc:
+        print(f"!! remote control off: {exc}", file=sys.stderr, flush=True)
+        return None
 
 
 def update_scp(path: Path) -> int:

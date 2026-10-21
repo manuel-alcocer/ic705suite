@@ -19,6 +19,9 @@ msgstr "sin conexión con el servidor"
 msgid "server listening on {host}:{port}"
 msgstr "servidor escuchando en {host}:{port}"
 
+msgid "remote control for the phone on port {port} (HTTPS)"
+msgstr "control remoto para el móvil en el puerto {port} (HTTPS)"
+
 msgid "Plain text + Enter      send it in CW (prosigns: <AR> <BT> <KN> <SK> <AS> <BK>)"
 msgstr "Texto + Enter           lo envía en CW (prosignos: <AR> <BT> <KN> <SK> <AS> <BK>)"
 

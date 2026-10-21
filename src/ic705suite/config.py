@@ -224,6 +224,16 @@ max_power = 30
 listen = "0.0.0.0:7373"
 token = "{token}"
 
+[remote]
+# ic705suite --serve: remote control from the phone, a web app on https://<name>:7374 (open
+# it in Chrome and install it). The phone listens to the radio and talks through it with its
+# headphones, the PTT on the screen; it logs in with the [server] token. The browser only
+# lends the microphone over HTTPS with a certificate it trusts: cert (the full chain) and
+# key of one for the name the phone uses (e.g. Let's Encrypt's). Off while cert is empty.
+# listen = "0.0.0.0:7374"
+# cert = "~/.acme.sh/radio.example.org_ecc/fullchain.cer"
+# key = "~/.acme.sh/radio.example.org_ecc/radio.example.org.key"
+
 [client]
 # ic705suite --connect with no address uses these (e.g. the Raspberry Pi running --serve)
 # connect = "rpi.local:7373"
@@ -331,6 +341,10 @@ class Config:
     server_token: str = ""
     connect: str = ""
     client_token: str = ""
+    # [remote]
+    remote_listen: str = "0.0.0.0:7374"
+    remote_cert: str = ""            # "" = no remote control
+    remote_key: str = ""
     # Where it was read from (the graphical client saves the theme chosen in its menu there).
     source: Path | None = None
 
@@ -438,6 +452,10 @@ def load_config(path: Path | None = None) -> Config:
         cfg.server_token = str(server.get("token", cfg.server_token))
         cfg.connect = str(client.get("connect", cfg.connect))
         cfg.client_token = str(client.get("token", cfg.client_token))
+        remote = data.get("remote", {})
+        cfg.remote_listen = str(remote.get("listen", cfg.remote_listen))
+        cfg.remote_cert = str(remote.get("cert", cfg.remote_cert)).strip()
+        cfg.remote_key = str(remote.get("key", cfg.remote_key)).strip()
         cfg.macros.update({k.upper(): str(v) for k, v in data.get("macros", {}).items()})
     cfg.password = os.environ.get("IC705SUITE_PASSWORD", cfg.password)
     return cfg
