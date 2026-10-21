@@ -2,6 +2,119 @@
 
 <!-- version list -->
 
+## v0.26.0 (2026-10-21)
+
+### Bug Fixes
+
+- **core**: A stop that hangs no longer waits for systemd's SIGKILL
+  ([`07344ce`](https://github.com/manuel-alcocer/ic705suite/commit/07344ce73f9a949389fffba002604be08eb358ec))
+
+- **dstar**: Stations on the same spot are seen on the map
+  ([`f3c3b90`](https://github.com/manuel-alcocer/ic705suite/commit/f3c3b905865cd71ab8de23d20ca4888ba5a27f28))
+
+- **gui**: Front-panel knobs keep the value turned to
+  ([`97dcc85`](https://github.com/manuel-alcocer/ic705suite/commit/97dcc855da514327c638c8a58da72464cb9bc264))
+
+- **gui**: Phone opens from the dashboard
+  ([`83b223a`](https://github.com/manuel-alcocer/ic705suite/commit/83b223a17ed6fd82752613fd247c95b874862711))
+
+- **gui**: The help button opens the user's guide at ic705suite.ea7klx.es
+  ([`fe9ef9b`](https://github.com/manuel-alcocer/ic705suite/commit/fe9ef9b1b678d0b54e06eb12a1ad71ce511d6b79))
+
+- **gui**: The scope's waterfall slides with the dial instead of starting again
+  ([`bb91d9d`](https://github.com/manuel-alcocer/ic705suite/commit/bb91d9dce0ed3d5df6481f891f1a8a97de1bb3db))
+
+- **rig**: The core connects with the IC-705 in Terminal Mode
+  ([`0b0688b`](https://github.com/manuel-alcocer/ic705suite/commit/0b0688b12804396df40e656f58a4c8ed0f713d48))
+
+- **swr**: A flat SWR dip is placed at its middle, and tuned sweeps say how to centre
+  ([`41d95ed`](https://github.com/manuel-alcocer/ic705suite/commit/41d95ede6bee286aef6d8118a3f972e830de9aa9))
+
+- **swr**: Ten metres sweeps its whole band, 28.0 to 29.7 MHz
+  ([`27aa433`](https://github.com/manuel-alcocer/ic705suite/commit/27aa43363de41bae257e8d9cd315a6add90bc71b))
+
+### Code Style
+
+- **swr**: Wrap the module docstring
+  ([`49f655f`](https://github.com/manuel-alcocer/ic705suite/commit/49f655f698788c734759d5502dba70cc3422e16b))
+
+### Features
+
+- **dstar**: A world map tab with the stations that gave their position
+  ([`4b01df6`](https://github.com/manuel-alcocer/ic705suite/commit/4b01df6184a6d886dab400cb88b01353122d27dd))
+
+- **dstar**: D-PRS reports and weather, our beacon, APRS-IS
+  ([`2330387`](https://github.com/manuel-alcocer/ic705suite/commit/233038702bcfbd7e189e85998dd935adc173d218))
+
+- **dstar**: D-STAR in the suite, QDStar brought in: overs, history, INT reflectors
+  ([`5a68e1c`](https://github.com/manuel-alcocer/ic705suite/commit/5a68e1c993c4defd0f57c1fcf5dfbf2a099349a0))
+
+- **dstar**: EXT Terminal Mode, the suite's own gateway over USB
+  ([`8339647`](https://github.com/manuel-alcocer/ic705suite/commit/833964725e9e2876f8d6f1e18b708bc93dc3d6ad))
+
+- **dstar**: The reflectors' status: online, nodes, our terminal linked, their last heard
+  ([`fac1426`](https://github.com/manuel-alcocer/ic705suite/commit/fac142683023d7d66c0569fc04777e46dc5a621b))
+
+- **dstar**: The USB gateway starts with the core, no client needed
+  ([`22b46c5`](https://github.com/manuel-alcocer/ic705suite/commit/22b46c5ac8392448d5ff913950bb51453aa96c94))
+
+- **ft8**: A Grid box on the map, for a cleaner one without it
+  ([`7bbc364`](https://github.com/manuel-alcocer/ic705suite/commit/7bbc36431bb97d13ea554731a65ddb78ffb1dfb5))
+
+- **ft8**: Auto CQ calls only who asks, leaves who works another, and calls CQ too
+  ([`4b47151`](https://github.com/manuel-alcocer/ic705suite/commit/4b4715108c02878f88f3a7985074339a9f98566e))
+
+- **ft8**: Auto CQ calls the wanted stations in turn, three times each
+  ([`3569f4f`](https://github.com/manuel-alcocer/ic705suite/commit/3569f4f64f6426466f43f051ee4510d8ea7443f4))
+
+- **ft8**: FT8 goes on in a server's core when the clients close
+  ([`7ebae17`](https://github.com/manuel-alcocer/ic705suite/commit/7ebae17130b364b6442a34f1db7d92f8130a99f4))
+
+- **ft8**: Ignore and Auto CQ lists in the database, a station menu and a Lists tab
+  ([`dccace5`](https://github.com/manuel-alcocer/ic705suite/commit/dccace5cd5ea8e33e22e796a3926744a45a03721))
+
+- **ft8**: The automatic modes leave a station that turns to another mid-QSO
+  ([`27f4c30`](https://github.com/manuel-alcocer/ic705suite/commit/27f4c3015874658c957b88708ecaacb5105b9c47))
+
+- **ft8**: The map draws the calls between other stations, faint
+  ([`81b61c2`](https://github.com/manuel-alcocer/ic705suite/commit/81b61c2da4afa8ea09464f1d30cb4e2b8acb7a2b))
+
+- **ft8**: The others' calls on the map are dashed and move
+  ([`20803de`](https://github.com/manuel-alcocer/ic705suite/commit/20803de59ea84a274e9c67a11b61d4ec915babe7))
+
+- **gui**: A Phone application: PTT, bands, modes, memories and the quick log
+  ([`8492a91`](https://github.com/manuel-alcocer/ic705suite/commit/8492a91429d12529acf5b8667db4ed97a075af34))
+
+- **gui**: CB mode, with its channel on two seven-segment digits
+  ([`c638c80`](https://github.com/manuel-alcocer/ic705suite/commit/c638c80bfaf3cc342e1e8dfd91a87d10b0950458))
+
+- **gui**: Phone's controls in five short columns
+  ([`1198497`](https://github.com/manuel-alcocer/ic705suite/commit/11984970a9c2bd6da6b7061c3dca5a9de80c2419))
+
+- **gui**: Type the frequency on the digits
+  ([`cccf8dd`](https://github.com/manuel-alcocer/ic705suite/commit/cccf8ddc90d661b0ee6af9066091725251e75d00))
+
+- **remote**: Remote control from the phone: listen and talk with its PTT
+  ([`96cd2d3`](https://github.com/manuel-alcocer/ic705suite/commit/96cd2d30a194c8902f5301ec4ba461da35a16037))
+
+- **swr**: An 11 m (CB) band for presets and the noise sweep
+  ([`6f440e0`](https://github.com/manuel-alcocer/ic705suite/commit/6f440e0619f0c528b941931433421dda238b51e9))
+
+- **swr**: SWR sweeps on 11 m (CB) too
+  ([`bf060d3`](https://github.com/manuel-alcocer/ic705suite/commit/bf060d3ecb5e145ce5f4ca67a4f93edd5cfcf7ca))
+
+- **swr**: The SWR sweep on any frequency, the radio refusing where it does not transmit
+  ([`59eee38`](https://github.com/manuel-alcocer/ic705suite/commit/59eee383a9a74dfd18d457c7c22485b9cc8b66c5))
+
+### Testing
+
+- Green on the runners: a cty.dat of their own, the USB gateway POSIX only, a hold already past
+  ([`7dab4b8`](https://github.com/manuel-alcocer/ic705suite/commit/7dab4b812a9f67a3b6ff0dfab2fc451ca5e41482))
+
+- **ft8**: The station menu's Auto CQ with ft8code faked, which the runners do not have
+  ([`7c21e0e`](https://github.com/manuel-alcocer/ic705suite/commit/7c21e0e146d4bf3b33fe53c369b5ba9be10b6d53))
+
+
 ## v0.25.0 (2026-10-17)
 
 ### Features
