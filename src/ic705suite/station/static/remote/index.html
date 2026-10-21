@@ -117,6 +117,7 @@
   .switch.on { background: var(--accent); }
   .switch.on::after { left: 27px; background: #0b1120; }
   .empty { color: var(--muted); text-align: center; padding: 24px 8px; }
+  .note { color: var(--muted); font-size: 13px; margin: 10px 2px 0; }
 
   /* memories */
   .mem { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 4px; border: 0;
@@ -187,10 +188,13 @@
     <div id="rig-controls"><div class="empty">Sin conexión con la radio</div></div>
     <h2>Esta app</h2>
     <div class="controls">
+      <button class="toggle" id="headset" type="button">PTT en auriculares</button>
       <button class="toggle" id="awake" type="button">Pantalla encendida</button>
       <button class="toggle" id="reconnect" type="button">Reconectar</button>
       <button class="toggle" id="logout" type="button">Cambiar token</button>
     </div>
+    <p class="note">PTT en auriculares: el botón de play/pausa (una pulsación) pasa a TX y otra
+      vuelve a RX, con un pitido en los auriculares; sigue funcionando con la pantalla apagada.</p>
   </div>
 
   <!-- Memories: the suite's channels -->
@@ -276,7 +280,7 @@ const store = {
   remove(key) { try { localStorage.removeItem(key); } catch {} },
 };
 const prefs = Object.assign({ listen: true, latch: false, awake: true, volume: 100, step: 100,
-                              tab: "radio", left: {} },
+                              tab: "radio", left: {}, headset: true },
                             JSON.parse(store.get(PREFS_KEY) || "{}"));
 const savePrefs = () => store.set(PREFS_KEY, JSON.stringify(prefs));
 
@@ -285,7 +289,8 @@ const pending = new Map();
 let welcome = {}, rig = {};
 let audio = null;             // {ctx, gain, decoder, encoder, playAt, rxTime, txTime}
 let ptt = "idle";             // idle, keying (asked), on (keyed), releasing (let go while asked)
-let keyedAt = 0, wakeLock = null, toastTimer = null;
+let keyedAt = 0, keyedBy = "screen", wakeLock = null, toastTimer = null;
+let silence = null;           // the <audio> that gives the page the headset's media keys
 let described = null;         // rig.describe's controls, by id
 const touched = new Map();    // control id -> when the operator last moved it here
 
@@ -381,6 +386,7 @@ function onRig(ev) {
   }
   if (rig.connected && !wasConnected) describe();
   showRig();
+  showMedia();
   showControls();
 }
 
@@ -822,9 +828,17 @@ function updatePttButton() {
 function setPtt(state) {
   if (state === ptt) return;
   ptt = state;
-  if (state === "on") { keyedAt = Date.now(); navigator.vibrate?.(40); }
-  if (state === "idle") { $("mic").style.width = "0"; }
+  if (state === "on") {
+    keyedAt = Date.now(); navigator.vibrate?.(40);
+    if (keyedBy === "headset") beep(true);
+  }
+  if (state === "idle") {
+    $("mic").style.width = "0";
+    if (keyedBy === "headset") beep(false);
+    keyedBy = "screen";
+  }
   updatePttButton();
+  showMedia();
 }
 
 async function pttDown() {
@@ -832,7 +846,10 @@ async function pttDown() {
   setPtt("keying");
   if (audio.ctx.state !== "running") audio.ctx.resume();
   const result = await call("voice.ptt", { on: true, source: "pc" });
-  if (result.error) { setPtt("idle"); toast(result.error, true); navigator.vibrate?.([30, 60, 30]); return; }
+  if (result.error) {
+    if (keyedBy === "headset") { beep(false); setTimeout(() => beep(false), 180); }
+    setPtt("idle"); toast(result.error, true); navigator.vibrate?.([30, 60, 30]); return;
+  }
   // Let go (or the connection lost) while the radio was keying: release it at once.
   if (ptt !== "keying") { ptt = "on"; pttUp(true); return; }
   setPtt("on");
@@ -849,6 +866,7 @@ async function pttUp(force = false) {
 for (const button of PTT_BUTTONS) {
   button.addEventListener("pointerdown", (e) => {
     e.preventDefault();
+    if (ptt === "idle") keyedBy = "screen";
     if (prefs.latch) { ptt === "idle" ? pttDown() : pttUp(); return; }
     button.setPointerCapture(e.pointerId);
     pttDown();
@@ -858,12 +876,81 @@ for (const button of PTT_BUTTONS) {
   }
   button.addEventListener("contextmenu", (e) => e.preventDefault());
 }
-// Nothing stays keyed with the app out of sight.
+// Nothing keyed on the screen stays keyed with the app out of sight (the headset's button
+// goes on working with the screen off: the core lets go when the audio stops).
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) pttUp(true);
+  if (document.hidden) { if (keyedBy !== "headset") pttUp(true); }
   else { requestWakeLock(); if (!ws || ws.readyState > WebSocket.OPEN) connect(); }
 });
 setInterval(() => { if (ptt === "on") updatePttButton(); }, 500);
+
+// ----------------------------------------------------------- the headset's button --
+// Chrome hands the media keys (a headset's play/pause) to a page that plays media: a
+// silent track in a loop does, while the radio's audio goes on through Web Audio.
+
+function silentTrack() {
+  const rate = 8000, seconds = 10, n = rate * seconds;
+  const wav = new DataView(new ArrayBuffer(44 + n));
+  const text = (at, s) => [...s].forEach((c, i) => wav.setUint8(at + i, c.charCodeAt(0)));
+  text(0, "RIFF"); wav.setUint32(4, 36 + n, true); text(8, "WAVEfmt ");
+  wav.setUint32(16, 16, true); wav.setUint16(20, 1, true); wav.setUint16(22, 1, true);
+  wav.setUint32(24, rate, true); wav.setUint32(28, rate, true); wav.setUint16(32, 1, true);
+  wav.setUint16(34, 8, true); text(36, "data"); wav.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) wav.setUint8(44 + i, 128);         // 8-bit silence
+  return URL.createObjectURL(new Blob([wav], { type: "audio/wav" }));
+}
+
+async function headset(on) {
+  if (!("mediaSession" in navigator)) return;
+  if (!on) {
+    silence?.pause();
+    for (const action of ["play", "pause", "stop"]) navigator.mediaSession.setActionHandler(action, null);
+    navigator.mediaSession.playbackState = "none";
+    return;
+  }
+  if (!silence) {
+    silence = new Audio(silentTrack());
+    silence.loop = true;
+  }
+  try { await silence.play(); } catch { return; }      // needs the tap that turned it on
+  const press = () => headsetPress();
+  navigator.mediaSession.setActionHandler("play", press);
+  navigator.mediaSession.setActionHandler("pause", press);
+  navigator.mediaSession.setActionHandler("stop", () => { if (ptt !== "idle") headsetPress(); });
+  navigator.mediaSession.playbackState = "playing";
+  showMedia();
+}
+
+function headsetPress() {
+  // The track never pauses: each press is the PTT's, latched (a headset's button is not held).
+  silence?.play().catch(() => {});
+  navigator.mediaSession.playbackState = "playing";
+  if (ptt === "idle") { keyedBy = "headset"; pttDown(); } else pttUp(true);
+}
+
+function showMedia() {
+  if (!silence || !("mediaSession" in navigator) || !window.MediaMetadata) return;
+  const title = rig.connected && rig.frequency ? `${formatHz(rig.frequency)} ${rig.mode || ""}` : "IC-705";
+  const artist = ptt === "on" ? "TX" : (welcome.callsign || "IC-705 remoto");
+  if (showMedia.last === title + artist) return;
+  showMedia.last = title + artist;
+  navigator.mediaSession.metadata = new MediaMetadata({ title, artist, album: "IC-705 remoto",
+    artwork: [{ src: "/icon-192.png", sizes: "192x192", type: "image/png" },
+              { src: "/icon-512.png", sizes: "512x512", type: "image/png" }] });
+}
+
+function beep(high) {
+  // In the headphones only (the microphone is another path): high keyed, low released.
+  if (!audio || audio.ctx.state !== "running") return;
+  const { ctx } = audio, t = ctx.currentTime;
+  const osc = ctx.createOscillator(), level = ctx.createGain();
+  osc.frequency.value = high ? 1200 : 600;
+  level.gain.setValueAtTime(0.0001, t);
+  level.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
+  level.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+  osc.connect(level).connect(ctx.destination);
+  osc.start(t); osc.stop(t + 0.13);
+}
 
 // ------------------------------------------------------------------ the page itself --
 
@@ -899,6 +986,7 @@ function showToggles() {
   $("listen").classList.toggle("sel", prefs.listen);
   $("latch").classList.toggle("sel", prefs.latch);
   $("awake").classList.toggle("sel", prefs.awake);
+  $("headset").classList.toggle("sel", prefs.headset);
   $("volume").value = prefs.volume;
   showStep();
   updatePttButton();
@@ -910,6 +998,10 @@ $("latch").onclick = () => { pttUp(true); prefs.latch = !prefs.latch; savePrefs(
 $("awake").onclick = () => {
   prefs.awake = !prefs.awake; savePrefs(); showToggles();
   if (prefs.awake) requestWakeLock(); else wakeLock?.release();
+};
+$("headset").onclick = () => {
+  prefs.headset = !prefs.headset; savePrefs(); showToggles();
+  headset(prefs.headset);
 };
 $("reconnect").onclick = () => { pttUp(true); connect(); };
 $("volume").oninput = (e) => {
@@ -935,6 +1027,7 @@ $("start-btn").onclick = async () => {
   try {
     await startAudio();
     $("start").hidden = true;
+    if (prefs.headset) headset(true);
     if (connected) listen(prefs.listen);
     updatePttButton();
   } catch (err) {
