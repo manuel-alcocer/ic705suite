@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v0.27.0 (2026-10-21)
+
+### Features
+
+- **remote**: The headset's play/pause button as the PTT
+  ([`7eab262`](https://github.com/manuel-alcocer/ic705suite/commit/7eab26294984ad1ebdd7313a6ac86a47e72ba1b5))
+
+- **remote**: Tune and control the radio from the phone
+  ([`d96f7ac`](https://github.com/manuel-alcocer/ic705suite/commit/d96f7acc4197a8f36169190928dac70b203b48e9))
+
+
 ## v0.26.0 (2026-10-21)
 
 ### Bug Fixes
