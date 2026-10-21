@@ -76,6 +76,13 @@
   .mic { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin: 0 auto 12px;
          width: min(64vw, 260px); }
   .mic > div { height: 100%; width: 0; background: var(--accent); }
+  .mic-name { text-align: center; color: var(--muted); font-size: 12px; margin: -6px 0 10px;
+              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 8px;
+          border-radius: 12px; border: 1px solid var(--line); background: var(--card); }
+  .pick span { color: var(--muted); font-size: 14px; flex: none; }
+  .pick select { flex: 1; min-width: 0; padding: 8px; font-size: 15px; border-radius: 9px;
+                 border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
 
   .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .toggle { padding: 12px 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--card);
@@ -176,6 +183,7 @@
       <button class="ptt" id="ptt" type="button" disabled>PTT<small id="ptt-hint">Mantén pulsado</small></button>
     </div>
     <div class="mic"><div id="mic"></div></div>
+    <div class="mic-name" id="mic-name"></div>
     <div class="controls">
       <button class="toggle sel" id="listen" type="button">Escuchar</button>
       <button class="toggle" id="latch" type="button">PTT enclavado</button>
@@ -187,12 +195,15 @@
   <div class="page" id="page-controls" hidden>
     <div id="rig-controls"><div class="empty">Sin conexión con la radio</div></div>
     <h2>Esta app</h2>
+    <label class="pick"><span>Micrófono</span><select id="mic-select"></select></label>
     <div class="controls">
       <button class="toggle" id="headset" type="button">PTT en auriculares</button>
       <button class="toggle" id="awake" type="button">Pantalla encendida</button>
       <button class="toggle" id="reconnect" type="button">Reconectar</button>
       <button class="toggle" id="logout" type="button">Cambiar token</button>
     </div>
+    <p class="note">Micrófono: con auriculares Bluetooth, Android pasa a modo llamada y el audio
+      en los dos sentidos baja de calidad (banda estrecha).</p>
     <p class="note">PTT en auriculares: el botón de play/pausa (una pulsación) pasa a TX y otra
       vuelve a RX, con un pitido en los auriculares; sigue funcionando con la pantalla apagada.</p>
   </div>
@@ -280,7 +291,7 @@ const store = {
   remove(key) { try { localStorage.removeItem(key); } catch {} },
 };
 const prefs = Object.assign({ listen: true, latch: false, awake: true, volume: 100, step: 100,
-                              tab: "radio", left: {}, headset: true },
+                              tab: "radio", left: {}, headset: true, mic: "" },
                             JSON.parse(store.get(PREFS_KEY) || "{}"));
 const savePrefs = () => store.set(PREFS_KEY, JSON.stringify(prefs));
 
@@ -715,8 +726,6 @@ async function startAudio() {
   audio.decoder = new AudioDecoder({ output: play, error: (e) => console.warn("decoder", e) });
   audio.decoder.configure({ codec: "opus", sampleRate: RATE, numberOfChannels: 1 });
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: {
-    channelCount: 1, echoCancellation: false, noiseSuppression: true, autoGainControl: true } });
   const config = { codec: "opus", sampleRate: RATE, numberOfChannels: 1, bitrate: 24000,
                    opus: { frameDuration: 20000 } };
   if (!(await AudioEncoder.isConfigSupported(config)).supported) {
@@ -740,11 +749,84 @@ async function startAudio() {
   }
   registerProcessor("tap", Tap);`;
   await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([worklet], { type: "text/javascript" })));
-  const tap = new AudioWorkletNode(ctx, "tap", { numberOfInputs: 1, numberOfOutputs: 0 });
-  tap.port.onmessage = (msg) => microphone(msg.data);
-  ctx.createMediaStreamSource(stream).connect(tap);
+  audio.tap = new AudioWorkletNode(ctx, "tap", { numberOfInputs: 1, numberOfOutputs: 0 });
+  audio.tap.port.onmessage = (msg) => microphone(msg.data);
+  await openMicrophone(prefs.mic);
   ctx.resume();                 // the tap that started it lets it play
 }
+
+// ------------------------------------------------------------- which microphone --
+
+async function openMicrophone(deviceId) {
+  // The one chosen, or the system's when it is gone (unplugged, another phone).
+  const wanted = { channelCount: 1, echoCancellation: false, noiseSuppression: true,
+                   autoGainControl: true };
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia(
+      { audio: deviceId ? { ...wanted, deviceId: { exact: deviceId } } : wanted });
+  } catch (err) {
+    if (!deviceId || err.name === "NotAllowedError") throw err;
+    toast("El micrófono elegido no está: uso el del sistema", true);
+    stream = await navigator.mediaDevices.getUserMedia({ audio: wanted });
+  }
+  audio.source?.disconnect();
+  audio.stream?.getTracks().forEach((t) => t.stop());
+  audio.stream = stream;
+  audio.source = audio.ctx.createMediaStreamSource(stream);
+  audio.source.connect(audio.tap);
+  const track = stream.getAudioTracks()[0];
+  track.onended = () => toast("El micrófono se ha desconectado", true);
+  $("mic-name").textContent = `Micrófono: ${track.label || "del sistema"}`;
+  await listMicrophones(track.getSettings().deviceId);
+}
+
+async function listMicrophones(current) {
+  const select = $("mic-select");
+  let inputs = [];
+  try {
+    inputs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "audioinput");
+  } catch {}
+  select.textContent = "";
+  const add = (value, text) => {
+    const option = document.createElement("option");
+    option.value = value; option.textContent = text;
+    select.append(option);
+  };
+  add("", "El del sistema (automático)");
+  for (const d of inputs) {
+    // Without the microphone's permission yet, Chrome gives no names: nothing to choose.
+    if (d.deviceId === "default" || d.deviceId === "communications" || !d.label) continue;
+    add(d.deviceId, d.label || `Micrófono ${select.length}`);
+  }
+  select.value = prefs.mic && inputs.some((d) => d.deviceId === prefs.mic) ? prefs.mic : "";
+  select.disabled = !audio;
+  select.dataset.current = current || "";
+  return inputs;
+}
+
+$("mic-select").onchange = async (e) => {
+  prefs.mic = e.target.value; savePrefs();
+  if (!audio) return;
+  try { await openMicrophone(prefs.mic); toast($("mic-name").textContent); }
+  catch (err) { toast(err.message, true); }
+};
+navigator.mediaDevices?.addEventListener?.("devicechange", () => {
+  if (!audio) return;
+  // The one in use unplugged: back to the chosen one if it is there, else the system's.
+  // The chosen one plugged in again: back to it.
+  const current = $("mic-select").dataset.current;
+  if (audio.stream?.getAudioTracks()[0]?.readyState === "ended") {
+    openMicrophone(prefs.mic).catch((err) => toast(err.message, true));
+    return;
+  }
+  listMicrophones(current).then((inputs) => {
+    if (prefs.mic && current !== prefs.mic && inputs.some((d) => d.deviceId === prefs.mic)) {
+      openMicrophone(prefs.mic).then(() => toast($("mic-name").textContent))
+        .catch((err) => toast(err.message, true));
+    }
+  });
+});
 
 function onAudio(data) {
   if (data[0] !== OPUS_RX || !audio || audio.decoder.state !== "configured") return;
@@ -1038,6 +1120,7 @@ $("start-btn").onclick = async () => {
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 buildChips();
+listMicrophones();
 showToggles();
 showTab(["radio", "controls", "memories"].includes(prefs.tab) ? prefs.tab : "radio");
 showRig();
